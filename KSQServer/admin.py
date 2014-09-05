@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import os.path
+import uuid
+
 from flask import url_for, redirect, request
 from jinja2 import Markup
+from werkzeug import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from wtforms import form, fields, validators
 
@@ -120,6 +124,12 @@ class MyAdminIndexView(AdminIndexView):
 init_login()
 
 
+def uuid_name(obj, file_data):
+    parts = os.path.splitext(file_data.filename)
+    return secure_filename('%s%s' % (uuid.uuid4(), parts[1]))
+
+
+# 参考：https://github.com/mrjoes/flask-admin/blob/master/examples/forms/simple.py
 class ImageView(MyModelView):
     def _list_thumbnail(view, context, model, name):
         if not model.path:
@@ -137,7 +147,8 @@ class ImageView(MyModelView):
     form_extra_fields = {
         'path': admin_form.ImageUploadField('Image',
                                       base_path=file_path,
-                                      thumbnail_size=(100, 100, True))
+                                      thumbnail_size=(100, 100, True),
+                                      namegen=uuid_name)
     }
 
 # Create admin

@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from sqlalchemy import event
+from sqlalchemy import DDL
+
 from KSQServer import db
 
 class Country(db.Model):   # 国家
@@ -55,7 +58,7 @@ categories = db.Table('categories',
 
 
 class Site(db.Model):   # 店铺或景点等 POI
-    id = db.Column(db.Integer, primary_key=True)        # ToDo：这个 id 应该考虑改成 UUID 。
+    id = db.Column(db.Integer, primary_key=True)        # ToDo：这个 id 应该考虑改成 UUID （已放弃，改为从特定数值开始）。
     valid = db.Column(db.Boolean, server_default='0')   # 控制是否用户可见
     code = db.Column(db.String(20))     # POI 的内部运营编号
     name = db.Column(db.Unicode(80))        # POI 的名字
@@ -90,6 +93,13 @@ class Site(db.Model):   # 店铺或景点等 POI
         return u'<Site %s>' % self.name
 
 
+event.listen(
+    Site.__table__,
+    "after_create",
+    DDL("ALTER TABLE %(table)s AUTO_INCREMENT = 3421;").execute_if(dialect=('postgresql', 'mysql'))
+)
+
+
 class Category(db.Model):       # POI 分类
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, server_default='0')   # 控制是否用户可见
@@ -111,7 +121,7 @@ class Image(db.Model):  # 全局图片存储
 
 
 class Comment(db.Model):        # 用户晒单评论
-    id = db.Column(db.Integer, primary_key=True)        # ToDo: 考虑改为 UUID。
+    id = db.Column(db.Integer, primary_key=True)        # ToDo: 考虑改为 UUID（已放弃，改为从特定数值开始）。
     valid = db.Column(db.Boolean, server_default='0')   # 控制是否当做已删除处理
     published = db.Column(db.Boolean, server_default='0')       # 控制是否对外发布
     time = db.Column(db.DateTime)       # 评论发表时间，以服务器时间为准
@@ -119,5 +129,12 @@ class Comment(db.Model):        # 用户晒单评论
 
 #    def __unicode__(self):
 #        return u'<Comment %s>' % self.name
+
+
+event.listen(
+    Comment.__table__,
+    "after_create",
+    DDL("ALTER TABLE %(table)s AUTO_INCREMENT = 2991;").execute_if(dialect=('postgresql', 'mysql'))
+)
 
 
