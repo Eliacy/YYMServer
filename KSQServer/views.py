@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 
-from KSQServer import app, db
+from flask import render_template
 
+from KSQServer import app, db
+import KSQServer.admin
+
+# Flask views
 @app.route('/')
 def index():
-    return 'Hello World!'
+    return render_template('index.html')
+
+
 

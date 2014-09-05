@@ -1,3 +1,10 @@
+# Path for uploaded files:
+KSQServer/files/*
+
+# vim temperary files:
+*~
+*.swp
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -52,6 +59,3 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
-# vim temperary files:
-*~
-*.swp

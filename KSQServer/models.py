@@ -8,6 +8,10 @@ class Country(db.Model):   # 国家
     name = db.Column(db.Unicode(20))    # 国家名称
     cities = db.relationship('City', backref='country', lazy='dynamic')
 
+    def __unicode__(self):
+        return u'<Country %s>' % self.name
+
+
 class City(db.Model):   # 城市
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, server_default='0')   # 控制是否用户可见
@@ -15,12 +19,20 @@ class City(db.Model):   # 城市
     areas = db.relationship('Area', backref='city', lazy='dynamic')
     country_id = db.Column(db.Integer, db.ForeignKey('country.id'))
 
+    def __unicode__(self):
+        return u'<City %s>' % self.name
+
+
 class Area(db.Model):   # 商区
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, server_default='0')   # 控制是否用户可见
     name = db.Column(db.Unicode(20))    # 商区名称
     sites = db.relationship('Site', backref='area', lazy='dynamic')
     city_id = db.Column(db.Integer, db.ForeignKey('city.id'))
+
+    def __unicode__(self):
+        return u'<Area %s>' % self.name
+
 
 class Brand(db.Model):   # 品牌
     id = db.Column(db.Integer, primary_key=True)
@@ -32,10 +44,15 @@ class Brand(db.Model):   # 品牌
     description = db.Column(db.UnicodeText)     # 品牌的简介描述
     sites = db.relationship('Site', backref='brand', lazy='dynamic')
 
+    def __unicode__(self):
+        return u'<Brand %s>' % self.name
+
+
 categories = db.Table('categories',
     db.Column('category_id', db.Integer, db.ForeignKey('category.id')),
     db.Column('site_id', db.Integer, db.ForeignKey('site.id'))
 )
+
 
 class Site(db.Model):   # 店铺或景点等 POI
     id = db.Column(db.Integer, primary_key=True)        # ToDo：这个 id 应该考虑改成 UUID 。
@@ -69,6 +86,10 @@ class Site(db.Model):   # 店铺或景点等 POI
     top_images = db.Column(db.String(100))      # 热门图片的 id 列表
     data_source = db.Column(db.Unicode(200))    # 本 POI 数据采集的原始网址
 
+    def __unicode__(self):
+        return u'<Site %s>' % self.name
+
+
 class Category(db.Model):       # POI 分类
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, server_default='0')   # 控制是否用户可见
@@ -76,10 +97,18 @@ class Category(db.Model):       # POI 分类
     parent_id = db.Column(db.Integer, db.ForeignKey('category.id'))
     children = db.relationship("Category")
 
+    def __unicode__(self):
+        return u'<Category %s>' % self.name
+
+
 class Image(db.Model):  # 全局图片存储
     id = db.Column(db.Integer, primary_key=True)        # ToDo：考虑改为 UUID 。
     type = db.Column(db.SmallInteger)   # 图片分类：1 表示店铺 logo；2 表示用户头像；3 表示评论图片。
     path = db.Column(db.String(120))    # 图片所在存储路径
+
+    def __unicode__(self):
+        return u'<Image %s>' % self.path.split('/')[-1]
+
 
 class Comment(db.Model):        # 用户晒单评论
     id = db.Column(db.Integer, primary_key=True)        # ToDo: 考虑改为 UUID。
@@ -87,4 +116,8 @@ class Comment(db.Model):        # 用户晒单评论
     published = db.Column(db.Boolean, server_default='0')       # 控制是否对外发布
     time = db.Column(db.DateTime)       # 评论发表时间，以服务器时间为准
     site_id = db.Column(db.Integer, db.ForeignKey('site.id'))   # 关联的 POI
+
+#    def __unicode__(self):
+#        return u'<Comment %s>' % self.name
+
 
