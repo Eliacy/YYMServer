@@ -12,6 +12,15 @@
         <p>
             实现简单的数据库内容管理及图片上传等。
         </p>
+        <p>
+            <li/>查询“国外 POI ”的经纬度信息，请使用 <a href="http://www.latlong.net" target="_blank">latlong.net</a> 或者 <a href="http://dbsgeo.com/latlon/" target="_blank">Get Lat Lon</a> （都是基于 Google 地图数据，需要翻墙才能获得稳定访问）。
+        </p>
+        <p>
+            <li/>查询“国内 POI ”的经纬度信息，请使用 <a href="http://www.gpsspg.com/maps.htm" target="_blank">GPS SPG 经纬度</a> （选其中高德地图的数据，能够与 iOS 上的 MapKit 的位置对应）。
+        </p>
+        <p>
+            &nbsp;
+        </p>
         {% else %}
         <form method="POST" action="">
             {{ form.hidden_tag() if form.hidden_tag }}
