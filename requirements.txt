@@ -1,0 +1,11 @@
+Flask
+Flask-Admin
+Flask-Login
+Flask-SQLAlchemy
+Jinja2
+SQLAlchemy
+WTForms
+Werkzeug
+MySQL-python
+# PIL
+
