@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import datetime
+
 from sqlalchemy import event
 from sqlalchemy import DDL
 
@@ -7,7 +9,7 @@ from KSQServer import db
 
 class Country(db.Model):   # 国家
     id = db.Column(db.Integer, primary_key=True)
-    valid = db.Column(db.Boolean, server_default='0')   # 控制是否用户可见
+    valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     name = db.Column(db.Unicode(20))    # 国家名称
     cities = db.relationship('City', backref='country', lazy='dynamic')
 
@@ -17,7 +19,7 @@ class Country(db.Model):   # 国家
 
 class City(db.Model):   # 城市
     id = db.Column(db.Integer, primary_key=True)
-    valid = db.Column(db.Boolean, server_default='0')   # 控制是否用户可见
+    valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     name = db.Column(db.Unicode(20))    # 城市名称
     areas = db.relationship('Area', backref='city', lazy='dynamic')
     country_id = db.Column(db.Integer, db.ForeignKey('country.id'))
@@ -28,7 +30,7 @@ class City(db.Model):   # 城市
 
 class Area(db.Model):   # 商区
     id = db.Column(db.Integer, primary_key=True)
-    valid = db.Column(db.Boolean, server_default='0')   # 控制是否用户可见
+    valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     name = db.Column(db.Unicode(20))    # 商区名称
     sites = db.relationship('Site', backref='area', lazy='dynamic')
     city_id = db.Column(db.Integer, db.ForeignKey('city.id'))
@@ -39,7 +41,7 @@ class Area(db.Model):   # 商区
 
 class Brand(db.Model):   # 品牌
     id = db.Column(db.Integer, primary_key=True)
-    valid = db.Column(db.Boolean, server_default='0')   # 控制是否用户可见
+    valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     name = db.Column(db.Unicode(20))    # 品牌名称
     name_zh = db.Column(db.Unicode(20))    # 品牌中文名称
     source = db.Column(db.Unicode(20))  # 发源地
@@ -59,7 +61,9 @@ categories = db.Table('categories',
 
 class Site(db.Model):   # 店铺或景点等 POI
     id = db.Column(db.Integer, primary_key=True)        # ToDo：这个 id 应该考虑改成 UUID （已放弃，改为从特定数值开始）。
-    valid = db.Column(db.Boolean, server_default='0')   # 控制是否用户可见
+    valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
+    create_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据最初创建时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
     code = db.Column(db.String(20))     # POI 的内部运营编号
     name = db.Column(db.Unicode(80))        # POI 的名字
     name_orig = db.Column(db.Unicode(80))       # POI 的当地文字原名
@@ -86,7 +90,8 @@ class Site(db.Model):   # 店铺或景点等 POI
     address = db.Column(db.Unicode(200))        # POI 地址
     address_orig = db.Column(db.Unicode(200))   # POI 地址的当地文字版本
     keywords = db.Column(db.Unicode(200))       # POI 关键词
-    top_images = db.Column(db.String(100))      # 热门图片的 id 列表
+    top_images = db.Column(db.String(100))      # 热门图片的 id 列表，英文逗号分隔
+    gate_images = db.Column(db.String(100))     # 店铺门脸展示图片的 id 列表，英文逗号分隔
     data_source = db.Column(db.Unicode(200))    # 本 POI 数据采集的原始网址
 
     def __unicode__(self):
@@ -102,19 +107,60 @@ event.listen(
 
 class Category(db.Model):       # POI 分类
     id = db.Column(db.Integer, primary_key=True)
-    valid = db.Column(db.Boolean, server_default='0')   # 控制是否用户可见
+    valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     name = db.Column(db.Unicode(20))    # 类别名称
     parent_id = db.Column(db.Integer, db.ForeignKey('category.id'))
-    children = db.relationship("Category")
+    parent = db.relationship('Category', remote_side=[id], backref='children')
 
     def __unicode__(self):
         return u'<Category %s>' % self.name
 
 
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 用户属性信息修改时间，以服务器时间为准
+    name = db.Column(db.Unicode(100))    # 可见用户昵称
+    username = db.Column(db.String(80), unique=True)    # 登陆用用户名，App 端会是设备 id（匿名用户）或手机号（已注册用户）
+    mobile = db.Column(db.String(120), unique=True)     # 用户手机号
+    password = db.Column(db.String(80))         # Hash 处理之后的登陆密码
+
+    def is_admin(self):
+        return True if self.id >= 321 and self.id <=323 else False
+
+    # Flask-Login integration
+    def is_authenticated(self):
+        return True
+
+    def is_active(self):
+        return True
+
+    def is_anonymous(self):
+        return False
+
+    def get_id(self):
+        return self.id
+
+    # Required for administrative interface
+    def __unicode__(self):
+        return u'<User %s>' % self.name
+
+
+event.listen(
+    User.__table__,
+    "after_create",
+    DDL("ALTER TABLE %(table)s AUTO_INCREMENT = 321;").execute_if(dialect=('postgresql', 'mysql'))
+)
+
+
 class Image(db.Model):  # 全局图片存储
     id = db.Column(db.Integer, primary_key=True)        # ToDo：考虑改为 UUID 。
-    type = db.Column(db.SmallInteger)   # 图片分类：1 表示店铺 logo；2 表示用户头像；3 表示评论图片。
+    type = db.Column(db.SmallInteger, default=1)   # 图片分类：1 表示店铺 logo；2 表示店铺门脸图；3 表示用户头像；4 表示评论图片。
     path = db.Column(db.String(120))    # 图片所在存储路径
+    note = db.Column(db.Unicode(120))   # 图片的备忘描述文字
+    create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 图片上传时间，以服务器时间为准
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), default=323)
+    user = db.relationship('User', backref=db.backref('images', lazy='dynamic'))
 
     def __unicode__(self):
         return u'<Image %s>' % self.path.split('/')[-1]
@@ -122,9 +168,10 @@ class Image(db.Model):  # 全局图片存储
 
 class Comment(db.Model):        # 用户晒单评论
     id = db.Column(db.Integer, primary_key=True)        # ToDo: 考虑改为 UUID（已放弃，改为从特定数值开始）。
-    valid = db.Column(db.Boolean, server_default='0')   # 控制是否当做已删除处理
-    published = db.Column(db.Boolean, server_default='0')       # 控制是否对外发布
-    time = db.Column(db.DateTime)       # 评论发表时间，以服务器时间为准
+    valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理
+    published = db.Column(db.Boolean, default=False)       # 控制是否对外发布
+    publish_time = db.Column(db.DateTime, default=None)       # 首次发布时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
     site_id = db.Column(db.Integer, db.ForeignKey('site.id'))   # 关联的 POI
 
 #    def __unicode__(self):
