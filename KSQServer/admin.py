@@ -103,9 +103,14 @@ class ImageView(MyModelView):
     column_searchable_list = ('path', 'note')
 
     def create_model(self, form):
-        form.note.data = form.note.data if form.note.data != None else u''
-        form.note.data = u'；'.join((form.path.data.filename, form.note.data))
+        if form.path.data.filename:
+            form.note.data = u'[%s] %s' % (form.path.data.filename, form.note.data or u'')
         return super(ImageView, self).create_model(form)
+
+    def update_model(self, form, model):
+        if form.path.data.filename:
+            form.note.data = u'[%s] %s' % (form.path.data.filename, form.note.data or u'')
+        return super(ImageView, self).update_model(form, model)
 
     def _list_thumbnail(view, context, model, name):
         if not model.path:

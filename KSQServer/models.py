@@ -171,7 +171,7 @@ class Image(db.Model):  # 全局图片存储
     user = db.relationship('User', backref=db.backref('images', lazy='dynamic'))
 
     def __unicode__(self):
-        return u'<Image %s>' % self.path.split('/')[-1]
+        return u'<Image %s>' % 'None' if not self.path else self.path.split('/')[-1]
 
 
 class Comment(db.Model):        # 用户晒单评论
