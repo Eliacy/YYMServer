@@ -127,6 +127,29 @@ class ImageView(MyModelView):
     }
 
 
+def _get_image_rule(label, images):
+    ''' images: ((id, image_path), ...) '''
+    image_code = ''
+    for i in images:
+        key, image_path = i
+        image = (key, url_for('static', filename=image_path), url_for('static', filename=admin_form.thumbgen_filename(image_path)))
+        image_code += '''<td  align="center" valign="top">[id: %d]<br/><a href="%s" target="_blank"><img src="%s"/></a></td>\n''' % image
+    code = '''
+  <div class="control-group">
+    <div class="control-label">
+      <label for="s2id_autogen2">%s</label>
+    </div>
+    <div class="controls">
+    <div>
+      <table cellpadding="5"><tr>
+      %s
+      </tr></table>
+    </div>
+    </div>
+  </div> ''' % (label, image_code)
+    return admin_form.rules.HTML(code)
+
+
 class SiteView(MyModelView):
     column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig')
     form_create_rules = ('valid', 'create_time', 'update_time', 'code', 'name', 'name_orig', 
@@ -136,26 +159,31 @@ class SiteView(MyModelView):
                          'address_orig', 'keywords', 'top_images', 'gate_images', 'data_source',
                          )
 
+    def get_image_rule(self, label, image_ids):
+        ''' 辅助函数。'''
+        if image_ids:
+            images = []
+            for image_id in image_ids:
+                image = self.session.query(Image).get(image_id)
+                images.append((image_id, '' if not image else image.path))
+            return _get_image_rule(u'Top Images', images)
+        return None
+
     def get_one(self, id):
-        ''' 一个脏补丁，用来显示店铺相关的各种图片。'''
+        ''' ToDo：一个脏补丁，用来显示店铺相关的各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
         site = super(SiteView, self).get_one(id)
         columns = []
         for col in self.form_create_rules:
             columns.append(col)
             if col == 'logo':
                 if site.logo_id:
-                    columns.append(admin_form.rules.HTML('''
-  <div class="control-group">
-    <div class="control-label">
-      <label for="s2id_autogen2">Logo Image</label>
-    </div>
-    <div class="controls">
-    <div>
-      <a href="%s" target="_blank"><img src="%s"/></a>
-    </div>
-    </div>
-  </div> ''' % (url_for('static', filename=site.logo.path), 
-                url_for('static', filename=admin_form.thumbgen_filename(site.logo.path)))))
+                    columns.append(_get_image_rule(u'Logo Image', ((site.logo_id, site.logo.path),)))
+            elif col == 'top_images':
+                if site.top_images:
+                    columns.append(self.get_image_rule(u'Top Images', map(int, site.top_images.split(','))))
+            elif col == 'gate_images':
+                if site.gate_images:
+                    columns.append(self.get_image_rule(u'Top Images', map(int, site.gate_images.split(','))))
         self.form_edit_rules = columns
         self._refresh_cache()
         return site
