@@ -4,6 +4,7 @@ import datetime
 
 from sqlalchemy import event
 from sqlalchemy import DDL
+from werkzeug.security import generate_password_hash
 
 from KSQServer import db
 
@@ -152,9 +153,16 @@ event.listen(
     DDL("ALTER TABLE %(table)s AUTO_INCREMENT = 321;").execute_if(dialect=('postgresql', 'mysql'))
 )
 
+@event.listens_for(User, 'before_insert')
+@event.listens_for(User, 'before_update')
+def encrypt_password(mapper, connection, target):
+    if not target.password.startswith('pbkdf2:sha1:'):
+        target.password = generate_password_hash(target.password)
+
 
 class Image(db.Model):  # 全局图片存储
     id = db.Column(db.Integer, primary_key=True)        # ToDo：考虑改为 UUID 。
+    valid = db.Column(db.Boolean, default=True)   # 控制是否当作已删除处理
     type = db.Column(db.SmallInteger, default=1)   # 图片分类：1 表示店铺 logo；2 表示店铺门脸图；3 表示用户头像；4 表示评论图片。
     path = db.Column(db.String(120))    # 图片所在存储路径
     note = db.Column(db.Unicode(120))   # 图片的备忘描述文字

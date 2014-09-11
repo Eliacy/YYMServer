@@ -100,11 +100,17 @@ def uuid_name(obj, file_data):
 
 # 参考：https://github.com/mrjoes/flask-admin/blob/master/examples/forms/simple.py
 class ImageView(MyModelView):
+    column_searchable_list = ('path', 'note')
+
+    def create_model(self, form):
+        form.note.data = form.note.data if form.note.data != None else u''
+        form.note.data = u'；'.join((form.path.data.filename, form.note.data))
+        return super(ImageView, self).create_model(form)
+
     def _list_thumbnail(view, context, model, name):
         if not model.path:
             return ''
-
-        return Markup('%s<br/><img src="%s">' % (model.path, url_for('static',
+        return Markup('%d, %s<br/><img src="%s">' % (model.id, model.path, url_for('static',
                                                  filename=admin_form.thumbgen_filename(model.path))))
 
     column_formatters = {
@@ -120,9 +126,44 @@ class ImageView(MyModelView):
                                       namegen=uuid_name)
     }
 
+
+class SiteView(MyModelView):
+    column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig')
+    form_create_rules = ('valid', 'create_time', 'update_time', 'code', 'name', 'name_orig', 
+                         'brand', 'logo', 'level', 'stars', 'comments', 'categories', 'environment',
+                         'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
+                         'phone', 'description', 'longitude', 'latitude', 'area', 'address',
+                         'address_orig', 'keywords', 'top_images', 'gate_images', 'data_source',
+                         )
+
+    def get_one(self, id):
+        ''' 一个脏补丁，用来显示店铺相关的各种图片。'''
+        site = super(SiteView, self).get_one(id)
+        columns = []
+        for col in self.form_create_rules:
+            columns.append(col)
+            if col == 'logo':
+                if site.logo_id:
+                    columns.append(admin_form.rules.HTML('''
+  <div class="control-group">
+    <div class="control-label">
+      <label for="s2id_autogen2">Logo Image</label>
+    </div>
+    <div class="controls">
+    <div>
+      <a href="%s" target="_blank"><img src="%s"/></a>
+    </div>
+    </div>
+  </div> ''' % (url_for('static', filename=site.logo.path), 
+                url_for('static', filename=admin_form.thumbgen_filename(site.logo.path)))))
+        self.form_edit_rules = columns
+        self._refresh_cache()
+        return site
+
+
 # Create admin
 admin = Admin(app, 'Admin', index_view=MyAdminIndexView(), base_template='my_master.html')
-admin.add_view(MyModelView(Site, db.session))
+admin.add_view(SiteView(Site, db.session))
 admin.add_view(MyModelView(Comment, db.session))
 admin.add_view(ImageView(Image, db.session))
 admin.add_view(MyModelView(Category, db.session))
