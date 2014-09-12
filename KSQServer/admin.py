@@ -194,16 +194,32 @@ class SiteView(MyModelView):
         return site
 
 
+class CommentView(MyModelView):
+    column_searchable_list = ()
+
+
+class TagAlikeView(MyModelView):
+    column_searchable_list = ('name',)
+
+
+class BrandView(MyModelView):
+    column_searchable_list = ('name', 'name_zh')
+
+
+class UserView(MyModelView):
+    column_searchable_list = ('name', 'username', 'mobile')
+
+
 # Create admin
 admin = Admin(app, 'Admin', index_view=MyAdminIndexView(), base_template='my_master.html')
 admin.add_view(SiteView(Site, db.session))
-admin.add_view(MyModelView(Comment, db.session))
+admin.add_view(CommentView(Comment, db.session))
 admin.add_view(ImageView(Image, db.session))
-admin.add_view(MyModelView(Category, db.session))
-admin.add_view(MyModelView(Brand, db.session))
-admin.add_view(MyModelView(Country, db.session))
-admin.add_view(MyModelView(City, db.session))
-admin.add_view(MyModelView(Area, db.session))
-admin.add_view(MyModelView(User, db.session))
+admin.add_view(TagAlikeView(Category, db.session))
+admin.add_view(BrandView(Brand, db.session))
+admin.add_view(TagAlikeView(Country, db.session))
+admin.add_view(TagAlikeView(City, db.session))
+admin.add_view(TagAlikeView(Area, db.session))
+admin.add_view(UserView(User, db.session))
 
 
