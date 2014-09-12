@@ -12,6 +12,7 @@ class Country(db.Model):   # 国家
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     name = db.Column(db.Unicode(20))    # 国家名称
+    extend = db.Column(db.SmallInteger, default=0)      # 确定当搜索该国家下属的城市内店铺时，允许也纳入距离城市中心点多远的店铺（单位：公里，默认：50）
     cities = db.relationship('City', backref='country', lazy='dynamic')
 
     def __unicode__(self):
@@ -22,6 +23,8 @@ class City(db.Model):   # 城市
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     name = db.Column(db.Unicode(20))    # 城市名称
+    longitude = db.Column(db.Float)     # 城市中心点，经度
+    latitude = db.Column(db.Float)      # 城市中心点，纬度
     areas = db.relationship('Area', backref='city', lazy='dynamic')
     country_id = db.Column(db.Integer, db.ForeignKey('country.id'))
 
