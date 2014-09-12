@@ -157,7 +157,7 @@ def _get_image_rule(label, images):
 
 class SiteView(MyModelView):
     column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig')
-    form_create_rules = ('valid', 'create_time', 'update_time', 'code', 'name', 'name_orig', 
+    form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'code', 'name', 'name_orig', 
                          'brand', 'logo', 'level', 'stars', 'comments', 'categories', 'environment',
                          'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
                          'phone', 'description', 'longitude', 'latitude', 'area', 'address',
