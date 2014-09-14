@@ -8,6 +8,12 @@ from werkzeug.security import generate_password_hash
 
 from KSQServer import db
 
+
+class Real(db.REAL):
+    """ Flask-admin 通过读取 Column Type 的 scale 参数确定编辑/创建表单的数字小数点后位数，因此创建本封装类强制使用高精度。"""
+    scale = 10
+
+
 class Country(db.Model):   # 国家
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
@@ -25,8 +31,8 @@ class City(db.Model):   # 城市
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序
     name = db.Column(db.Unicode(20))    # 城市名称
-    longitude = db.Column(db.Float)     # 城市中心点，经度
-    latitude = db.Column(db.Float)      # 城市中心点，纬度
+    longitude = db.Column(Real)     # 城市中心点，经度
+    latitude = db.Column(Real)      # 城市中心点，纬度
     areas = db.relationship('Area', backref='city', lazy='dynamic')
     country_id = db.Column(db.Integer, db.ForeignKey('country.id'))
 
@@ -39,8 +45,8 @@ class Area(db.Model):   # 商区
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序
     name = db.Column(db.Unicode(20))    # 商区名称
-    longitude = db.Column(db.Float)     # 商圈中心点，经度
-    latitude = db.Column(db.Float)      # 商圈中心点，纬度
+    longitude = db.Column(Real)     # 商圈中心点，经度
+    latitude = db.Column(Real)      # 商圈中心点，纬度
     sites = db.relationship('Site', backref='area', lazy='dynamic')
     city_id = db.Column(db.Integer, db.ForeignKey('city.id'))
 
@@ -95,8 +101,8 @@ class Site(db.Model):   # 店铺或景点等 POI
     business_hours = db.Column(db.Unicode(200))         # 营业时间描述
     phone = db.Column(db.String(50))    # 联系电话
     description = db.Column(db.UnicodeText)     # POI 的简介描述
-    longitude = db.Column(db.Float)     # 经度
-    latitude = db.Column(db.Float)      # 纬度
+    longitude = db.Column(Real)     # 经度
+    latitude = db.Column(Real)      # 纬度
     area_id = db.Column(db.Integer, db.ForeignKey('area.id'))   # 所属商区
     address = db.Column(db.Unicode(200))        # POI 地址
     address_orig = db.Column(db.Unicode(200))   # POI 地址的当地文字版本
