@@ -4,10 +4,10 @@ import sys
 # 用于 virtualenv 的：
 sys.path.insert(0, '/var/www/youyoumm/lib/python2.7/site-packages')
 # 用于载入 Application 自身的：
-sys.path.insert(0, '/var/www/youyoumm/KSQServer')
+sys.path.insert(0, '/var/www/youyoumm/YYMServer')
 
 from flup.server.fcgi import WSGIServer
-from KSQServer import app
+from YYMServer import app
 
 # 注意：需要给这个 fcgi 文件用 chmod +x 指令赋予可执行权限！
 if __name__ == '__main__':

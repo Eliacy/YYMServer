@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from KSQServer import app
+from YYMServer import app
 app.run(debug=True)
 

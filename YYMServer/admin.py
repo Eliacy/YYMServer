@@ -15,8 +15,8 @@ from flask.ext.admin import helpers, expose
 from flask.ext.admin.contrib.sqla import ModelView
 from flask.ext import login
 
-from KSQServer import app, db, file_path
-from KSQServer.models import *
+from YYMServer import app, db, file_path
+from YYMServer.models import *
 
 
 # 完整代码参考：https://github.com/mrjoes/flask-admin/blob/master/examples/auth/auth.py

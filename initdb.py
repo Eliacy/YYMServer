@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from KSQServer import db
+from YYMServer import db
 db.create_all()
 
-from KSQServer.models import Category
+from YYMServer.models import Category
 if db.session.query(Category).count() == 0:
     shop = Category(name=u'商店')
     restaurant = Category(name=u'餐馆')
@@ -13,7 +13,7 @@ if db.session.query(Category).count() == 0:
     db.session.add(spot)
     db.session.commit()
 
-from KSQServer.models import User
+from YYMServer.models import User
 from werkzeug.security import generate_password_hash
 if db.session.query(User).count() == 0:
     admin = User(name=u'系统管理员', username='admin', password=generate_password_hash('startat408'))

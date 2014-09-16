@@ -7,17 +7,17 @@ from flask.ext.sqlalchemy import SQLAlchemy
 
 
 app = Flask(__name__)
-app.config.from_object('KSQServer.default_settings')
+app.config.from_object('YYMServer.default_settings')
 try:
-    app.config.from_envvar('KSQSERVER_SETTINGS')
+    app.config.from_envvar('YYMSERVER_SETTINGS')
 except Exception:
     pass
 static_folder = app.config['STATIC_FOLDER']
 
 app = Flask(__name__, static_folder=static_folder)
-app.config.from_object('KSQServer.default_settings')
+app.config.from_object('YYMServer.default_settings')
 try:
-    app.config.from_envvar('KSQSERVER_SETTINGS')
+    app.config.from_envvar('YYMSERVER_SETTINGS')
 except Exception:
     pass
 
@@ -33,6 +33,6 @@ try:
 except OSError:
     pass
 
-import KSQServer.views
-import KSQServer.models
+import YYMServer.views
+import YYMServer.models
 

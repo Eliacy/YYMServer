@@ -6,7 +6,7 @@ from sqlalchemy import event
 from sqlalchemy import DDL
 from werkzeug.security import generate_password_hash
 
-from KSQServer import db
+from YYMServer import db
 
 
 class Real(db.REAL):

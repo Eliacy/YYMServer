@@ -2,8 +2,8 @@
 
 from flask import jsonify, render_template, request
 
-from KSQServer import app, db
-import KSQServer.admin
+from YYMServer import app, db
+import YYMServer.admin
 
 # Flask views
 @app.route('/')
