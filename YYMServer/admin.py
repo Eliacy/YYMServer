@@ -158,9 +158,9 @@ def _get_image_rule(label, images):
 class SiteView(MyModelView):
     column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig')
     form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'code', 'name', 'name_orig', 
-                         'brand', 'logo', 'level', 'stars', 'comments', 'categories', 'environment',
+                         'brand', 'logo', 'level', 'stars', 'review_num', 'comments', 'categories', 'environment',
                          'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
-                         'phone', 'description', 'longitude', 'latitude', 'area', 'address',
+                         'phone', 'transport', 'description', 'longitude', 'latitude', 'area', 'address',
                          'address_orig', 'keywords', 'top_images', 'gate_images', 'data_source',
                          )
 
@@ -194,6 +194,10 @@ class SiteView(MyModelView):
         return site
 
 
+class ReviewView(MyModelView):
+    column_searchable_list = ('keywords',)
+
+
 class CommentView(MyModelView):
     column_searchable_list = ()
 
@@ -213,6 +217,7 @@ class UserView(MyModelView):
 # Create admin
 admin = Admin(app, 'Admin', index_view=MyAdminIndexView(), base_template='my_master.html')
 admin.add_view(SiteView(Site, db.session))
+admin.add_view(ReviewView(Review, db.session))
 admin.add_view(CommentView(Comment, db.session))
 admin.add_view(ImageView(Image, db.session))
 admin.add_view(TagAlikeView(Category, db.session))

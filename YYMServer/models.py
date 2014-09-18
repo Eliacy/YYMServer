@@ -89,6 +89,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     logo = db.relationship("Image")
     level = db.Column(db.Unicode(10))     # 用文字表示的 POI 质量等级，通常为 SS、S、A+、A 其中之一。
     stars = db.Column(db.Float)         # POI 的评论星级，由于是统计结果，因而存在半颗星等小数。
+    review_num = db.Column(db.SmallInteger, default=0)    # 该店铺拥有的晒单评论数量，是一个缓存值
     reviews = db.relationship('Review', backref='site', lazy='dynamic')       # 相关的评论
     categories = db.relationship('Category', secondary=categories,
                                  backref=db.backref('sites', lazy='dynamic'))
@@ -107,7 +108,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     area_id = db.Column(db.Integer, db.ForeignKey('area.id'))   # 所属商区
     address = db.Column(db.Unicode(200))        # POI 地址
     address_orig = db.Column(db.Unicode(200))   # POI 地址的当地文字版本
-    keywords = db.Column(db.Unicode(200))       # POI 关键词
+    keywords = db.Column(db.Unicode(200))       # POI 关键词，可以认为是一个缓存，被 [] 括起来的是系统自动统计得到的，其他是运营人工设置。正常情况是使用空格分隔
     top_images = db.Column(db.String(100))      # 热门图片的 id 列表，英文逗号分隔
     gate_images = db.Column(db.String(100))     # 店铺门脸展示图片的 id 列表，英文逗号分隔
     data_source = db.Column(db.Unicode(200))    # 本 POI 数据采集的原始网址
@@ -136,13 +137,24 @@ class Category(db.Model):       # POI 分类
 
 
 class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, autoincrement='ignore_fk', primary_key=True)
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 用户属性信息修改时间，以服务器时间为准
     name = db.Column(db.Unicode(100))    # 可见用户昵称
     username = db.Column(db.String(80), unique=True)    # 登陆用用户名，App 端会是设备 id（匿名用户）或手机号（已注册用户）
     mobile = db.Column(db.String(120), unique=True)     # 用户手机号
     password = db.Column(db.String(80))         # Hash 处理之后的登陆密码
+    icon_id = db.Column(db.Integer, db.ForeignKey('image.id', use_alter=True, name='fk_icon'))     # 用户头像的图片 id
+    icon = db.relationship("Image", foreign_keys=[icon_id], post_update=True)
+    gender = db.Column(db.Unicode(10), default=u'未知')  # 用户填写的性别参数：男、女、未知
+    level = db.Column(db.SmallInteger, default=1)     # 用数字表示的用户等级
+    follow_num = db.Column(db.SmallInteger, default=0)  # 该用户已关注的账号的数量，是一个缓存值
+    fans_num = db.Column(db.SmallInteger, default=0)    # 该用户拥有的粉丝数量，是一个缓存值
+    like_num = db.Column(db.SmallInteger, default=0)    # 该用户喜欢的晒单评论数量，是一个缓存值
+    share_num = db.Column(db.SmallInteger, default=0)   # 该用户的分享行为数量，是一个缓存值
+    review_num = db.Column(db.SmallInteger, default=0)    # 该用户拥有的粉丝数量，是一个缓存值
+    favorite_num = db.Column(db.SmallInteger, default=0)    # 该用户收藏的店铺的数量，是一个缓存值
+    badges = db.Column(db.Unicode(500))  # 用户拥有的徽章名称列表
 
     def is_admin(self):
         return True if self.id >= 321 and self.id <=323 else False
@@ -186,7 +198,7 @@ class Image(db.Model):  # 全局图片存储
     note = db.Column(db.Unicode(120))   # 图片的备忘描述文字
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 图片上传时间，以服务器时间为准
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), default=323)      # 图片上传人
-    user = db.relationship('User', backref=db.backref('images', lazy='dynamic'))
+    user = db.relationship('User', backref=db.backref('images', lazy='dynamic'), foreign_keys=[user_id])
 
     def __unicode__(self):
         return u'<Image %s>' % 'None' if not self.path else self.path.split('/')[-1]
@@ -201,9 +213,10 @@ class Review(db.Model):        # 用户晒单评论
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), default=323)      # 晒单评论的作者
     user = db.relationship('User', backref=db.backref('reviews', lazy='dynamic'))
     at_list = db.Column(db.String(200))         # 本评论将@的用户 id 列表，后端代码需要实现注意控制长度！
+    stars = db.Column(db.Float)         # POI 的评论星级，出于与统计结果，使用小数表示，实际只能是1～5
     content = db.Column(db.UnicodeText)         # 晒单评论的文本正文，只需分自然段，无需支持特殊格式。
     images = db.Column(db.String(200))  # 晒单评论的附属图片的 id 列表
-    keywords = db.Column(db.Unicode(200))       # 晒单评论关键词
+    keywords = db.Column(db.Unicode(200))       # 晒单评论关键词，空格分隔
     total = db.Column(db.Integer)       # 本次购物总价
     currency = db.Column(db.Unicode(10))        # 购物总价所对应的币种，这里没有做强制类别限制，需要在接收前端数据前作检查、判断
     site_id = db.Column(db.Integer, db.ForeignKey('site.id'))   # 关联的 POI
@@ -230,6 +243,9 @@ class Comment(db.Model):        # 用户子评论
     user = db.relationship('User', backref=db.backref('comments', lazy='dynamic'))
     at_list = db.Column(db.String(200))         # 本评论将@的用户 id 列表，通常子评论只能@一个人，也就是所回复的子评论的原作者
     content = db.Column(db.Unicode(500))        # 评论的文字正文，需要注意检查内容长度
+
+    def __unicode__(self):
+        return u'<Comment %s: %s>' % (self.user.name, self.update_time.strftime('%y-%m-%d'))
 
 
 # ToDo: 实现 User 之间的相互关注关系等6项社交行为。
