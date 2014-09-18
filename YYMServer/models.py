@@ -89,7 +89,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     logo = db.relationship("Image")
     level = db.Column(db.Unicode(10))     # 用文字表示的 POI 质量等级，通常为 SS、S、A+、A 其中之一。
     stars = db.Column(db.Float)         # POI 的评论星级，由于是统计结果，因而存在半颗星等小数。
-    comments = db.relationship('Comment', backref='site', lazy='dynamic')       # 相关的评论
+    reviews = db.relationship('Review', backref='site', lazy='dynamic')       # 相关的评论
     categories = db.relationship('Category', secondary=categories,
                                  backref=db.backref('sites', lazy='dynamic'))
     environment = db.Column(db.Unicode(50))      # 环境特点的文字描述
@@ -100,6 +100,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     booking = db.Column(db.Unicode(200))        # 预定方式
     business_hours = db.Column(db.Unicode(200))         # 营业时间描述
     phone = db.Column(db.String(50))    # 联系电话
+    transport = db.Column(db.Unicode(200))          # 公共交通的线路和站点文字描述
     description = db.Column(db.UnicodeText)     # POI 的简介描述
     longitude = db.Column(Real)     # 经度
     latitude = db.Column(Real)      # 纬度
@@ -179,34 +180,58 @@ def encrypt_password(mapper, connection, target):
 
 class Image(db.Model):  # 全局图片存储
     id = db.Column(db.Integer, primary_key=True)        # ToDo：考虑改为 UUID 。
-    valid = db.Column(db.Boolean, default=True)   # 控制是否当作已删除处理
+    valid = db.Column(db.Boolean, default=True)   # 控制是否当作已删除处理（False 表示删除）
     type = db.Column(db.SmallInteger, default=1)   # 图片分类：1 表示店铺 logo；2 表示店铺门脸图；3 表示用户头像；4 表示评论图片。
     path = db.Column(db.String(120))    # 图片所在存储路径
     note = db.Column(db.Unicode(120))   # 图片的备忘描述文字
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 图片上传时间，以服务器时间为准
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), default=323)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), default=323)      # 图片上传人
     user = db.relationship('User', backref=db.backref('images', lazy='dynamic'))
 
     def __unicode__(self):
         return u'<Image %s>' % 'None' if not self.path else self.path.split('/')[-1]
 
 
-class Comment(db.Model):        # 用户晒单评论
+class Review(db.Model):        # 用户晒单评论
     id = db.Column(db.Integer, primary_key=True)        # ToDo: 考虑改为 UUID（已放弃，改为从特定数值开始）。
-    valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理
+    valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
     published = db.Column(db.Boolean, default=False)       # 控制是否对外发布
     publish_time = db.Column(db.DateTime, default=None)       # 首次发布时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), default=323)      # 晒单评论的作者
+    user = db.relationship('User', backref=db.backref('reviews', lazy='dynamic'))
+    at_list = db.Column(db.String(200))         # 本评论将@的用户 id 列表，后端代码需要实现注意控制长度！
+    content = db.Column(db.UnicodeText)         # 晒单评论的文本正文，只需分自然段，无需支持特殊格式。
+    images = db.Column(db.String(200))  # 晒单评论的附属图片的 id 列表
+    keywords = db.Column(db.Unicode(200))       # 晒单评论关键词
+    total = db.Column(db.Integer)       # 本次购物总价
+    currency = db.Column(db.Unicode(10))        # 购物总价所对应的币种，这里没有做强制类别限制，需要在接收前端数据前作检查、判断
     site_id = db.Column(db.Integer, db.ForeignKey('site.id'))   # 关联的 POI
+    like_num = db.Column(db.Integer, default=0)        # 喜欢本晒单的人数，这只是相当于一个缓存，实际数据根据“喜欢”的行为表计算得出
+    comment_num = db.Column(db.Integer, default=0)      # 本晒单的评论总数，只是一个缓存值，实际数据根据“评论”的行为表计算得出
 
-#    def __unicode__(self):
-#        return u'<Comment %s>' % self.name
+    def __unicode__(self):
+        return u'<Review %s: %s>' % (self.user.name, self.update_time.strftime('%y-%m-%d'))
 
 
 event.listen(
-    Comment.__table__,
+    Review.__table__,
     "after_create",
     DDL("ALTER TABLE %(table)s AUTO_INCREMENT = 2991;").execute_if(dialect=('postgresql', 'mysql'))
 )
+
+
+class Comment(db.Model):        # 用户子评论
+    id = db.Column(db.Integer, primary_key=True)
+    valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
+    publish_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次发布时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), default=323)      # 评论的作者
+    user = db.relationship('User', backref=db.backref('comments', lazy='dynamic'))
+    at_list = db.Column(db.String(200))         # 本评论将@的用户 id 列表，通常子评论只能@一个人，也就是所回复的子评论的原作者
+    content = db.Column(db.Unicode(500))        # 评论的文字正文，需要注意检查内容长度
+
+
+# ToDo: 实现 User 之间的相互关注关系等6项社交行为。
 
 
