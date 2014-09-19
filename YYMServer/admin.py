@@ -158,7 +158,7 @@ def _get_image_rule(label, images):
 class SiteView(MyModelView):
     column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig')
     form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'code', 'name', 'name_orig', 
-                         'brand', 'logo', 'level', 'stars', 'review_num', 'comments', 'categories', 'environment',
+                         'brand', 'logo', 'level', 'stars', 'review_num', 'reviews', 'categories', 'environment',
                          'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
                          'phone', 'transport', 'description', 'longitude', 'latitude', 'area', 'address',
                          'address_orig', 'keywords', 'top_images', 'gate_images', 'data_source',
@@ -214,6 +214,10 @@ class UserView(MyModelView):
     column_searchable_list = ('name', 'username', 'mobile')
 
 
+class ShareRecordView(MyModelView):
+    column_searchable_list = ('target', )
+
+
 # Create admin
 admin = Admin(app, 'Admin', index_view=MyAdminIndexView(), base_template='my_master.html')
 admin.add_view(SiteView(Site, db.session))
@@ -226,5 +230,6 @@ admin.add_view(TagAlikeView(Country, db.session))
 admin.add_view(TagAlikeView(City, db.session))
 admin.add_view(TagAlikeView(Area, db.session))
 admin.add_view(UserView(User, db.session))
+admin.add_view(ShareRecordView(ShareRecord, db.session))
 
 

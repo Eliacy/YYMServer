@@ -86,7 +86,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     name_orig = db.Column(db.Unicode(80))       # POI 的当地文字原名
     brand_id = db.Column(db.Integer, db.ForeignKey('brand.id'))         # POI 所属品牌名称
     logo_id = db.Column(db.Integer, db.ForeignKey('image.id'))     # POI logo 首图的图片 id
-    logo = db.relationship("Image")
+    logo = db.relationship('Image')
     level = db.Column(db.Unicode(10))     # 用文字表示的 POI 质量等级，通常为 SS、S、A+、A 其中之一。
     stars = db.Column(db.Float)         # POI 的评论星级，由于是统计结果，因而存在半颗星等小数。
     review_num = db.Column(db.SmallInteger, default=0)    # 该店铺拥有的晒单评论数量，是一个缓存值
@@ -97,20 +97,20 @@ class Site(db.Model):   # 店铺或景点等 POI
     flowrate = db.Column(db.Unicode(20))        # 人流量情况
     payment = db.Column(db.Unicode(50))         # 支持的支付方式
     menu = db.Column(db.Unicode(20))    # 是否提供中文菜单
-    ticket = db.Column(db.Unicode(200))         # 门票票价及购买方式
-    booking = db.Column(db.Unicode(200))        # 预定方式
-    business_hours = db.Column(db.Unicode(200))         # 营业时间描述
+    ticket = db.Column(db.Unicode(200))         # 门票票价及购买方式，应支持换行符“\n”
+    booking = db.Column(db.Unicode(200))        # 预定方式，应支持换行符“\n”
+    business_hours = db.Column(db.Unicode(200))         # 营业时间描述，应支持换行符“\n”
     phone = db.Column(db.String(50))    # 联系电话
-    transport = db.Column(db.Unicode(200))          # 公共交通的线路和站点文字描述
+    transport = db.Column(db.Unicode(200))          # 公共交通的线路和站点文字描述，应支持换行符“\n”
     description = db.Column(db.UnicodeText)     # POI 的简介描述
     longitude = db.Column(Real)     # 经度
     latitude = db.Column(Real)      # 纬度
     area_id = db.Column(db.Integer, db.ForeignKey('area.id'))   # 所属商区
-    address = db.Column(db.Unicode(200))        # POI 地址
-    address_orig = db.Column(db.Unicode(200))   # POI 地址的当地文字版本
-    keywords = db.Column(db.Unicode(200))       # POI 关键词，可以认为是一个缓存，被 [] 括起来的是系统自动统计得到的，其他是运营人工设置。正常情况是使用空格分隔
-    top_images = db.Column(db.String(100))      # 热门图片的 id 列表，英文逗号分隔
-    gate_images = db.Column(db.String(100))     # 店铺门脸展示图片的 id 列表，英文逗号分隔
+    address = db.Column(db.Unicode(200))        # POI 地址，应支持换行符“\n”
+    address_orig = db.Column(db.Unicode(200))   # POI 地址的当地文字版本，应支持换行符“\n”
+    keywords = db.Column(db.Unicode(200))       # POI 关键词，可以认为是一个缓存，被 {} 括起来的是系统自动统计得到的，其他是运营人工设置。正常情况是使用空格分隔
+    top_images = db.Column(db.String(100))      # 热门图片的 id 列表，英文空格分隔
+    gate_images = db.Column(db.String(100))     # 店铺门脸展示图片的 id 列表，英文空格分隔
     data_source = db.Column(db.Unicode(200))    # 本 POI 数据采集的原始网址
 
     def __unicode__(self):
@@ -136,6 +136,42 @@ class Category(db.Model):       # POI 分类
         return u'<Category %s>' % self.name
 
 
+fans = db.Table('fans',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
+    db.Column('fan_id', db.Integer, db.ForeignKey('user.id')),
+    db.Column('action_time', db.DateTime, default=datetime.datetime.now)        # 发生关注行为的时间点
+)
+
+
+likes = db.Table('likes',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
+    db.Column('review_id', db.Integer, db.ForeignKey('review.id')),
+    db.Column('action_time', db.DateTime, default=datetime.datetime.now)        # 用户表示喜欢一篇晒单评论的时间点
+)
+
+
+favorites = db.Table('favorites',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
+    db.Column('site_id', db.Integer, db.ForeignKey('site.id')),
+    db.Column('action_time', db.DateTime, default=datetime.datetime.now)        # 用户收藏一个店铺的时间点
+)
+
+
+class ShareRecord(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), default=323)      # 进行共享的人
+    user = db.relationship('User', backref=db.backref('share_records', lazy='dynamic'), foreign_keys=[user_id])
+    site_id = db.Column(db.Integer, db.ForeignKey('site.id'))     # 如果被共享的是店铺，则在这里做绑定
+    site = db.relationship('Site')
+    review_id = db.Column(db.Integer, db.ForeignKey('review.id'))     # 如果被共享的是晒单评论，则在这里做绑定
+    review = db.relationship('Review')
+    target = db.Column(db.Unicode(20))  # 用户分享的目的地，比如微信或短信，中文文字描述
+    action_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 用户分享文章或店铺的时间点
+
+    def __unicode__(self):
+        return u'<ShareRecord %s: site %d, review %d>' % (self.user.name, self.site_id or -1, self.review_id or -1)
+
+
 class User(db.Model):
     id = db.Column(db.Integer, autoincrement='ignore_fk', primary_key=True)
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
@@ -145,15 +181,23 @@ class User(db.Model):
     mobile = db.Column(db.String(120), unique=True)     # 用户手机号
     password = db.Column(db.String(80))         # Hash 处理之后的登陆密码
     icon_id = db.Column(db.Integer, db.ForeignKey('image.id', use_alter=True, name='fk_icon'))     # 用户头像的图片 id
-    icon = db.relationship("Image", foreign_keys=[icon_id], post_update=True)
+    icon = db.relationship('Image', foreign_keys=[icon_id], post_update=True)
     gender = db.Column(db.Unicode(10), default=u'未知')  # 用户填写的性别参数：男、女、未知
     level = db.Column(db.SmallInteger, default=1)     # 用数字表示的用户等级
     follow_num = db.Column(db.SmallInteger, default=0)  # 该用户已关注的账号的数量，是一个缓存值
     fans_num = db.Column(db.SmallInteger, default=0)    # 该用户拥有的粉丝数量，是一个缓存值
+    fans = db.relationship('User', secondary=fans,
+                                   primaryjoin=id==fans.c.user_id,
+                                   secondaryjoin=id==fans.c.fan_id,
+                                   backref=db.backref('follows', lazy='dynamic'))
     like_num = db.Column(db.SmallInteger, default=0)    # 该用户喜欢的晒单评论数量，是一个缓存值
+    likes = db.relationship('Review', secondary=likes,
+                                      backref=db.backref('fans', lazy='dynamic'))
     share_num = db.Column(db.SmallInteger, default=0)   # 该用户的分享行为数量，是一个缓存值
-    review_num = db.Column(db.SmallInteger, default=0)    # 该用户拥有的粉丝数量，是一个缓存值
+    review_num = db.Column(db.SmallInteger, default=0)    # 该用户发表的晒单评论数量，是一个缓存值
     favorite_num = db.Column(db.SmallInteger, default=0)    # 该用户收藏的店铺的数量，是一个缓存值
+    favorites = db.relationship('Site', secondary=favorites,
+                                      backref=db.backref('fans', lazy='dynamic'))
     badges = db.Column(db.Unicode(500))  # 用户拥有的徽章名称列表
 
     def is_admin(self):
@@ -246,8 +290,5 @@ class Comment(db.Model):        # 用户子评论
 
     def __unicode__(self):
         return u'<Comment %s: %s>' % (self.user.name, self.update_time.strftime('%y-%m-%d'))
-
-
-# ToDo: 实现 User 之间的相互关注关系等6项社交行为。
 
 
