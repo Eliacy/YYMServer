@@ -132,27 +132,47 @@ class ImageView(MyModelView):
     }
 
 
-def _get_image_rule(label, images):
-    ''' images: ((id, image_path), ...) '''
+def _get_images_code(images):
     image_code = ''
     for i in images:
         key, image_path = i
         image = (key, url_for('static', filename=image_path), url_for('static', filename=admin_form.thumbgen_filename(image_path)))
         image_code += '''<td  align="center" valign="top">[id: %d]<br/><a href="%s" target="_blank"><img src="%s"/></a></td>\n''' % image
     code = '''
+    <div>
+      <table width="%d" cellpadding="5"><tr>
+      %s
+      </tr></table>
+    </div> ''' % (120 * len(images), image_code)
+    return code
+
+def _get_image_rule(label, images):
+    ''' images: ((id, image_path), ...) '''
+    images_code = _get_images_code(images)
+    code = '''
   <div class="control-group">
     <div class="control-label">
       <label for="s2id_autogen2">%s</label>
     </div>
     <div class="controls">
-    <div>
-      <table cellpadding="5"><tr>
       %s
-      </tr></table>
     </div>
-    </div>
-  </div> ''' % (label, image_code)
+  </div> ''' % (label, images_code)
     return admin_form.rules.HTML(code)
+
+def _get_images_info(image_ids_str):
+    ''' 辅助函数。'''
+    image_ids = ()
+    try:
+        image_ids = map(int, image_ids_str.split(' '))
+    except:
+        pass
+    images = []
+    if image_ids:
+        for image_id in image_ids:
+            image = db.session.query(Image).get(image_id)
+            images.append((image_id, '' if not image else image.path))
+    return images
 
 
 class SiteView(MyModelView):
@@ -163,16 +183,6 @@ class SiteView(MyModelView):
                          'phone', 'transport', 'description', 'longitude', 'latitude', 'area', 'address',
                          'address_orig', 'keywords', 'top_images', 'gate_images', 'data_source',
                          )
-
-    def get_image_rule(self, label, image_ids):
-        ''' 辅助函数。'''
-        if image_ids:
-            images = []
-            for image_id in image_ids:
-                image = self.session.query(Image).get(image_id)
-                images.append((image_id, '' if not image else image.path))
-            return _get_image_rule(u'Top Images', images)
-        return None
 
     def get_one(self, id):
         ''' ToDo：一个脏补丁，用来显示店铺相关的各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
@@ -185,13 +195,38 @@ class SiteView(MyModelView):
                     columns.append(_get_image_rule(u'Logo Image', ((site.logo_id, site.logo.path),)))
             elif col == 'top_images':
                 if site.top_images:
-                    columns.append(self.get_image_rule(u'Top Images', map(int, site.top_images.split(' '))))
+                    columns.append(_get_image_rule(u'Top Images', 
+                                                   _get_images_info(site.top_images)
+                                                   ))
             elif col == 'gate_images':
                 if site.gate_images:
-                    columns.append(self.get_image_rule(u'Top Images', map(int, site.gate_images.split(' '))))
+                    columns.append(_get_image_rule(u'Gate Images', 
+                                                   _get_images_info(site.gate_images)
+                                                   ))
         self.form_edit_rules = columns
         self._refresh_cache()
         return site
+
+    def _list_thumbnail_logo(view, context, model, name):
+        if not model.logo_id:
+            return ''
+        return Markup(_get_images_code(((model.logo_id, model.logo.path),)))
+
+    def _list_thumbnail_top_images(view, context, model, name):
+        if not model.top_images:
+            return ''
+        return Markup(_get_images_code(_get_images_info(model.top_images)))
+
+    def _list_thumbnail_gate_images(view, context, model, name):
+        if not model.gate_images:
+            return ''
+        return Markup(_get_images_code(_get_images_info(model.gate_images)))
+
+    column_formatters = {
+        'logo': _list_thumbnail_logo,
+        'top_images':_list_thumbnail_top_images,
+        'gate_images':_list_thumbnail_gate_images,
+    }
 
 
 class ReviewView(MyModelView):
