@@ -105,6 +105,8 @@ class ImageView(MyModelView):
     def create_model(self, form):
         if form.path.data.filename:
             form.note.data = u'[%s] %s' % (form.path.data.filename, form.note.data or u'')
+        if not form.user.data:
+            form.user.data = login.current_user
         return super(ImageView, self).create_model(form)
 
     def update_model(self, form, model):
@@ -232,9 +234,19 @@ class SiteView(MyModelView):
 class ReviewView(MyModelView):
     column_searchable_list = ('keywords',)
 
+    def create_model(self, form):
+        if not form.user.data:
+            form.user.data = login.current_user
+        return super(ReviewView, self).create_model(form)
+
 
 class CommentView(MyModelView):
     column_searchable_list = ()
+
+    def create_model(self, form):
+        if not form.user.data:
+            form.user.data = login.current_user
+        return super(CommentView, self).create_model(form)
 
 
 class TagAlikeView(MyModelView):

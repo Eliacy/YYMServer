@@ -159,7 +159,7 @@ favorites = db.Table('favorites',
 
 class ShareRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), default=323)      # 进行共享的人
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 进行共享的人
     user = db.relationship('User', backref=db.backref('share_records', lazy='dynamic'), foreign_keys=[user_id])
     site_id = db.Column(db.Integer, db.ForeignKey('site.id'))     # 如果被共享的是店铺，则在这里做绑定
     site = db.relationship('Site')
@@ -241,7 +241,7 @@ class Image(db.Model):  # 全局图片存储
     path = db.Column(db.String(120))    # 图片所在存储路径
     note = db.Column(db.Unicode(120))   # 图片的备忘描述文字
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 图片上传时间，以服务器时间为准
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), default=323)      # 图片上传人
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 图片上传人
     user = db.relationship('User', backref=db.backref('images', lazy='dynamic'), foreign_keys=[user_id])
 
     def __unicode__(self):
@@ -254,7 +254,7 @@ class Review(db.Model):        # 用户晒单评论
     published = db.Column(db.Boolean, default=False)       # 控制是否对外发布
     publish_time = db.Column(db.DateTime, default=None)       # 首次发布时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), default=323)      # 晒单评论的作者
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 晒单评论的作者
     user = db.relationship('User', backref=db.backref('reviews', lazy='dynamic'))
     at_list = db.Column(db.String(200))         # 本评论将@的用户 id 列表，后端代码需要实现注意控制长度！
     stars = db.Column(db.Float)         # POI 的评论星级，出于与统计结果，使用小数表示，实际只能是1～5
@@ -283,7 +283,7 @@ class Comment(db.Model):        # 用户子评论
     valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
     publish_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次发布时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), default=323)      # 评论的作者
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 评论的作者
     user = db.relationship('User', backref=db.backref('comments', lazy='dynamic'))
     at_list = db.Column(db.String(200))         # 本评论将@的用户 id 列表，通常子评论只能@一个人，也就是所回复的子评论的原作者
     content = db.Column(db.Unicode(500))        # 评论的文字正文，需要注意检查内容长度
