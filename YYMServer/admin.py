@@ -185,10 +185,10 @@ class SiteView(MyModelView):
                     columns.append(_get_image_rule(u'Logo Image', ((site.logo_id, site.logo.path),)))
             elif col == 'top_images':
                 if site.top_images:
-                    columns.append(self.get_image_rule(u'Top Images', map(int, site.top_images.split(','))))
+                    columns.append(self.get_image_rule(u'Top Images', map(int, site.top_images.split(' '))))
             elif col == 'gate_images':
                 if site.gate_images:
-                    columns.append(self.get_image_rule(u'Top Images', map(int, site.gate_images.split(','))))
+                    columns.append(self.get_image_rule(u'Top Images', map(int, site.gate_images.split(' '))))
         self.form_edit_rules = columns
         self._refresh_cache()
         return site
