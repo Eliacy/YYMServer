@@ -265,8 +265,32 @@ class ShareRecordView(MyModelView):
     column_searchable_list = ('target', )
 
 
+class TipsView(MyModelView):
+    column_searchable_list = ('content', )
+
+    def create_model(self, form):
+        if not form.user.data:
+            form.user.data = login.current_user
+        return super(TipsView, self).create_model(form)
+
+
+class ArticleView(MyModelView):
+    column_searchable_list = ('title', 'keywords', 'content')
+
+    def create_model(self, form):
+        if not form.user.data:
+            form.user.data = login.current_user
+        return super(ArticleView, self).create_model(form)
+
+
+class MessageView(MyModelView):
+    column_searchable_list = ('content', 'group_key')
+
+
 # Create admin
 admin = Admin(app, 'Admin', index_view=MyAdminIndexView(), base_template='my_master.html')
+admin.add_view(TipsView(Tips, db.session))
+admin.add_view(ArticleView(Article, db.session))
 admin.add_view(SiteView(Site, db.session))
 admin.add_view(ReviewView(Review, db.session))
 admin.add_view(CommentView(Comment, db.session))
@@ -278,5 +302,6 @@ admin.add_view(TagAlikeView(City, db.session))
 admin.add_view(TagAlikeView(Area, db.session))
 admin.add_view(UserView(User, db.session))
 admin.add_view(ShareRecordView(ShareRecord, db.session))
+admin.add_view(MessageView(Message, db.session))
 
 

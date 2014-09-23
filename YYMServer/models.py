@@ -20,7 +20,8 @@ class Country(db.Model):   # 国家
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序
     name = db.Column(db.Unicode(20))    # 国家名称
     extend = db.Column(db.SmallInteger, default=0)      # 确定当搜索该国家下属的城市内店铺时，允许也纳入距离城市中心点多远的店铺（单位：公里，默认：50）
-    cities = db.relationship('City', backref='country', lazy='dynamic')
+    default_city_id = db.Column(db.Integer, db.ForeignKey('city.id', use_alter=True, name='fk_default_city'))   # 每个国家指定一个默认城市，用于天气预报等
+    default_city = db.relationship('City', foreign_keys=[default_city_id], post_update=True)
 
     def __unicode__(self):
         return u'<Country %s>' % self.name
@@ -33,8 +34,9 @@ class City(db.Model):   # 城市
     name = db.Column(db.Unicode(20))    # 城市名称
     longitude = db.Column(Real)     # 城市中心点，经度
     latitude = db.Column(Real)      # 城市中心点，纬度
-    areas = db.relationship('Area', backref='city', lazy='dynamic')
+    # ToDo: 这里需要一个用于查询天气的唯一代码的字段！
     country_id = db.Column(db.Integer, db.ForeignKey('country.id'))
+    country = db.relationship('Country', backref=db.backref('cities', lazy='dynamic'), foreign_keys=[country_id])
 
     def __unicode__(self):
         return u'<City %s>' % self.name
@@ -47,8 +49,8 @@ class Area(db.Model):   # 商区
     name = db.Column(db.Unicode(20))    # 商区名称
     longitude = db.Column(Real)     # 商圈中心点，经度
     latitude = db.Column(Real)      # 商圈中心点，纬度
-    sites = db.relationship('Site', backref='area', lazy='dynamic')
     city_id = db.Column(db.Integer, db.ForeignKey('city.id'))
+    city = db.relationship('City', backref=db.backref('areas', lazy='dynamic'))
 
     def __unicode__(self):
         return u'<Area %s>' % self.name
@@ -63,7 +65,6 @@ class Brand(db.Model):   # 品牌
     source = db.Column(db.Unicode(20))  # 发源地
     level = db.Column(db.Unicode(10))     # 品牌档次
     description = db.Column(db.UnicodeText)     # 品牌的简介描述
-    sites = db.relationship('Site', backref='brand', lazy='dynamic')
 
     def __unicode__(self):
         return u'<Brand %s>' % self.name
@@ -85,12 +86,13 @@ class Site(db.Model):   # 店铺或景点等 POI
     name = db.Column(db.Unicode(80))        # POI 的名字
     name_orig = db.Column(db.Unicode(80))       # POI 的当地文字原名
     brand_id = db.Column(db.Integer, db.ForeignKey('brand.id'))         # POI 所属品牌名称
+    brand = db.relationship('Brand', backref=db.backref('sites', lazy='dynamic'))
     logo_id = db.Column(db.Integer, db.ForeignKey('image.id'))     # POI logo 首图的图片 id
     logo = db.relationship('Image')
     level = db.Column(db.Unicode(10))     # 用文字表示的 POI 质量等级，通常为 SS、S、A+、A 其中之一。
     stars = db.Column(db.Float)         # POI 的评论星级，由于是统计结果，因而存在半颗星等小数。
+    popular = db.Column(db.Integer, default=0)    # 统计店铺人气指数，用于搜索排序，每天更新！
     review_num = db.Column(db.SmallInteger, default=0)    # 该店铺拥有的晒单评论数量，是一个缓存值
-    reviews = db.relationship('Review', backref='site', lazy='dynamic')       # 相关的评论
     categories = db.relationship('Category', secondary=categories,
                                  backref=db.backref('sites', lazy='dynamic'))
     environment = db.Column(db.Unicode(50))      # 环境特点的文字描述
@@ -105,11 +107,14 @@ class Site(db.Model):   # 店铺或景点等 POI
     description = db.Column(db.UnicodeText)     # POI 的简介描述
     longitude = db.Column(Real)     # 经度
     latitude = db.Column(Real)      # 纬度
+    # ToDo: 缺经纬度对应的方格坐标的缓存字段！
     area_id = db.Column(db.Integer, db.ForeignKey('area.id'))   # 所属商区
+    area = db.relationship('Area', backref=db.backref('sites', lazy='dynamic'))
     address = db.Column(db.Unicode(200))        # POI 地址，应支持换行符“\n”
     address_orig = db.Column(db.Unicode(200))   # POI 地址的当地文字版本，应支持换行符“\n”
     keywords = db.Column(db.Unicode(200))       # POI 关键词，可以认为是一个缓存，被 {} 括起来的是系统自动统计得到的，其他是运营人工设置。正常情况是使用空格分隔
     top_images = db.Column(db.String(100))      # 热门图片的 id 列表，英文空格分隔
+    images_num = db.Column(db.SmallInteger, default=0)    # 该店铺拥有的晒单评论相关图片数量，是一个缓存值
     gate_images = db.Column(db.String(100))     # 店铺门脸展示图片的 id 列表，英文空格分隔
     data_source = db.Column(db.Unicode(200))    # 本 POI 数据采集的原始网址
 
@@ -184,6 +189,7 @@ class User(db.Model):
     icon = db.relationship('Image', foreign_keys=[icon_id], post_update=True)
     gender = db.Column(db.Unicode(10), default=u'未知')  # 用户填写的性别参数：男、女、未知
     level = db.Column(db.SmallInteger, default=1)     # 用数字表示的用户等级
+    exp = db.Column(db.Integer, default=0)      # 与用户等级对应的用户经验，需要根据每天的行为日志做更新
     follow_num = db.Column(db.SmallInteger, default=0)  # 该用户已关注的账号的数量，是一个缓存值
     fans_num = db.Column(db.SmallInteger, default=0)    # 该用户拥有的粉丝数量，是一个缓存值
     fans = db.relationship('User', secondary=fans,
@@ -201,7 +207,8 @@ class User(db.Model):
     badges = db.Column(db.Unicode(500))  # 用户拥有的徽章名称列表
 
     def is_admin(self):
-        return True if self.id >= 321 and self.id <=323 else False
+        # ToDo: 这是一个简化代码，实际没有进行权限约束，需要尽快修改掉！
+        return True if self.id >= 321 and self.id <=330 else False
 
     # Flask-Login integration
     def is_authenticated(self):
@@ -251,6 +258,7 @@ class Image(db.Model):  # 全局图片存储
 class Review(db.Model):        # 用户晒单评论
     id = db.Column(db.Integer, primary_key=True)        # ToDo: 考虑改为 UUID（已放弃，改为从特定数值开始）。
     valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
+    selected = db.Column(db.Boolean, default=False)     # 控制本文是否强制加入精选推荐
     published = db.Column(db.Boolean, default=False)       # 控制是否对外发布
     publish_time = db.Column(db.DateTime, default=None)       # 首次发布时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
@@ -264,6 +272,7 @@ class Review(db.Model):        # 用户晒单评论
     total = db.Column(db.Integer)       # 本次购物总价
     currency = db.Column(db.Unicode(10))        # 购物总价所对应的币种，这里没有做强制类别限制，需要在接收前端数据前作检查、判断
     site_id = db.Column(db.Integer, db.ForeignKey('site.id'))   # 关联的 POI
+    site = db.relationship('Site', backref=db.backref('reviews', lazy='dynamic'))
     like_num = db.Column(db.Integer, default=0)        # 喜欢本晒单的人数，这只是相当于一个缓存，实际数据根据“喜欢”的行为表计算得出
     comment_num = db.Column(db.Integer, default=0)      # 本晒单的评论总数，只是一个缓存值，实际数据根据“评论”的行为表计算得出
 
@@ -283,6 +292,10 @@ class Comment(db.Model):        # 用户子评论
     valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
     publish_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次发布时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
+    review_id = db.Column(db.Integer, db.ForeignKey('review.id'))       # 子评论所关联的晒单评论
+    review = db.relationship('Review', backref=db.backref('comments', lazy='dynamic'))
+    article_id = db.Column(db.Integer, db.ForeignKey('article.id'))     # 子评论所关联的首页文章
+    article = db.relationship('Article', backref=db.backref('comments', lazy='dynamic'))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 评论的作者
     user = db.relationship('User', backref=db.backref('comments', lazy='dynamic'))
     at_list = db.Column(db.String(200))         # 本评论将@的用户 id 列表，通常子评论只能@一个人，也就是所回复的子评论的原作者
@@ -290,5 +303,89 @@ class Comment(db.Model):        # 用户子评论
 
     def __unicode__(self):
         return u'<Comment %s: %s>' % (self.user.name, self.update_time.strftime('%y-%m-%d'))
+
+
+city_articles = db.Table('city_articles',
+    db.Column('city_id', db.Integer, db.ForeignKey('city.id')),
+    db.Column('article_id', db.Integer, db.ForeignKey('article.id')),
+)
+
+
+country_articles = db.Table('country_articles',
+    db.Column('country_id', db.Integer, db.ForeignKey('country.id')),
+    db.Column('article_id', db.Integer, db.ForeignKey('article.id')),
+)
+
+
+class Article(db.Model):        # 首页推荐文章
+    id = db.Column(db.Integer, primary_key=True)
+    valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
+    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序
+    create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 晒单评论的作者
+    user = db.relationship('User', backref=db.backref('articles', lazy='dynamic'))
+    cities = db.relationship('City', secondary=city_articles,
+                                      backref=db.backref('articles', lazy='dynamic'))
+    countries = db.relationship('Country', secondary=country_articles,
+                                      backref=db.backref('articles', lazy='dynamic'))
+    title = db.Column(db.Unicode(50))   # 首页文章的标题
+    content = db.Column(db.UnicodeText)         # 晒单评论的文本正文，需区分自然段、小标题、图片、店铺链接、分隔符等特殊格式！
+    keywords = db.Column(db.Unicode(200))       # 晒单评论关键词，空格分隔
+    comment_num = db.Column(db.Integer, default=0)      # 本晒单的评论总数，只是一个缓存值，实际数据根据“评论”的行为表计算得出
+
+    def __unicode__(self):
+        return u'<Article %s: %s>' % (self.user.name, self.title)
+
+
+event.listen(
+    Article.__table__,
+    "after_create",
+    DDL("ALTER TABLE %(table)s AUTO_INCREMENT = 97;").execute_if(dialect=('postgresql', 'mysql'))
+)
+
+
+class Tips(db.Model):        # 首页 Tips 文档
+    id = db.Column(db.Integer, primary_key=True)
+    valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
+    create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 晒单评论的作者
+    user = db.relationship('User', backref=db.backref('tips', lazy='dynamic'))
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'))   # Tips 所对应的城市
+    city = db.relationship('City', backref=db.backref('tips', lazy='dynamic'))
+    content = db.Column(db.UnicodeText)         # 晒单评论的文本正文，需区分自然段、小标题、分隔符、排序列表等特殊格式！以及支持对其他 Tips 的引用（例如该国家通用的内容）！
+
+    def __unicode__(self):
+        return u'<Tips %s: %s>' % (self.city.name, self.update_time.strftime('%y-%m-%d'))
+
+
+event.listen(
+    Tips.__table__,
+    "after_create",
+    DDL("ALTER TABLE %(table)s AUTO_INCREMENT = 59;").execute_if(dialect=('postgresql', 'mysql'))
+)
+
+
+user_read_messages = db.Table('user_read_messages',     # 用户是否已读过特定私信，也作为用户与私信之间的关联关系表示用
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
+    db.Column('message_id', db.Integer, db.ForeignKey('message.id')),
+    db.Column('has_read', db.Boolean, default=False)        # 是否已经读过特定私信
+)
+
+
+class Message(db.Model):        # 用户私信， #ToDo: 当前的数据库结构设计可能存在性能问题。。
+    id = db.Column(db.Integer, primary_key=True)
+    valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
+    create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
+    sender_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 私信消息的作者
+    sender_user = db.relationship('User', backref=db.backref('sent_messages', lazy='dynamic'))  # 反向是该用户发送的所有信息
+    content = db.Column(db.UnicodeText)         # 私信消息的文本正文，应支持 App 内信息的链接
+    group_key = db.Column(db.String(50))        # 私信消息分组快捷键，将本消息相关 user_id 按从小到大排序，用“_”连接作为 Key
+    users = db.relationship('User', secondary=user_read_messages,
+                                      backref=db.backref('messages', lazy='dynamic'))   # 反向为该用户的全部信息
+
+    def __unicode__(self):
+        return u'<Message %s: %s>' % (self.sender_user.name, self.create_time.strftime('%y-%m-%d'))
 
 
