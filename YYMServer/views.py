@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from flask import jsonify, render_template, request
+from flask.ext import restful
+from flask.ext.restful import reqparse
 
-from YYMServer import app, db, cache
+from YYMServer import app, db, cache, api
 import YYMServer.admin
 
 # Flask views
@@ -22,5 +24,18 @@ def add_numbers():
     else:
         print '{{{Cache hit!}}}'
     return jsonify(result=result)
+
+
+cac_parser = reqparse.RequestParser()
+cac_parser.add_argument('a', type=int, help=u'被相加的第一个数字')
+cac_parser.add_argument('b', type=int, help=u'被相加的第二个数字')
+
+
+class Caculator(restful.Resource):
+    def get(self):
+        args = cac_parser.parse_args()
+        return {'restful_result': args['a'] + args['b']}
+
+api.add_resource(Caculator, '/accumulator')
 
 

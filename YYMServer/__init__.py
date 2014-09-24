@@ -4,6 +4,7 @@ import os, os.path
 
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
+from flask.ext import restful
 
 
 app = Flask(__name__)
@@ -48,6 +49,9 @@ try:
         cache = RedisCache(host, port, password)
 except Exception, e:
     print e
+
+# 准备 api 接口
+api = restful.Api(app)
 
 import YYMServer.views
 import YYMServer.models
