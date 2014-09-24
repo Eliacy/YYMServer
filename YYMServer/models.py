@@ -177,6 +177,27 @@ class ShareRecord(db.Model):
         return u'<ShareRecord %s: site %d, review %d>' % (self.user.name, self.site_id or -1, self.review_id or -1)
 
 
+roles_users = db.Table('roles_users',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
+    db.Column('role_id', db.Integer, db.ForeignKey('role.id'))
+)
+
+
+class Role(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.Unicode(80), unique=True)
+
+    def __unicode__(self):
+        return u'<Role %s>' % self.name
+
+
+event.listen(
+    Role.__table__,
+    "after_create",
+    DDL("ALTER TABLE %(table)s AUTO_INCREMENT = 7;").execute_if(dialect=('postgresql', 'mysql'))
+)
+
+
 class User(db.Model):
     id = db.Column(db.Integer, autoincrement='ignore_fk', primary_key=True)
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
@@ -205,10 +226,22 @@ class User(db.Model):
     favorites = db.relationship('Site', secondary=favorites,
                                       backref=db.backref('fans', lazy='dynamic'))
     badges = db.Column(db.Unicode(500))  # 用户拥有的徽章名称列表
+    roles = db.relationship('Role', secondary=roles_users,
+                            backref=db.backref('users', lazy='dynamic'))
 
     def is_admin(self):
-        # ToDo: 这是一个简化代码，实际没有进行权限约束，需要尽快修改掉！
-        return True if self.id >= 321 and self.id <=330 else False
+        check = False
+        for role in self.roles:
+            if role.id == 7:
+                check = True
+        return check
+
+    def is_operator(self):
+        check = False
+        for role in self.roles:
+            if role.id == 8:
+                check = True
+        return check
 
     # Flask-Login integration
     def is_authenticated(self):

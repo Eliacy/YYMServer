@@ -23,6 +23,7 @@ from YYMServer.models import *
 
 
 # Define login and registration forms (for flask-login)
+# ToDo: 可以考虑利用 Flask-Security 完善后台权限管理及功能！
 class LoginForm(form.Form):
     username = fields.TextField(validators=[validators.required()])
     password = fields.PasswordField(validators=[validators.required()])
@@ -58,7 +59,7 @@ def init_login():
 class MyModelView(ModelView):
 
     def is_accessible(self):
-        return login.current_user.is_authenticated() and login.current_user.is_admin()
+        return login.current_user.is_authenticated() and (login.current_user.is_admin() or login.current_user.is_operator())
 
 
 # Create customized index view class that handles login & registration
@@ -257,12 +258,25 @@ class BrandView(MyModelView):
     column_searchable_list = ('name', 'name_zh')
 
 
+class RoleView(MyModelView):
+    column_searchable_list = ('name',)
+
+    def is_accessible(self):
+        return super(RoleView, self).is_accessible() and login.current_user.is_admin()
+
+
 class UserView(MyModelView):
     column_searchable_list = ('name', 'username', 'mobile')
+
+    def is_accessible(self):
+        return super(UserView, self).is_accessible() and login.current_user.is_admin()
 
 
 class ShareRecordView(MyModelView):
     column_searchable_list = ('target', )
+
+    def is_accessible(self):
+        return super(ShareRecordView, self).is_accessible() and login.current_user.is_admin()
 
 
 class TipsView(MyModelView):
@@ -301,6 +315,7 @@ admin.add_view(TagAlikeView(Country, db.session))
 admin.add_view(TagAlikeView(City, db.session))
 admin.add_view(TagAlikeView(Area, db.session))
 admin.add_view(UserView(User, db.session))
+admin.add_view(RoleView(Role, db.session))
 admin.add_view(ShareRecordView(ShareRecord, db.session))
 admin.add_view(MessageView(Message, db.session))
 
