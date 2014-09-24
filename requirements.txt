@@ -8,4 +8,5 @@ WTForms
 Werkzeug
 MySQL-python
 # PIL
+# redis
 
