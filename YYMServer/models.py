@@ -367,11 +367,16 @@ event.listen(
 )
 
 
-user_read_messages = db.Table('user_read_messages',     # 用户是否已读过特定私信，也作为用户与私信之间的关联关系表示用
-    db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
-    db.Column('message_id', db.Integer, db.ForeignKey('message.id')),
-    db.Column('has_read', db.Boolean, default=False)        # 是否已经读过特定私信
-)
+class UserReadMessage(db.Model):        # 辅助用关联关系表，未做 Admin 管理界面
+    id = db.Column(db.BigInteger, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 相关用户
+    user = db.relationship('User', backref=db.backref('read_records', lazy='dynamic'), foreign_keys=[user_id])
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id'))     # 相关的私信消息
+    message = db.relationship('Message', backref=db.backref('read_records', lazy='dynamic'), foreign_keys=[message_id])
+    has_read = db.Column(db.Boolean, default=False)     # 该用户是否已经读过特定私信
+
+    def __unicode__(self):
+        return u'<UserReadMessage %s: msg %d, has_read %d>' % (self.user.name, self.message_id or -1, self.has_read)
 
 
 class Message(db.Model):        # 用户私信， #ToDo: 当前的数据库结构设计可能存在性能问题。。
@@ -382,7 +387,7 @@ class Message(db.Model):        # 用户私信， #ToDo: 当前的数据库结�
     sender_user = db.relationship('User', backref=db.backref('sent_messages', lazy='dynamic'))  # 反向是该用户发送的所有信息
     content = db.Column(db.UnicodeText)         # 私信消息的文本正文，应支持 App 内信息的链接
     group_key = db.Column(db.String(50))        # 私信消息分组快捷键，将本消息相关 user_id 按从小到大排序，用“_”连接作为 Key
-    users = db.relationship('User', secondary=user_read_messages,
+    users = db.relationship('User', secondary=UserReadMessage.__table__,
                                       backref=db.backref('messages', lazy='dynamic'))   # 反向为该用户的全部信息
 
     def __unicode__(self):
