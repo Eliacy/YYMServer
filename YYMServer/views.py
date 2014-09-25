@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import time
+
 from flask import jsonify, render_template, request
 from flask.ext import restful
 from flask.ext.restful import reqparse
@@ -8,15 +10,21 @@ from flask.ext.hmacauth import hmac_auth
 from YYMServer import app, db, cache, api
 import YYMServer.admin
 
-# Flask views
+# 主页，负责提供后台管理界面的链接
 @app.route('/')
 def index():
     return render_template('index.html')
 
 
+class Time(restful.Resource):
+    def get(self):
+        return {'timestamp': time.time()}
 
 
+api.add_resource(Time, '/rpc/time')
 
+
+# ToDo: 前台 App 调用接口时应发送用户唯一标识，以追踪用户行为
 
 
 # json 网络服务样例
