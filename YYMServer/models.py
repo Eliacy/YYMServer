@@ -82,6 +82,8 @@ class Site(db.Model):   # 店铺或景点等 POI
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据最初创建时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # POI 信息上传人
+    user = db.relationship('User', backref=db.backref('sites', lazy='dynamic'), foreign_keys=[user_id])
     code = db.Column(db.String(20))     # POI 的内部运营编号
     name = db.Column(db.Unicode(80))        # POI 的名字
     name_orig = db.Column(db.Unicode(80))       # POI 的当地文字原名
@@ -285,7 +287,7 @@ class Image(db.Model):  # 全局图片存储
     user = db.relationship('User', backref=db.backref('images', lazy='dynamic'), foreign_keys=[user_id])
 
     def __unicode__(self):
-        return u'<Image %s>' % 'None' if not self.path else self.path.split('/')[-1]
+        return u'<Image id %d: %s>' % (self.id, 'None' if not self.path else self.path.split('/')[-1])
 
 
 class Review(db.Model):        # 用户晒单评论

@@ -42,6 +42,7 @@ try:
         from werkzeug.contrib.cache import SimpleCache
         cache = SimpleCache()
     elif app.config['CACHE_TYPE'] == 'redis':
+        # ToDo: 应该将 Reids 的缓存访问改为 hset 和 hget ，以便利用 Redis 的 Hash 机制节约内存！
         host = 'localhost' if not app.config.has_key('CACHE_HOST') else app.config['CACHE_HOST']
         port = 6379 if not app.config.has_key('CACHE_PORT') else int(app.config['CACHE_PORT'])
         password = None if not app.config.has_key('CACHE_PASSWORD') else app.config['CACHE_PASSWORD']

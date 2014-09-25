@@ -102,6 +102,7 @@ def uuid_name(obj, file_data):
 # 参考：https://github.com/mrjoes/flask-admin/blob/master/examples/forms/simple.py
 class ImageView(MyModelView):
     column_searchable_list = ('path', 'note')
+    column_filters = ['id', 'valid', 'type', 'create_time', 'user_id'] + list(column_searchable_list)
 
     def create_model(self, form):
         if form.path.data.filename:
@@ -180,12 +181,21 @@ def _get_images_info(image_ids_str):
 
 class SiteView(MyModelView):
     column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig')
-    form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'code', 'name', 'name_orig', 
-                         'brand', 'logo', 'level', 'stars', 'review_num', 'reviews', 'categories', 'environment',
-                         'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
+    column_filters = ['id', 'valid', 'order', 'create_time', 'brand_id', 'logo_id', 'level', 'stars', 'popular',
+                      'review_num', 'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
+                      'phone', 'transport', 'description', 'area_id', 'keywords', 'images_num',
+                      ] + list(column_searchable_list)
+    form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'user', 'code', 'name', 'name_orig', 
+                         'brand', 'logo', 'level', 'stars', 'popular', 'review_num', 'reviews', 'categories',
+                         'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
                          'phone', 'transport', 'description', 'longitude', 'latitude', 'area', 'address',
-                         'address_orig', 'keywords', 'top_images', 'gate_images', 'data_source',
+                         'address_orig', 'keywords', 'top_images', 'images_num', 'gate_images', 'data_source',
                          )
+
+    def create_model(self, form):
+        if not form.user.data:
+            form.user.data = login.current_user
+        return super(ReviewView, self).create_model(form)
 
     def get_one(self, id):
         ''' ToDo：一个脏补丁，用来显示店铺相关的各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
@@ -234,6 +244,9 @@ class SiteView(MyModelView):
 
 class ReviewView(MyModelView):
     column_searchable_list = ('keywords',)
+    column_filters = ['id', 'valid', 'selected', 'published', 'publish_time', 'update_time', 'user_id',
+                      'stars', 'content', 'total', 'currency', 'site_id', 'like_num', 'comment_num',
+                      ] + list(column_searchable_list)
 
     def create_model(self, form):
         if not form.user.data:
@@ -243,6 +256,8 @@ class ReviewView(MyModelView):
 
 class CommentView(MyModelView):
     column_searchable_list = ()
+    column_filters = ['id', 'valid', 'publish_time', 'update_time', 'review_id', 'article_id', 'user_id', 'content'
+                      ] + list(column_searchable_list)
 
     def create_model(self, form):
         if not form.user.data:
@@ -252,14 +267,17 @@ class CommentView(MyModelView):
 
 class TagAlikeView(MyModelView):
     column_searchable_list = ('name',)
+    column_filters = ['id', 'valid', 'order',] + list(column_searchable_list)
 
 
 class BrandView(MyModelView):
-    column_searchable_list = ('name', 'name_zh')
+    column_searchable_list = ('name', 'name_zh', 'description')
+    column_filters = ['id', 'valid', 'order', 'source', 'level'] + list(column_searchable_list)
 
 
 class RoleView(MyModelView):
     column_searchable_list = ('name',)
+    column_filters = ['id'] + list(column_searchable_list)
 
     def is_accessible(self):
         return super(RoleView, self).is_accessible() and login.current_user.is_admin()
@@ -267,6 +285,9 @@ class RoleView(MyModelView):
 
 class UserView(MyModelView):
     column_searchable_list = ('name', 'username', 'mobile')
+    column_filters = ['id', 'create_time', 'update_time', 'icon_id', 'gender', 'level', 'exp', 'follow_num',
+                      'fans_num', 'like_num', 'share_num', 'review_num', 'favorite_num', 'badges',
+                      ] + list(column_searchable_list)
 
     def is_accessible(self):
         return super(UserView, self).is_accessible() and login.current_user.is_admin()
@@ -274,6 +295,7 @@ class UserView(MyModelView):
 
 class ShareRecordView(MyModelView):
     column_searchable_list = ('target', )
+    column_filters = ['user_id', 'site_id', 'review_id', 'action_time'] + list(column_searchable_list)
 
     def is_accessible(self):
         return super(ShareRecordView, self).is_accessible() and login.current_user.is_admin()
@@ -281,6 +303,7 @@ class ShareRecordView(MyModelView):
 
 class TipsView(MyModelView):
     column_searchable_list = ('content', )
+    column_filters = ['id', 'valid', 'create_time', 'update_time', 'user_id', 'city_id'] + list(column_searchable_list)
 
     def create_model(self, form):
         if not form.user.data:
@@ -290,6 +313,7 @@ class TipsView(MyModelView):
 
 class ArticleView(MyModelView):
     column_searchable_list = ('title', 'keywords', 'content')
+    column_filters = ['id', 'valid', 'order', 'create_time', 'update_time', 'user_id', 'comment_num'] + list(column_searchable_list)
 
     def create_model(self, form):
         if not form.user.data:
@@ -299,6 +323,7 @@ class ArticleView(MyModelView):
 
 class MessageView(MyModelView):
     column_searchable_list = ('content', 'group_key')
+    column_filters = ['id', 'valid', 'create_time', 'sender_user_id'] + list(column_searchable_list)
 
 
 # Create admin
