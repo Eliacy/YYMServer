@@ -5,6 +5,7 @@ import os, os.path
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
 from flask.ext import restful
+from flask.ext.hmacauth import DictAccountBroker, HmacManager
 
 
 app = Flask(__name__)
@@ -53,6 +54,13 @@ except Exception, e:
 
 # 准备 api 接口
 api = restful.Api(app)
+
+# 准备 api 签名机制
+accountmgr = DictAccountBroker(
+    accounts={
+        '4nM^mLISvh': {'secret': 'Yu8{Lnka%Y', 'rights': ['api']},
+    })
+hmacmgr = HmacManager(accountmgr, app, account_id=lambda x: x.values.get('key'), timestamp=lambda x: x.values.get('timestamp'))
 
 import YYMServer.views
 import YYMServer.models

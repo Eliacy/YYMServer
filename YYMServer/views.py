@@ -3,6 +3,7 @@
 from flask import jsonify, render_template, request
 from flask.ext import restful
 from flask.ext.restful import reqparse
+from flask.ext.hmacauth import hmac_auth
 
 from YYMServer import app, db, cache, api
 import YYMServer.admin
@@ -20,6 +21,7 @@ def index():
 
 # json 网络服务样例
 @app.route('/_add_numbers')
+@hmac_auth('api')
 def add_numbers():
     a = request.args.get('a', 0, type=int)
     b = request.args.get('b', 0, type=int)
@@ -38,11 +40,12 @@ cac_parser.add_argument('a', type=int, help=u'被相加的第一个数字')
 cac_parser.add_argument('b', type=int, help=u'被相加的第二个数字')
 
 
-class Caculator(restful.Resource):
+class Calculator(restful.Resource):
+    @hmac_auth('api')
     def get(self):
         args = cac_parser.parse_args()
         return {'restful_result': args['a'] + args['b']}
 
-api.add_resource(Caculator, '/accumulator')
+api.add_resource(Calculator, '/accumulator')
 
 

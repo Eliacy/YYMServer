@@ -195,7 +195,7 @@ class SiteView(MyModelView):
     def create_model(self, form):
         if not form.user.data:
             form.user.data = login.current_user
-        return super(ReviewView, self).create_model(form)
+        return super(SiteView, self).create_model(form)
 
     def get_one(self, id):
         ''' ToDo：一个脏补丁，用来显示店铺相关的各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
