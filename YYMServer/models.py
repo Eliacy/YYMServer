@@ -101,19 +101,19 @@ class Site(db.Model):   # 店铺或景点等 POI
     flowrate = db.Column(db.Unicode(20))        # 人流量情况
     payment = db.Column(db.Unicode(50))         # 支持的支付方式
     menu = db.Column(db.Unicode(20))    # 是否提供中文菜单
-    ticket = db.Column(db.Unicode(200))         # 门票票价及购买方式，应支持换行符“\n”
-    booking = db.Column(db.Unicode(200))        # 预定方式，应支持换行符“\n”
-    business_hours = db.Column(db.Unicode(200))         # 营业时间描述，应支持换行符“\n”
-    phone = db.Column(db.String(50))    # 联系电话
-    transport = db.Column(db.Unicode(200))          # 公共交通的线路和站点文字描述，应支持换行符“\n”
+    ticket = db.Column(db.UnicodeText)         # 门票票价及购买方式，应支持换行
+    booking = db.Column(db.UnicodeText)        # 预定方式，应支持换行
+    business_hours = db.Column(db.UnicodeText)         # 营业时间描述，应支持换行
+    phone = db.Column(db.UnicodeText)    # 联系电话
+    transport = db.Column(db.UnicodeText)          # 公共交通的线路和站点文字描述，应支持换行
     description = db.Column(db.UnicodeText)     # POI 的简介描述
     longitude = db.Column(Real)     # 经度
     latitude = db.Column(Real)      # 纬度
     # ToDo: 缺经纬度对应的方格坐标的缓存字段！
     area_id = db.Column(db.Integer, db.ForeignKey('area.id'))   # 所属商区
     area = db.relationship('Area', backref=db.backref('sites', lazy='dynamic'))
-    address = db.Column(db.Unicode(200))        # POI 地址，应支持换行符“\n”
-    address_orig = db.Column(db.Unicode(200))   # POI 地址的当地文字版本，应支持换行符“\n”
+    address = db.Column(db.UnicodeText)        # POI 地址，应支持换行
+    address_orig = db.Column(db.UnicodeText)   # POI 地址的当地文字版本，应支持换行
     keywords = db.Column(db.Unicode(200))       # POI 关键词，可以认为是一个缓存，被 {} 括起来的是系统自动统计得到的，其他是运营人工设置。正常情况是使用空格分隔
     top_images = db.Column(db.String(100))      # 热门图片的 id 列表，英文空格分隔
     images_num = db.Column(db.SmallInteger, default=0)    # 该店铺拥有的晒单评论相关图片数量，是一个缓存值
@@ -334,7 +334,7 @@ class Comment(db.Model):        # 用户子评论
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 评论的作者
     user = db.relationship('User', backref=db.backref('comments', lazy='dynamic'))
     at_list = db.Column(db.String(200))         # 本评论将@的用户 id 列表，通常子评论只能@一个人，也就是所回复的子评论的原作者
-    content = db.Column(db.Unicode(500))        # 评论的文字正文，需要注意检查内容长度
+    content = db.Column(db.UnicodeText)        # 评论的文字正文，需要注意检查内容长度
 
     def __unicode__(self):
         return u'<Comment %s: %s>' % (self.user.name, self.update_time.strftime('%y-%m-%d'))
