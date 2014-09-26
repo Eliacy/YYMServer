@@ -60,8 +60,8 @@ class Brand(db.Model):   # 品牌
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序
-    name = db.Column(db.Unicode(20))    # 品牌名称
-    name_zh = db.Column(db.Unicode(20))    # 品牌中文名称
+    name = db.Column(db.Unicode(80))    # 品牌名称
+    name_zh = db.Column(db.Unicode(80))    # 品牌中文名称
     source = db.Column(db.Unicode(20))  # 发源地
     level = db.Column(db.Unicode(10))     # 品牌档次
     description = db.Column(db.UnicodeText)     # 品牌的简介描述
