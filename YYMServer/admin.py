@@ -57,6 +57,8 @@ def init_login():
 
 # Create customized model view class
 class MyModelView(ModelView):
+    column_default_sort = ('id', True)
+    column_display_pk = True
 
     def is_accessible(self):
         return login.current_user.is_authenticated() and (login.current_user.is_admin() or login.current_user.is_operator())
@@ -101,6 +103,7 @@ def uuid_name(obj, file_data):
 
 # 参考：https://github.com/mrjoes/flask-admin/blob/master/examples/forms/simple.py
 class ImageView(MyModelView):
+    column_default_sort = ('create_time', True)
     column_searchable_list = ('path', 'note')
     column_filters = ['id', 'valid', 'type', 'create_time', 'user_id'] + list(column_searchable_list)
 
@@ -180,8 +183,9 @@ def _get_images_info(image_ids_str):
 
 
 class SiteView(MyModelView):
+    column_default_sort = ('update_time', True)
     column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig')
-    column_filters = ['id', 'valid', 'order', 'create_time', 'brand_id', 'logo_id', 'level', 'stars', 'popular',
+    column_filters = ['id', 'valid', 'order', 'create_time', 'user_id', 'brand_id', 'logo_id', 'level', 'stars', 'popular',
                       'review_num', 'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
                       'phone', 'transport', 'description', 'area_id', 'keywords', 'images_num',
                       ] + list(column_searchable_list)
@@ -191,6 +195,14 @@ class SiteView(MyModelView):
                          'phone', 'transport', 'description', 'longitude', 'latitude', 'area', 'address',
                          'address_orig', 'keywords', 'top_images', 'images_num', 'gate_images', 'data_source',
                          )
+    column_list = ('id', 
+                   'valid', 'order', 'create_time', 'update_time', 'user', 'code', 'name', 'name_orig', 
+                   'brand', 'logo', 'level', 'stars', 'popular', 'review_num', 'categories',
+                   'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
+                   'phone', 'transport', 'description', 'longitude', 'latitude', 
+                   'country', 'city', 'area', 'address',
+                   'address_orig', 'keywords', 'top_images', 'images_num', 'gate_images', 'data_source',
+                   )
 
     def create_model(self, form):
         if not form.user.data:
@@ -235,14 +247,33 @@ class SiteView(MyModelView):
             return ''
         return Markup(_get_images_code(_get_images_info(model.gate_images)))
 
+    def _list_country(view, context, model, name):
+        country_name = ''
+        try:
+            country_name = model.area.city.country.name
+        except:
+            pass
+        return country_name
+
+    def _list_city(view, context, model, name):
+        city_name = ''
+        try:
+            city_name = model.area.city.name
+        except:
+            pass
+        return city_name
+
     column_formatters = {
         'logo': _list_thumbnail_logo,
         'top_images':_list_thumbnail_top_images,
         'gate_images':_list_thumbnail_gate_images,
+        'country':_list_country,
+        'city':_list_city,
     }
 
 
 class ReviewView(MyModelView):
+    column_default_sort = ('update_time', True)
     column_searchable_list = ('keywords',)
     column_filters = ['id', 'valid', 'selected', 'published', 'publish_time', 'update_time', 'user_id',
                       'stars', 'content', 'total', 'currency', 'site_id', 'like_num', 'comment_num',
@@ -255,6 +286,7 @@ class ReviewView(MyModelView):
 
 
 class CommentView(MyModelView):
+    column_default_sort = ('update_time', True)
     column_searchable_list = ()
     column_filters = ['id', 'valid', 'publish_time', 'update_time', 'review_id', 'article_id', 'user_id', 'content'
                       ] + list(column_searchable_list)
@@ -276,6 +308,7 @@ class BrandView(MyModelView):
 
 
 class RoleView(MyModelView):
+    column_default_sort = None
     column_searchable_list = ('name',)
     column_filters = ['id'] + list(column_searchable_list)
 
@@ -284,6 +317,7 @@ class RoleView(MyModelView):
 
 
 class UserView(MyModelView):
+    column_default_sort = None
     column_searchable_list = ('name', 'username', 'mobile')
     column_filters = ['id', 'create_time', 'update_time', 'icon_id', 'gender', 'level', 'exp', 'follow_num',
                       'fans_num', 'like_num', 'share_num', 'review_num', 'favorite_num', 'badges',
@@ -302,6 +336,7 @@ class ShareRecordView(MyModelView):
 
 
 class TipsView(MyModelView):
+    column_default_sort = ('update_time', True)
     column_searchable_list = ('content', )
     column_filters = ['id', 'valid', 'create_time', 'update_time', 'user_id', 'city_id'] + list(column_searchable_list)
 
@@ -312,6 +347,7 @@ class TipsView(MyModelView):
 
 
 class ArticleView(MyModelView):
+    column_default_sort = ('update_time', True)
     column_searchable_list = ('title', 'keywords', 'content')
     column_filters = ['id', 'valid', 'order', 'create_time', 'update_time', 'user_id', 'comment_num'] + list(column_searchable_list)
 
@@ -322,6 +358,7 @@ class ArticleView(MyModelView):
 
 
 class MessageView(MyModelView):
+    column_default_sort = ('create_time', True)
     column_searchable_list = ('content', 'group_key')
     column_filters = ['id', 'valid', 'create_time', 'sender_user_id'] + list(column_searchable_list)
 
