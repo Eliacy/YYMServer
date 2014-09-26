@@ -122,8 +122,12 @@ class ImageView(MyModelView):
     def _list_thumbnail(view, context, model, name):
         if not model.path:
             return ''
-        return Markup('%d, %s<br/><img src="%s">' % (model.id, model.path, url_for('static',
-                                                 filename=admin_form.thumbgen_filename(model.path))))
+        return Markup('%d, %s<br/><a href="%s" target="_blank"><img src="%s"></a>' % 
+                         (model.id, 
+                          model.path, 
+                          url_for('static', filename=model.path),
+                          url_for('static', filename=admin_form.thumbgen_filename(model.path)),
+                          ))
 
     column_formatters = {
         'path': _list_thumbnail
