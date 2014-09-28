@@ -207,18 +207,19 @@ def _get_images_info(image_ids_str):
 class SiteView(MyModelView):
     column_default_sort = ('update_time', True)
     column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig')
-    column_filters = ['id', 'valid', 'order', 'create_time', 'user_id', 'brand_id', 'logo_id', 'level', 'stars', 'popular',
+    column_filters = ['id', 'valid', 'order', 'create_time', 'create_user_id', 'update_user_id', 'brand_id', 
+                      'logo_id', 'level', 'stars', 'popular',
                       'review_num', 'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
                       'phone', 'transport', 'description', 'area_id', 'keywords', 'images_num',
                       ] + list(column_searchable_list)
-    form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'user', 'code', 'name', 'name_orig', 
+    form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'create_user', 'update_user', 'code', 'name', 'name_orig', 
                          'brand', 'logo', 'level', 'stars', 'popular', 'review_num', 'reviews', 'categories',
                          'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
                          'phone', 'transport', 'description', 'longitude', 'latitude', 'area', 'address',
                          'address_orig', 'keywords', 'top_images', 'images_num', 'gate_images', 'data_source',
                          )
     column_list = ('id', 
-                   'valid', 'order', 'create_time', 'update_time', 'user', 'code', 'name', 'name_orig', 
+                   'valid', 'order', 'create_time', 'update_time', 'create_user', 'update_user', 'code', 'name', 'name_orig', 
                    'brand', 'logo', 'level', 'stars', 'popular', 'review_num', 'categories',
                    'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
                    'phone', 'transport', 'description', 'longitude', 'latitude', 
@@ -227,9 +228,14 @@ class SiteView(MyModelView):
                    )
 
     def create_model(self, form):
-        if not form.user.data:
-            form.user.data = login.current_user
+        if not form.create_user.data:
+            form.create_user.data = login.current_user
+        form.update_user.data = login.current_user
         return super(SiteView, self).create_model(form)
+
+    def update_model(self, form, model):
+        form.update_user.data = login.current_user
+        return super(SiteView, self).update_model(form, model)
 
     def get_one(self, id):
         ''' ToDo：一个脏补丁，用来显示店铺相关的各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
@@ -295,7 +301,7 @@ class SiteView(MyModelView):
 
     # 临时代码：展示表单验证实现方法
     def startswith_s(form, field):
-        if not field.data.startswith('S'):
+        if field.data and not field.data.startswith('S'):
             raise validators.ValidationError(u'本项必须以"S"开头！这是一个演示表单验证功能的示例。')
 
     form_args = dict(

@@ -82,8 +82,10 @@ class Site(db.Model):   # 店铺或景点等 POI
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据最初创建时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # POI 信息上传人
-    user = db.relationship('User', backref=db.backref('sites', lazy='dynamic'), foreign_keys=[user_id])
+    create_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # POI 信息上传人
+    create_user = db.relationship('User', backref=db.backref('created_sites', lazy='dynamic'), foreign_keys=[create_user_id])
+    update_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # POI 信息最后修改人
+    update_user = db.relationship('User', backref=db.backref('updated_sites', lazy='dynamic'), foreign_keys=[update_user_id])
     code = db.Column(db.String(20))     # POI 的内部运营编号
     name = db.Column(db.Unicode(80))        # POI 的名字
     name_orig = db.Column(db.Unicode(80))       # POI 的当地文字原名
