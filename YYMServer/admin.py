@@ -3,6 +3,8 @@
 import os.path
 import uuid
 
+import PIL
+
 from flask import url_for, redirect, request
 from jinja2 import Markup
 from werkzeug import secure_filename
@@ -98,7 +100,16 @@ init_login()
 
 def uuid_name(obj, file_data):
     parts = os.path.splitext(file_data.filename)
-    return secure_filename('%s%s' % (uuid.uuid4(), parts[1]))
+    # flask-admin 的文件上传组件似乎总是在实际存储时把文件名弄成小写：
+    return secure_filename('%s%s' % (uuid.uuid4(), parts[1].lower()))
+
+def get_image_size(path):
+    full_path = os.path.join(file_path, path)
+    if path and os.path.exists(full_path):
+        im = PIL.Image.open(full_path)
+        return '%dx%d' % (im.size)
+    else:
+        return '[[==IMAGE DO NOT EXIST!!!==]]'
 
 
 # 参考：https://github.com/mrjoes/flask-admin/blob/master/examples/forms/simple.py
@@ -122,8 +133,9 @@ class ImageView(MyModelView):
     def _list_thumbnail(view, context, model, name):
         if not model.path:
             return ''
-        return Markup('%d, %s<br/><a href="%s" target="_blank"><img src="%s"></a>' % 
-                         (model.id, 
+        return Markup('%d, (%s)<br/>%s<br/><a href="%s" target="_blank"><img src="%s"></a>' % 
+                         (model.id,
+                          get_image_size(model.path),
                           model.path, 
                           url_for('static', filename=model.path),
                           url_for('static', filename=admin_form.thumbgen_filename(model.path)),
@@ -147,8 +159,12 @@ def _get_images_code(images):
     image_code = ''
     for i in images:
         key, image_path = i
-        image = (key, url_for('static', filename=image_path), url_for('static', filename=admin_form.thumbgen_filename(image_path)))
-        image_code += '''<td  align="center" valign="top">[id: %d]<br/><a href="%s" target="_blank"><img src="%s"/></a></td>\n''' % image
+        image = (key, 
+                 get_image_size(image_path), 
+                 url_for('static', filename=image_path), 
+                 url_for('static', filename=admin_form.thumbgen_filename(image_path)),
+                 )
+        image_code += '''<td  align="center" valign="top">[id: %d] (%s)<br/><a href="%s" target="_blank"><img src="%s"/></a></td>\n''' % image
     code = '''
     <div>
       <table width="%d" cellpadding="5"><tr>

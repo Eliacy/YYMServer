@@ -118,7 +118,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     top_images = db.Column(db.String(100))      # 热门图片的 id 列表，英文空格分隔
     images_num = db.Column(db.SmallInteger, default=0)    # 该店铺拥有的晒单评论相关图片数量，是一个缓存值
     gate_images = db.Column(db.String(100))     # 店铺门脸展示图片的 id 列表，英文空格分隔
-    data_source = db.Column(db.Unicode(200))    # 本 POI 数据采集的原始网址
+    data_source = db.Column(db.Unicode(500))    # 本 POI 数据采集的原始网址
 
     def __unicode__(self):
         return u'<Site %s>' % self.name
