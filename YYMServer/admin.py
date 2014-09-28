@@ -275,6 +275,15 @@ class SiteView(MyModelView):
         'city':_list_city,
     }
 
+    # 临时代码：展示表单验证实现方法
+    def startswith_s(form, field):
+        if not field.data.startswith('S'):
+            raise validators.ValidationError(u'本项必须以"S"开头！这是一个演示表单验证功能的示例。')
+
+    form_args = dict(
+        code=dict(validators=[startswith_s])
+    )
+
 
 class ReviewView(MyModelView):
     column_default_sort = ('update_time', True)
