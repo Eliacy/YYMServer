@@ -13,6 +13,7 @@ from flask.ext.restful.representations.json import output_json
 output_json.func_globals['settings'] = {'ensure_ascii': False, 'encoding': 'utf8'}
 
 
+# 基础接口：
 class Version(Resource):
     '''服务器版本查询服务。'''
     def get(self):
@@ -29,6 +30,33 @@ class Time(Resource):
 api.add_resource(Time, '/rpc/time')
 
 
+# 国家接口：
+country_parser = reqparse.RequestParser()
+country_parser.add_argument('id', type=int)
+
+country_fields = {
+    'id':fields.Integer,
+    'name': fields.String,
+    'order': fields.Integer,
+}
+
+class CountryList(Resource):
+    '''获取全部国家及指定国家名字的服务。'''
+    @hmac_auth('api')
+    @marshal_with(country_fields)
+    def get(self):
+        # ToDo: 需要创建查询缓存！
+        args = country_parser.parse_args()
+        id = args['id']
+        query = db.session.query(Country).filter(Country.valid == True).order_by(Country.order.desc())
+        if id:
+            query = query.filter(Country.id == id)
+        return query.all()
+
+api.add_resource(CountryList, '/rpc/countries')
+
+
+# POI 接口：
 site_fields = {
     'name': fields.String,
     'address': fields.String,

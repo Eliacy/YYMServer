@@ -17,7 +17,7 @@ class Real(db.REAL):
 class Country(db.Model):   # 国家
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
-    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序
+    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     name = db.Column(db.Unicode(20))    # 国家名称
     extend = db.Column(db.SmallInteger, default=0)      # 确定当搜索该国家下属的城市内店铺时，允许也纳入距离城市中心点多远的店铺（单位：公里，默认：50）
     default_city_id = db.Column(db.Integer, db.ForeignKey('city.id', use_alter=True, name='fk_default_city'))   # 每个国家指定一个默认城市，用于天气预报等
@@ -30,7 +30,7 @@ class Country(db.Model):   # 国家
 class City(db.Model):   # 城市
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
-    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序
+    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     name = db.Column(db.Unicode(20))    # 城市名称
     longitude = db.Column(Real)     # 城市中心点，经度
     latitude = db.Column(Real)      # 城市中心点，纬度
@@ -45,7 +45,7 @@ class City(db.Model):   # 城市
 class Area(db.Model):   # 商区
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
-    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序
+    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     name = db.Column(db.Unicode(20))    # 商区名称
     longitude = db.Column(Real)     # 商圈中心点，经度
     latitude = db.Column(Real)      # 商圈中心点，纬度
@@ -59,7 +59,7 @@ class Area(db.Model):   # 商区
 class Brand(db.Model):   # 品牌
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
-    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序
+    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     name = db.Column(db.Unicode(80))    # 品牌名称
     name_zh = db.Column(db.Unicode(80))    # 品牌中文名称
     source = db.Column(db.Unicode(20))  # 发源地
@@ -79,7 +79,7 @@ categories = db.Table('categories',
 class Site(db.Model):   # 店铺或景点等 POI
     id = db.Column(db.Integer, primary_key=True)        # ToDo：这个 id 应该考虑改成 UUID （已放弃，改为从特定数值开始）。
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
-    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序
+    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据最初创建时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # POI 信息上传人
@@ -134,7 +134,7 @@ event.listen(
 class Category(db.Model):       # POI 分类
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
-    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序
+    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     name = db.Column(db.Unicode(20))    # 类别名称
     parent_id = db.Column(db.Integer, db.ForeignKey('category.id'))
     parent = db.relationship('Category', remote_side=[id], backref='children')
@@ -355,7 +355,7 @@ country_articles = db.Table('country_articles',
 class Article(db.Model):        # 首页推荐文章
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
-    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序
+    order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 晒单评论的作者
