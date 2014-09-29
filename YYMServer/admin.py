@@ -231,10 +231,14 @@ class SiteView(MyModelView):
         if not form.create_user.data:
             form.create_user.data = login.current_user
         form.update_user.data = login.current_user
+        if form.brand.data:
+            form.level.data = form.brand.data.level
         return super(SiteView, self).create_model(form)
 
     def update_model(self, form, model):
         form.update_user.data = login.current_user
+        if form.brand.data:
+            form.level.data = form.brand.data.level
         return super(SiteView, self).update_model(form, model)
 
     def get_one(self, id):
@@ -342,6 +346,18 @@ class TagAlikeView(MyModelView):
 class BrandView(MyModelView):
     column_searchable_list = ('name', 'name_zh', 'description')
     column_filters = ['id', 'valid', 'order', 'source', 'level'] + list(column_searchable_list)
+
+    def create_model(self, form):
+        if form.sites.data:
+            for site in form.sites.data:
+                site.level = form.level.data
+        return super(BrandView, self).create_model(form)
+
+    def update_model(self, form, model):
+        if form.sites.data:
+            for site in form.sites.data:
+                site.level = form.level.data
+        return super(BrandView, self).update_model(form, model)
 
 
 class RoleView(MyModelView):
