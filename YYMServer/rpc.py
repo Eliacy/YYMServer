@@ -30,6 +30,15 @@ class Time(Resource):
 api.add_resource(Time, '/rpc/time')
 
 
+# 城市接口：
+city_fields = {
+    'id':fields.Integer,
+    'name': fields.String,
+    'order': fields.Integer,
+    'longitude': fields.Float,
+    'latitude': fields.Float,
+}
+
 # 国家接口：
 country_parser = reqparse.RequestParser()
 country_parser.add_argument('id', type=int)
@@ -38,6 +47,8 @@ country_fields = {
     'id':fields.Integer,
     'name': fields.String,
     'order': fields.Integer,
+    'default_city_id': fields.Integer,
+    'cities': fields.List(fields.Nested(city_fields), attribute='valid_cities'),
 }
 
 class CountryList(Resource):
@@ -54,7 +65,11 @@ class CountryList(Resource):
         query = db.session.query(Country).filter(Country.valid == True).order_by(Country.order.desc())
         if id:
             query = query.filter(Country.id == id)
-        return query.all()
+        result = []
+        for country in query:
+            country.valid_cities = country.cities.filter(City.valid == True).order_by(City.order.desc()).all()
+            result.append(country)
+        return result
 
     @hmac_auth('api')
     @marshal_with(country_fields)
