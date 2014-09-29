@@ -101,7 +101,7 @@ init_login()
 def uuid_name(obj, file_data):
     parts = os.path.splitext(file_data.filename)
     extension = parts[1].lower()
-    extension = 'jpg' if extension == 'jpeg' else extension
+    extension = '.jpg' if extension == '.jpeg' else extension
     # flask-admin 的文件上传组件似乎总是在实际存储时把文件名弄成小写：
     return secure_filename('%s%s' % (uuid.uuid4(), extension))
 
