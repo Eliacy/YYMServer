@@ -42,16 +42,26 @@ country_fields = {
 
 class CountryList(Resource):
     '''获取全部国家及指定国家名字的服务。'''
-    @hmac_auth('api')
-    @marshal_with(country_fields)
-    def get(self):
-        # ToDo: 需要创建查询缓存！
-        args = country_parser.parse_args()
-        id = args['id']
+
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    @cache.memoize()
+    def _get(self, id=None):
         query = db.session.query(Country).filter(Country.valid == True).order_by(Country.order.desc())
         if id:
             query = query.filter(Country.id == id)
         return query.all()
+
+    @hmac_auth('api')
+    @marshal_with(country_fields)
+    def get(self):
+        args = country_parser.parse_args()
+        id = args['id']
+        return self._get(id)
 
 api.add_resource(CountryList, '/rpc/countries')
 

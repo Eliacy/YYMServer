@@ -8,11 +8,12 @@ SECRET_KEY = 'YouYouMM_and_KeshaQ_SEC_KEY_408'
 STATIC_FOLDER = 'files'
 # 数据库连接设置：
 SQLALCHEMY_DATABASE_URI = 'mysql://root:root@127.0.0.1:8889/keshaq'
-# Cache 服务设置：
+# Cache 服务设置：详细参数参考 http://pythonhosted.org/Flask-Cache/
 CACHE_TYPE = 'simple'
-#CACHE_TYPE = 'redis'
-#CACHE_HOST = '127.0.0.1'
-#CACHE_PORT = '6379'
-#CACHE_PASSWORD = ''
+CACHE_DEFAULT_TIMEOUT = 3600
+#CACHE_REDIS_TYPE = 'redis'
+#CACHE_REDIS_HOST = '127.0.0.1'
+#CACHE_REDIS_PORT = '6379'
+#CACHE_REDIS_PASSWORD = ''
 
 

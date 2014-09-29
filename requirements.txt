@@ -1,5 +1,6 @@
 Flask
 Flask-Admin
+Flask-Cache
 Flask-HmacAuth
 Flask-Login
 Flask-RESTful
