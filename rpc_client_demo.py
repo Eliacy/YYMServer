@@ -22,8 +22,8 @@ print 'time diff:', time_diff, '\n'
 
 # 正式调用服务器接口：
 timestamp = int(time.time() - time_diff - 1)
-path_and_query = "/rpc/accumulator?timestamp="+str(timestamp)+"&key=4nM^mLISvh&a=10&b=100"
-hasher = hmac.new("Yu8{Lnka%Y", digestmod=hashlib.sha1, msg=path_and_query)
+path_and_query = "/rpc/accumulator?timestamp="+str(timestamp)+"&key=demo_key&a=10&b=100"
+hasher = hmac.new("demo_secret", digestmod=hashlib.sha1, msg=path_and_query)
 # hasher.update(request.body)   # ToDo: 如果是 POST 方法发送的，则 POST 的 body 也需要加入签名内容！
 sig = hasher.hexdigest()
 print 'sig:', sig

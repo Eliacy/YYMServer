@@ -47,7 +47,8 @@ api = restful.Api(app)
 # 准备 api 签名机制
 accountmgr = DictAccountBroker(
     accounts={
-        '4nM^mLISvh': {'secret': 'Yu8{Lnka%Y', 'rights': ['api']},
+        '4nM^mLISvh': {'secret': 'Yu8{Lnka%Y', 'rights': ['api', 'demo']},
+        'demo_key': {'secret': 'demo_secret', 'rights': ['demo']},
     })
 hmacmgr = HmacManager(accountmgr, app, account_id=lambda x: x.values.get('key'), timestamp=lambda x: x.values.get('timestamp'))
 

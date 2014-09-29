@@ -106,7 +106,7 @@ cac_parser.add_argument('b', type=int, help=u'被相加的第二个数字')
 
 
 class Calculator(Resource):
-    @hmac_auth('api')
+    @hmac_auth('demo')
     def get(self):
         args = cac_parser.parse_args()
         return {'restful_result': args['a'] + args['b']}
