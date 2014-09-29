@@ -30,6 +30,21 @@ class Time(Resource):
 api.add_resource(Time, '/rpc/time')
 
 
+# 常用公共辅助：
+id_parser = reqparse.RequestParser()
+id_parser.add_argument('id', type=int)
+
+
+# 商区接口：
+area_fields = {
+    'id':fields.Integer,
+    'name': fields.String,
+    'order': fields.Integer,
+    'longitude': fields.Float,
+    'latitude': fields.Float,
+}
+
+
 # 城市接口：
 city_fields = {
     'id':fields.Integer,
@@ -39,10 +54,43 @@ city_fields = {
     'latitude': fields.Float,
 }
 
-# 国家接口：
-country_parser = reqparse.RequestParser()
-country_parser.add_argument('id', type=int)
+nested_city_fields = {
+    'areas': fields.List(fields.Nested(area_fields), attribute='valid_areas'),
+}
+nested_city_fields.update(city_fields)
 
+
+class CityList(Resource):
+    '''获取全部城市及指定城市名字的服务。'''
+
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    @cache.memoize()
+    def _get(self, id=None):
+        query = db.session.query(City).filter(City.valid == True).order_by(City.order.desc())
+        if id:
+            query = query.filter(City.id == id)
+        result = []
+        for city in query:
+            city.valid_areas = city.areas.filter(Area.valid == True).order_by(Area.order.desc()).all()
+            result.append(city)
+        return result
+
+    @hmac_auth('api')
+    @marshal_with(nested_city_fields)
+    def get(self):
+        args = id_parser.parse_args()
+        id = args['id']
+        return self._get(id)
+
+api.add_resource(CityList, '/rpc/cities')
+
+
+# 国家接口：
 country_fields = {
     'id':fields.Integer,
     'name': fields.String,
@@ -74,7 +122,7 @@ class CountryList(Resource):
     @hmac_auth('api')
     @marshal_with(country_fields)
     def get(self):
-        args = country_parser.parse_args()
+        args = id_parser.parse_args()
         id = args['id']
         return self._get(id)
 
