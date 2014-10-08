@@ -139,7 +139,7 @@ class Category(db.Model):       # POI 分类
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     name = db.Column(db.Unicode(20))    # 类别名称
     parent_id = db.Column(db.Integer, db.ForeignKey('category.id'))
-    parent = db.relationship('Category', remote_side=[id], backref='children')
+    parent = db.relationship('Category', remote_side=[id], backref=db.backref('children', lazy='dynamic'))
 
     def __unicode__(self):
         return u'<Category %s>' % self.name
