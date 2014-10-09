@@ -2,7 +2,7 @@
 
 import time
 
-from flask import jsonify, request
+from flask import jsonify, request, url_for
 from flask.ext.restful import reqparse, Resource, fields, marshal_with, marshal
 from flask.ext.hmacauth import hmac_auth
 
@@ -33,6 +33,11 @@ api.add_resource(Time, '/rpc/time')
 # 常用公共辅助：
 id_parser = reqparse.RequestParser()
 id_parser.add_argument('id', type=int)
+
+
+class ImageUrl(fields.Raw):
+    def format(self, image):
+        return url_for('static', filename=image.path, _external=True)
 
 
 # 分类及子分类接口：
@@ -187,21 +192,61 @@ site_parser.add_argument('order', type=int)     # 0 表示默认的“智能排�
 
 
 site_fields_brief = {
+    'logo': ImageUrl(attribute='logo_image'),   # 没有就是 null
     'name': fields.String,
+    'level': fields.String,
+    'stars': fields.Float,
+    'review_num': fields.Integer,
+    'longitude': fields.Float,
+    'latitude': fields.Float,
     'address': fields.String,
+    'keywords': fields.List(fields.String, attribute='formated_keywords'),
+    'top_images': fields.List(ImageUrl, attribute='valid_top_images'),
+}
+site_fields = {
     'business_hours': fields.String,
     'description': fields.String,
 }
-site_fields = {}
 site_fields.update(site_fields_brief)
 
 class SiteList(Resource):
     '''“附近”搜索功能对应的 POI 列表获取。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    @cache.memoize()
+    def _get(self, brief=None, offset=None, limit=None, id=None, keywords=None, area=None, city=None, range=None, category=None, order=None):
+        query = db.session.query(Site).filter(Site.valid == True)
+        query = query.order_by(Site.order.desc())
+        if id:
+            query = query.filter(Site.id == id)
+        result = []
+        for site in query:
+            site.stars = site.stars or 3.0      # POI 无星级时输出默认值。
+            site.logo_image = site.logo
+            site.formated_keywords = [] if not site.keywords else site.keywords.translate({ord('{'):None, ord('}'):None}).split()
+            valid_top_images = []
+            if site.top_images:
+                for image_id in site.top_images:
+                    image = db.session.query(Image).get(image_id)
+                    if image:
+                        valid_top_images.append(image)
+            site.valid_top_images = valid_top_images[:5]
+            result.append(site)
+        return result
+
 #    @hmac_auth('api')
-#    @marshal_with(site_fields)
     def get(self):
-        results = db.session.query(Site).first()
-        return marshal(results, site_fields)
+        args = site_parser.parse_args()
+        brief = args['brief']
+        result = self._get(brief, args['offset'], args['limit'], args['id'], args['keywords'], args['area'], args['city'], args['range'], args['category'], args['order'])
+        if brief:
+            return marshal(result, site_fields_brief)
+        else:
+            return marshal(result, site_fields)
 
 api.add_resource(SiteList, '/rpc/sites')
 
