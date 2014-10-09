@@ -186,13 +186,14 @@ site_parser.add_argument('id', type=int)
 site_parser.add_argument('keywords', type=unicode)  # 搜索关键词，空格或英文加号分隔，默认的关系是“且”。搜索时大小写不敏感。
 site_parser.add_argument('area', type=int)      # 商圈 id。
 site_parser.add_argument('city', type=int)      # 城市 id。
-site_parser.add_argument('range', type=int)     # 范围公里数。如果是 -1，则表示“全城”。如果城市、商圈、范围都是空，则表示默认的“智能范围”。
+site_parser.add_argument('range', type=int)     # 范围公里数。如果是 -1，则表示“全城”。如果商圈、范围都是空，则表示默认的“智能范围”。
 site_parser.add_argument('category', type=int)  # 分类 id。为空则表示“全部分类”。
 site_parser.add_argument('order', type=int)     # 0 表示默认的“智能排序”，1 表示“距离最近”（约近约靠前），2 表示“人气最高”（点击量由高到低），3 表示“评价最好”（评分由高到低）。
 site_parser.add_argument('longitude', type=float)       # 用户当前位置的经度
 site_parser.add_argument('latitude', type=float)        # 用户当前位置的维度
 
 site_fields_brief = {
+    'id':fields.Integer,
     'logo': ImageUrl(attribute='logo_image'),   # 没有就是 null
     'name': fields.String,
     'level': fields.String,
@@ -203,13 +204,27 @@ site_fields_brief = {
     'address': fields.String,
     'keywords': fields.List(fields.String, attribute='formated_keywords'),
     'top_images': fields.List(ImageUrl, attribute='valid_top_images'),
+    'popular': fields.Integer,
 }
 site_fields = {
-    'business_hours': fields.String,
-    'description': fields.String,
+    'name_orig': fields.String,
+    'address_orig': fields.String,
+    'gate_images': fields.List(ImageUrl, attribute='valid_gate_images'),
+    'categories': fields.List(fields.String, attribute='valid_categories'),
+    'environment': fields.String,       # 空字符串表示没有
+    'payment': fields.String,   # 空字符串表示没有
+    'menu': fields.String,      # 空字符串表示没有
+    'ticket': fields.String,    # 空字符串表示没有
+    'booking': fields.String,   # 空字符串表示没有
+    'business_hours': fields.String,    # 空字符串表示没有
+    'phone': fields.String,     # 空字符串表示没有
+    'transport': fields.String,         # 空字符串表示没有
+    'description': fields.String,       # 空字符串表示没有
+    'images_num': fields.Integer,
 }
 site_fields.update(site_fields_brief)
 
+# ToDo: 欠一个搜索关键字推荐接口！
 class SiteList(Resource):
     '''“附近”搜索功能对应的 POI 列表获取。'''
     def __repr__(self):
@@ -220,6 +235,7 @@ class SiteList(Resource):
 
     @cache.memoize()
     def _get(self, brief=None, id=None, keywords=None, area=None, city=None, range=None, category=None, order=None, geohash=None):
+        # ToDo: Site 表中各计数缓存值的数据没有做动态更新，例如晒单评论数！
         if not area and (range == None or range == 0):
             range = 5   # ToDo: 如果商圈和 range 都没有设置，表示智能范围（注意：range 为 -1 时表示全城搜索）。这里暂时只是把搜索范围置成5公里了。
         query = db.session.query(Site).filter(Site.valid == True)
@@ -254,6 +270,15 @@ class SiteList(Resource):
         result = []
         for site in query:
             site.stars = site.stars or 0.0      # POI 无星级时输出0，表示暂无评分。
+            site.environment = site.environment or ''
+            site.payment = site.payment or ''
+            site.menu = site.menu or ''
+            site.ticket = site.ticket or ''
+            site.booking = site.booking or ''
+            site.business_hours = site.business_hours or ''
+            site.phone = site.phone or ''
+            site.transport = site.transport or ''
+            site.description = site.description or ''
             site.logo_image = site.logo
             site.formated_keywords = [] if not site.keywords else site.keywords.translate({ord('{'):None, ord('}'):None}).split()
             valid_top_images = []
@@ -263,10 +288,19 @@ class SiteList(Resource):
                     if image:
                         valid_top_images.append(image)
             site.valid_top_images = valid_top_images[:5]
+            if not brief:
+                valid_gate_images = []
+                if site.gate_images:
+                    for image_id in site.gate_images:
+                        image = db.session.query(Image).get(image_id)
+                        if image:
+                            valid_gate_images.append(image)
+                site.valid_gate_images = valid_gate_images[:1]
+                site.valid_categories = site.categories.filter(Category.parent_id != None).all()
             result.append(site)
         return result
 
-#    @hmac_auth('api')
+    @hmac_auth('api')
     def get(self):
         args = site_parser.parse_args()
         # ToDo: 基于距离范围的搜索暂时没有实现！

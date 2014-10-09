@@ -97,7 +97,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     stars = db.Column(db.Float)         # POI 的评论星级，由于是统计结果，因而存在半颗星等小数。
     popular = db.Column(db.Integer, default=0)    # 统计店铺人气指数，用于搜索排序，每天更新！
     review_num = db.Column(db.SmallInteger, default=0)    # 该店铺拥有的晒单评论数量，是一个缓存值
-    categories = db.relationship('Category', secondary=categories,
+    categories = db.relationship('Category', secondary=categories, lazy='dynamic',
                                  backref=db.backref('sites', lazy='dynamic'))
     environment = db.Column(db.Unicode(50))      # 环境特点的文字描述
     flowrate = db.Column(db.Unicode(20))        # 人流量情况
