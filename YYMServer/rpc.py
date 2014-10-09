@@ -296,7 +296,7 @@ class SiteList(Resource):
                         if image:
                             valid_gate_images.append(image)
                 site.valid_gate_images = valid_gate_images[:1]
-                site.valid_categories = [category for category in site.categories if category.parent_id != None]
+                site.valid_categories = [category.name for category in site.categories if category.parent_id != None]
             result.append(site)
         return result
 
