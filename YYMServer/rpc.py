@@ -189,6 +189,8 @@ site_parser.add_argument('city', type=int)      # 城市 id。
 site_parser.add_argument('range', type=int)     # 范围公里数。如果是 -1，则表示“全城”。如果城市、商圈、范围都是空，则表示默认的“智能范围”。
 site_parser.add_argument('category', type=int)  # 分类 id。为空则表示“全部分类”。
 site_parser.add_argument('order', type=int)     # 0 表示默认的“智能排序”，1 表示“距离最近”（约近约靠前），2 表示“人气最高”（点击量由高到低），3 表示“评价最好”（评分由高到低）。
+site_parser.add_argument('longitude', type=float)       # 用户当前位置的经度
+site_parser.add_argument('latitude', type=float)        # 用户当前位置的维度
 
 site_fields_brief = {
     'logo': ImageUrl(attribute='logo_image'),   # 没有就是 null
@@ -217,9 +219,19 @@ class SiteList(Resource):
         return '%s' % self.__class__.__name__
 
     @cache.memoize()
-    def _get(self, brief=None, offset=None, limit=None, id=None, keywords=None, area=None, city=None, range=None, category=None, order=None):
+    def _get(self, brief=None, id=None, keywords=None, area=None, city=None, range=None, category=None, order=None, geohash=None):
+        if not area and (range == None or range == 0):
+            range = 5   # ToDo: 如果商圈和 range 都没有设置，表示智能范围（注意：range 为 -1 时表示全城搜索）。这里暂时只是把搜索范围置成5公里了。
         query = db.session.query(Site).filter(Site.valid == True)
-        query = query.order_by(Site.order.desc())
+        if order:
+            if order == 1:      # 距离最近：
+                pass
+            elif order == 2:    # 人气最高：
+                query = query.order_by(Site.popular.desc())
+            elif order == 3:    # 评价最好：
+                query = query.order_by(Site.stars.desc())
+            else:       # 这是默认的“智能排序”:
+                query = query.order_by(Site.order.desc())
         if id:
             query = query.filter(Site.id == id)
         if area:
@@ -227,6 +239,8 @@ class SiteList(Resource):
         if city:
             query = query.join(Site.area).filter(Area.city_id == city)
             # ToDo: 除了直接使用 city id 判断外，还应该把城市中心点距离一定范围内（即使是属于其他城市的）的 POI 纳入搜索结果！
+        if category:
+            query = query.join(Site.categories).filter(Category.id == category)
         if keywords:
             # 搜索关键词目前支持在 POI 名称、地址的中文、原文中进行模糊搜索。
             keywords = keywords.translate({ord('+'):' '})
@@ -237,13 +251,9 @@ class SiteList(Resource):
                                      Site.address.ilike(u'%{}%'.format(keyword)) |
                                      Site.address_orig.ilike(u'%{}%'.format(keyword)) 
                                     )
-        if offset:
-            query = query.offset(offset)
-        if limit:
-            query = query.limit(limit)
         result = []
         for site in query:
-            site.stars = site.stars or 3.0      # POI 无星级时输出默认值。
+            site.stars = site.stars or 0.0      # POI 无星级时输出0，表示暂无评分。
             site.logo_image = site.logo
             site.formated_keywords = [] if not site.keywords else site.keywords.translate({ord('{'):None, ord('}'):None}).split()
             valid_top_images = []
@@ -259,8 +269,20 @@ class SiteList(Resource):
 #    @hmac_auth('api')
     def get(self):
         args = site_parser.parse_args()
+        # ToDo: 基于距离范围的搜索暂时没有实现！
+        # ToDo: 按距离最近排序暂时没有实现！
+        longitude = args['longitude']
+        latitude = args['latitude']
+        geohash = None
+        # 其他基本搜索条件处理：
         brief = args['brief']
-        result = self._get(brief, args['offset'], args['limit'], args['id'], args['keywords'], args['area'], args['city'], args['range'], args['category'], args['order'])
+        result = self._get(brief, args['id'], args['keywords'], args['area'], args['city'], args['range'], args['category'], args['order'], geohash)
+        offset = args['offset']
+        if offset:
+            result = result[offset:]
+        limit = args['limit']
+        if limit:
+            result = result[:limit]
         if brief:
             return marshal(result, site_fields_brief)
         else:
