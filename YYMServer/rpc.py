@@ -183,13 +183,12 @@ site_parser.add_argument('brief', type=int)     # 大于 0 表示只输出概要
 site_parser.add_argument('offset', type=int)    # offset 偏移量。
 site_parser.add_argument('limit', type=int)     # limit 限制，与 SQL 语句中的 limit 含义一致。
 site_parser.add_argument('id', type=int)
-site_parser.add_argument('keywords', type=str)  # 搜索关键词，空格分隔，默认的关系是“且”。
+site_parser.add_argument('keywords', type=unicode)  # 搜索关键词，空格或英文加号分隔，默认的关系是“且”。搜索时大小写不敏感。
 site_parser.add_argument('area', type=int)      # 商圈 id。
 site_parser.add_argument('city', type=int)      # 城市 id。
 site_parser.add_argument('range', type=int)     # 范围公里数。如果是 -1，则表示“全城”。如果城市、商圈、范围都是空，则表示默认的“智能范围”。
 site_parser.add_argument('category', type=int)  # 分类 id。为空则表示“全部分类”。
 site_parser.add_argument('order', type=int)     # 0 表示默认的“智能排序”，1 表示“距离最近”（约近约靠前），2 表示“人气最高”（点击量由高到低），3 表示“评价最好”（评分由高到低）。
-
 
 site_fields_brief = {
     'logo': ImageUrl(attribute='logo_image'),   # 没有就是 null
@@ -223,6 +222,25 @@ class SiteList(Resource):
         query = query.order_by(Site.order.desc())
         if id:
             query = query.filter(Site.id == id)
+        if area:
+            query = query.filter(Site.area_id == area)
+        if city:
+            query = query.join(Site.area).filter(Area.city_id == city)
+            # ToDo: 除了直接使用 city id 判断外，还应该把城市中心点距离一定范围内（即使是属于其他城市的）的 POI 纳入搜索结果！
+        if keywords:
+            # 搜索关键词目前支持在 POI 名称、地址的中文、原文中进行模糊搜索。
+            keywords = keywords.translate({ord('+'):' '})
+            keyword_list = keywords.split()
+            for keyword in keyword_list:
+                query = query.filter(Site.name.ilike(u'%{}%'.format(keyword)) | 
+                                     Site.name_orig.ilike(u'%{}%'.format(keyword)) |
+                                     Site.address.ilike(u'%{}%'.format(keyword)) |
+                                     Site.address_orig.ilike(u'%{}%'.format(keyword)) 
+                                    )
+        if offset:
+            query = query.offset(offset)
+        if limit:
+            query = query.limit(limit)
         result = []
         for site in query:
             site.stars = site.stars or 3.0      # POI 无星级时输出默认值。
