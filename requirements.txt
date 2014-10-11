@@ -10,6 +10,7 @@ SQLAlchemy
 WTForms
 Werkzeug
 MySQL-python
+pytz
 # PIL
 # redis
 

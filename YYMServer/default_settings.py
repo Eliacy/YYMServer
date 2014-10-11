@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+DEBUG = False
+# 设置时区：
+""" 服务器时区应设置为 'Asia/Shanghai' ，否则可能数据出错！"""
 # 强制 json 输出采用 utf-8 ：
 JSON_AS_ASCII = False
 # Create dummy secrey key so we can use flash
