@@ -123,7 +123,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     data_source = db.Column(db.Unicode(500))    # 本 POI 数据采集的原始网址
 
     def __unicode__(self):
-        return u'<Site %s>' % self.name
+        return u'<Site id %d: %s>' % (self.id, self.name)
 
 
 event.listen(

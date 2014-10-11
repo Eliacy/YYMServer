@@ -8,6 +8,7 @@ from flask.ext.hmacauth import hmac_auth
 
 from YYMServer import app, db, cache, api
 from YYMServer.models import *
+from YYMServer.util import get_images
 
 from flask.ext.restful.representations.json import output_json
 output_json.func_globals['settings'] = {'ensure_ascii': False, 'encoding': 'utf8'}
@@ -281,21 +282,15 @@ class SiteList(Resource):
             site.description = site.description or ''
             site.logo_image = site.logo
             site.formated_keywords = [] if not site.keywords else site.keywords.translate({ord('{'):None, ord('}'):None}).split()
-            valid_top_images = []
+            site.valid_top_images = []
             if site.top_images:
-                for image_id in site.top_images:
-                    image = db.session.query(Image).get(image_id)
-                    if image:
-                        valid_top_images.append(image)
-            site.valid_top_images = valid_top_images[:5]
+                site.valid_top_images = get_images(site.top_images)
+            site.valid_top_images = site.valid_top_images[:5]
             if not brief:
-                valid_gate_images = []
+                site.valid_gate_images = []
                 if site.gate_images:
-                    for image_id in site.gate_images:
-                        image = db.session.query(Image).get(image_id)
-                        if image:
-                            valid_gate_images.append(image)
-                site.valid_gate_images = valid_gate_images[:1]
+                    site.valid_gate_images = get_images(site.gate_images)
+                site.valid_gate_images = site.valid_gate_images[:1]
                 site.valid_categories = [category.name for category in site.categories if category.parent_id != None]
             result.append(site)
         return result
@@ -323,6 +318,90 @@ class SiteList(Resource):
             return marshal(result, site_fields)
 
 api.add_resource(SiteList, '/rpc/sites')
+
+
+# 晒单评论接口：
+review_parser = reqparse.RequestParser()
+review_parser.add_argument('brief', type=int)     # 大于 0 表示只输出概要信息即可。
+review_parser.add_argument('selected', type=int)     # 大于 0 表示只输出置顶信息即可（例如 POI 详情页面中的晒单评论），不够 limit 的要求时，会用非置顶信息补足。
+review_parser.add_argument('offset', type=int)    # offset 偏移量。
+review_parser.add_argument('limit', type=int)     # limit 限制，与 SQL 语句中的 limit 含义一致。
+review_parser.add_argument('id', type=int)
+review_parser.add_argument('site', type=int)    # 相关联的 POI id
+
+review_fields_brief = {
+    'id':fields.Integer,
+    'selected':fields.Boolean,
+    'content': fields.String(attribute='brief_content'),   # brief 模式下，会将文字内容截断到特定长度
+    'images': fields.List(ImageUrl, attribute='valid_images'),  # brief 模式下，只会提供一张图片
+    'like_num': fields.Integer,
+    'comment_num': fields.Integer,
+    'images_num': fields.Integer,
+}
+review_fields = {
+}
+review_fields.update(review_fields_brief)
+review_fields['content'] = fields.String        # 非 brief 模式下，提供完整的文字内容
+
+class ReviewList(Resource):
+    '''获取某 POI 的晒单评论列表，或者单独一条晒单评论详情的服务。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    @cache.memoize()
+    def _get(self, brief=None, selected = None, id=None, site=None):
+        # ToDo: Review 表中各计数缓存值的数据没有做动态更新，例如“赞”数！
+        query = db.session.query(Review).filter(Review.valid == True).filter(Review.published == True)
+        query = query.order_by(Review.publish_time.desc())
+        if id:
+            query = query.filter(Review.id == id)
+        if site:
+            query = query.filter(Review.site_id == site)
+        result = []
+        if selected == None:
+            # ToDo: 后台需要有个定时任务，将被关注多的 Review 设置成 selected 。
+            pass
+        else:   # 要求只返回 selected 或者只返回一定没被 selected 的内容时：
+            query = query.filter(Review.selected == selected)
+        for review in query:
+            review.images_num = 0 if not review.images else len(review.images.split())
+            review.valid_images = []
+            if review.images:
+                review.valid_images = get_images(review.images)
+            if brief:
+                review.brief_content = review.content[:80]
+                review.valid_images = review.valid_images[:1]
+            result.append(review)
+        return result
+
+#    @hmac_auth('api')
+    def get(self):
+        # 如果 selected 数量不够，就得用没被 selected 的内容来补。
+        args = review_parser.parse_args()
+        brief = args['brief']
+        selected = args['selected']
+        limit = args['limit']
+        if selected:
+            result = self._get(brief, True, args['id'], args['site'])
+            if limit and len(result) < limit:
+                result += self._get(brief, False, args['id'], args['site'])
+        else:
+            result = self._get(brief, None, args['id'], args['site'])
+        offset = args['offset']
+        if offset:
+            result = result[offset:]
+        limit = args['limit']
+        if limit:
+            result = result[:limit]
+        if brief:
+            return marshal(result, review_fields_brief)
+        else:
+            return marshal(result, review_fields)
+
+api.add_resource(ReviewList, '/rpc/reviews')
 
 
 # ==== json 网络服务样例 ====
