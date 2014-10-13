@@ -376,6 +376,7 @@ class RoleView(MyModelView):
 
 
 class UserView(MyModelView):
+    form_excluded_columns = ('images', 'created_sites', 'updated_sites', 'share_records', 'reviews', 'comments', 'articles', 'tips', 'read_records', 'sent_messages', 'messages')
     column_default_sort = None
     column_searchable_list = ('name', 'username', 'mobile')
     column_filters = ['id', 'create_time', 'update_time', 'icon_id', 'gender', 'level', 'exp', 'follow_num',
