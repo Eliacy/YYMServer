@@ -17,7 +17,7 @@ from flask.ext.admin import helpers, expose
 from flask.ext.admin.contrib.sqla import ModelView
 from flask.ext import login
 
-from YYMServer import app, db, file_path
+from YYMServer import app, db, file_path, util
 from YYMServer.models import *
 
 
@@ -159,16 +159,16 @@ class ImageView(MyModelView):
 
 
 def _get_images_code(images):
-    image_code = ''
-    for i in images:
-        key, image_path = i
-        image = (key, 
-                 get_image_size(image_path), 
-                 url_for('static', filename=image_path), 
-                 url_for('static', filename=admin_form.thumbgen_filename(image_path)),
+    image_code = u''
+    for image in images:
+        image = (image.id, 
+                 get_image_size(image.path), 
+                 util.strip_image_note(image.note),
+                 url_for('static', filename=image.path), 
+                 url_for('static', filename=admin_form.thumbgen_filename(image.path)),
                  )
-        image_code += '''<td  align="center" valign="top">[id: %d] (%s)<br/><a href="%s" target="_blank"><img src="%s"/></a></td>\n''' % image
-    code = '''
+        image_code += u'''<td  align="center" valign="top">[id: %d]<br/>(%s)<br/>～%s～<br/><a href="%s" target="_blank"><img src="%s"/></a></td>\n''' % image
+    code = u'''
     <div>
       <table width="%d" cellpadding="5"><tr>
       %s
@@ -179,7 +179,7 @@ def _get_images_code(images):
 def _get_image_rule(label, images):
     ''' images: ((id, image_path), ...) '''
     images_code = _get_images_code(images)
-    code = '''
+    code = u'''
   <div class="control-group">
     <div class="control-label">
       <label for="s2id_autogen2">%s</label>
@@ -189,20 +189,6 @@ def _get_image_rule(label, images):
     </div>
   </div> ''' % (label, images_code)
     return admin_form.rules.HTML(code)
-
-def _get_images_info(image_ids_str):
-    ''' 辅助函数。'''
-    image_ids = ()
-    try:
-        image_ids = map(int, image_ids_str.split(' '))
-    except:
-        pass
-    images = []
-    if image_ids:
-        for image_id in image_ids:
-            image = db.session.query(Image).get(image_id)
-            images.append((image_id, '' if not image else image.path))
-    return images
 
 
 class SiteView(MyModelView):
@@ -250,16 +236,16 @@ class SiteView(MyModelView):
             columns.append(col)
             if col == 'logo':
                 if site.logo_id:
-                    columns.append(_get_image_rule(u'Logo Image', ((site.logo_id, site.logo.path),)))
+                    columns.append(_get_image_rule(u'Logo Image', (site.logo, )))
             elif col == 'top_images':
                 if site.top_images:
                     columns.append(_get_image_rule(u'Top Images', 
-                                                   _get_images_info(site.top_images)
+                                                   util.get_images(site.top_images, valid_only=False)
                                                    ))
             elif col == 'gate_images':
                 if site.gate_images:
                     columns.append(_get_image_rule(u'Gate Images', 
-                                                   _get_images_info(site.gate_images)
+                                                   util.get_images(site.gate_images, valid_only=False)
                                                    ))
         self.form_edit_rules = columns
         self._refresh_cache()
@@ -268,17 +254,17 @@ class SiteView(MyModelView):
     def _list_thumbnail_logo(view, context, model, name):
         if not model.logo_id:
             return ''
-        return Markup(_get_images_code(((model.logo_id, model.logo.path),)))
+        return Markup(_get_images_code((model.logo, )))
 
     def _list_thumbnail_top_images(view, context, model, name):
         if not model.top_images:
             return ''
-        return Markup(_get_images_code(_get_images_info(model.top_images)))
+        return Markup(_get_images_code(util.get_images(model.top_images, valid_only=False)))
 
     def _list_thumbnail_gate_images(view, context, model, name):
         if not model.gate_images:
             return ''
-        return Markup(_get_images_code(_get_images_info(model.gate_images)))
+        return Markup(_get_images_code(util.get_images(model.gate_images, valid_only=False)))
 
     def _list_country(view, context, model, name):
         country_name = ''
@@ -296,12 +282,21 @@ class SiteView(MyModelView):
             pass
         return city_name
 
+    def _list_address_orig(view, context, model, name):
+        if not model.latitude or not model.longitude:
+            return model.address_orig
+        address_orig = model.address_orig or u''
+        return Markup(u'''<a href="%s" target="_blank">查地图</a><br/>''' %
+                (u'''http://www.latlong.net/c/?lat=%f&long=%f''' % (model.latitude, model.longitude))
+                + address_orig)
+
     column_formatters = {
         'logo': _list_thumbnail_logo,
         'top_images':_list_thumbnail_top_images,
         'gate_images':_list_thumbnail_gate_images,
         'country':_list_country,
         'city':_list_city,
+        'address_orig':_list_address_orig,
     }
 
     # 临时代码：展示表单验证实现方法

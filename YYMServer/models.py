@@ -288,7 +288,7 @@ class Image(db.Model):  # 全局图片存储
     valid = db.Column(db.Boolean, default=True)   # 控制是否当作已删除处理（False 表示删除）
     type = db.Column(db.SmallInteger, default=1)   # 图片分类：1 表示店铺 logo；2 表示店铺门脸图；3 表示用户头像；4 表示评论图片。
     path = db.Column(db.String(120))    # 图片所在存储路径
-    note = db.Column(db.Unicode(120))   # 图片的备忘描述文字
+    note = db.Column(db.Unicode(120))   # 图片的备忘描述文字，[] 中的内容是系统自动生成的，通常用于保存图片原始文件名。
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 图片上传时间，以服务器时间为准
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 图片上传人
     user = db.relationship('User', backref=db.backref('images', lazy='dynamic'), foreign_keys=[user_id])
@@ -306,10 +306,10 @@ class Review(db.Model):        # 用户晒单评论
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 晒单评论的作者
     user = db.relationship('User', backref=db.backref('reviews', lazy='dynamic'))
-    at_list = db.Column(db.String(200))         # 本评论将@的用户 id 列表，后端代码需要实现注意控制长度！
+    at_list = db.Column(db.String(200))         # 本评论将@的用户 id 列表，后端代码需要实现注意控制长度！多个 id 使用英文空格分隔。
     stars = db.Column(db.Float)         # POI 的评论星级，出于与统计结果，使用小数表示，实际只能是1～5
     content = db.Column(db.UnicodeText)         # 晒单评论的文本正文，只需分自然段，无需支持特殊格式。
-    images = db.Column(db.String(200))  # 晒单评论的附属图片的 id 列表
+    images = db.Column(db.String(200))  # 晒单评论的附属图片的 id 列表，空格分隔。
     keywords = db.Column(db.Unicode(200))       # 晒单评论关键词，空格分隔
     total = db.Column(db.Integer)       # 本次购物总价
     currency = db.Column(db.Unicode(10))        # 购物总价所对应的币种，这里没有做强制类别限制，需要在接收前端数据前作检查、判断

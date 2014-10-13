@@ -40,6 +40,14 @@ class ImageUrl(fields.Raw):
         return url_for('static', filename=image.path, _external=True)
 
 
+# 用户信息查询接口：
+user_fields_mini = {
+    'id': fields.Integer,
+    'icon': ImageUrl(attribute='icon_image'),   # 没有就是 null
+    'name': fields.String,
+}
+
+
 # 分类及子分类接口：
 category_fields = {
     'id': fields.Integer,
@@ -280,7 +288,7 @@ class SiteList(Resource):
             site.phone = site.phone or ''
             site.transport = site.transport or ''
             site.description = site.description or ''
-            site.logo_image = site.logo
+            site.logo_image = site.logo         # 为了缓存能工作
             site.city_name = '' if not site.area else site.area.city.name
             site.formated_keywords = [] if not site.keywords else site.keywords.translate({ord('{'):None, ord('}'):None}).split()
             site.valid_top_images = []
@@ -342,9 +350,7 @@ review_fields_brief = {
     'like_num': fields.Integer,
     'comment_num': fields.Integer,
     'images_num': fields.Integer,
-    'user_id': fields.Integer,     # 发帖人 id
-    'user_icon': ImageUrl,
-    'user_name': fields.String,
+    'user': fields.Nested(user_fields_mini, attribute='valid_user'),
     'publish_time': util.DateTime,    # RFC822-formatted datetime string in UTC
     'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
     'total': fields.Integer,
@@ -354,6 +360,7 @@ review_fields_brief = {
     'site_name': fields.String,
 }
 review_fields = {
+    'at_list': fields.List(fields.Nested(user_fields_mini), attribute='valid_at_users'),
 }
 review_fields.update(review_fields_brief)
 review_fields['content'] = fields.String        # 非 brief 模式下，提供完整的文字内容
@@ -389,12 +396,15 @@ class ReviewList(Resource):
         if published:
             query = query.filter(Review.published == True)
         for review in query:
-            review.user_icon = review.user.icon
-            review.user_name = review.user.name
+            review.valid_user = review.user
+            review.valid_user.icon_image = review.user.icon
             review.site_name = '' if not review.site else review.site.name
             review.city_name = '' if (not review.site or not review.site.area) else review.site.area.city.name
             review.images_num = 0 if not review.images else len(review.images.split())
             review.currency = review.currency or u'人民币'
+            review.valid_at_users = []
+            if review.at_list:
+                review.valid_at_users = util.get_users(review.at_list)
             review.valid_images = []
             if review.images:
                 review.valid_images = util.get_images(review.images)
