@@ -59,6 +59,7 @@ def init_login():
 
 # Create customized model view class
 class MyModelView(ModelView):
+    list_template = 'my_list.html'
     column_default_sort = ('id', True)
     column_display_pk = True
 

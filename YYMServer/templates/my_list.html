@@ -1,0 +1,6 @@
+{% extends 'admin/model/list.html' %}
+
+{% block model_list_table %}
+    {{ lib.pager(page, num_pages, pager_url) }}
+    {{ super() }}
+{% endblock %}
