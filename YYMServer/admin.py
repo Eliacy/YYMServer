@@ -305,12 +305,22 @@ class SiteView(MyModelView):
     }
 
     # 临时代码：展示表单验证实现方法
-    def startswith_s(form, field):
-        if field.data and not field.data.startswith('S'):
-            raise validators.ValidationError(u'本项必须以"S"开头！这是一个演示表单验证功能的示例。')
+    def check_code(form, field):
+        code = field.data or ''
+        if field.data:
+            if not len(code) == 10:
+                raise validators.ValidationError(u'编号应该刚好是10位！')
+            if not code[0] in 'SAREHU':
+                raise validators.ValidationError(u'编号首字母必须以"S A R E H U"其中一个之一！')
+            if not code[1:3].isalpha():
+                raise validators.ValidationError(u'编号第2、3位的国家标识必须都是字母！')
+            if not code[3:6].isalpha():
+                raise validators.ValidationError(u'编号第4～6位的城市标识必须都是字母！')
+            if not code[6:].isdigit():
+                raise validators.ValidationError(u'编号最后4位的 POI 编号必须都是数字！')
 
     form_args = dict(
-        code=dict(validators=[startswith_s])
+        code=dict(validators=[check_code])
     )
 
 
