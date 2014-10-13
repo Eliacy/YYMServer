@@ -200,11 +200,13 @@ site_parser.add_argument('order', type=int)     # 0 表示默认的“智能排�
 site_parser.add_argument('longitude', type=float)       # 用户当前位置的经度
 site_parser.add_argument('latitude', type=float)        # 用户当前位置的维度
 
-site_fields_brief = {
+site_fields_mini = {
     'id': fields.Integer,
-    'logo': ImageUrl(attribute='logo_image'),   # 没有就是 null
+    'city_name': fields.String,         # POI 所在城市名
     'name': fields.String,
-    'city_name': fields.String,
+}
+site_fields_brief = {
+    'logo': ImageUrl(attribute='logo_image'),   # 没有就是 null
     'level': fields.String,
     'stars': fields.Float,
     'review_num': fields.Integer,
@@ -215,6 +217,7 @@ site_fields_brief = {
     'top_images': fields.List(ImageUrl, attribute='valid_top_images'),
     'popular': fields.Integer,
 }
+site_fields_brief.update(site_fields_mini)
 site_fields = {
     'name_orig': fields.String,
     'address_orig': fields.String,
@@ -355,12 +358,11 @@ review_fields_brief = {
     'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
     'total': fields.Integer,
     'currency': fields.String,
-    'site_id': fields.Integer,
-    'city_name': fields.String,         # POI 所在城市名
-    'site_name': fields.String,
+    'site': fields.Nested(site_fields_mini, attribute='valid_site'),
 }
 review_fields = {
     'at_list': fields.List(fields.Nested(user_fields_mini), attribute='valid_at_users'),
+    'keywords': fields.List(fields.String, attribute='formated_keywords'),
 }
 review_fields.update(review_fields_brief)
 review_fields['content'] = fields.String        # 非 brief 模式下，提供完整的文字内容
@@ -398,10 +400,12 @@ class ReviewList(Resource):
         for review in query:
             review.valid_user = review.user
             review.valid_user.icon_image = review.user.icon
-            review.site_name = '' if not review.site else review.site.name
-            review.city_name = '' if (not review.site or not review.site.area) else review.site.area.city.name
+            review.valid_site = review.site
+            if review.site:
+                review.valid_site.city_name = '' if not review.site.area else review.site.area.city.name
             review.images_num = 0 if not review.images else len(review.images.split())
             review.currency = review.currency or u'人民币'
+            review.formated_keywords = [] if not review.keywords else review.keywords.split()
             review.valid_at_users = []
             if review.at_list:
                 review.valid_at_users = util.get_users(review.at_list)
@@ -414,7 +418,7 @@ class ReviewList(Resource):
             result.append(review)
         return result
 
-#    @hmac_auth('api')
+    @hmac_auth('api')
     def get(self):
         # 如果 selected 数量不够，就得用没被 selected 的内容来补。
         args = review_parser.parse_args()
@@ -439,6 +443,11 @@ class ReviewList(Resource):
             return marshal(result, review_fields)
 
 api.add_resource(ReviewList, '/rpc/reviews')
+
+
+# 二级子评论接口：
+comment_parser = reqparse.RequestParser()
+comment_parser.add_argument('review', type=int)         # 相关联的晒单评论 id
 
 
 # ==== json 网络服务样例 ====
