@@ -214,16 +214,47 @@ class SiteView(MyModelView):
                    'address_orig', 'keywords', 'top_images', 'images_num', 'gate_images', 'data_source',
                    )
 
+    def _replace_full_width_chars(self, text):
+        ''' 辅助函数，替换 ：、空格、－、（、）到英文半角版本。'''
+        if type(text) == unicode:
+            return text.translate({ord(u'：'):u':',
+                                   ord(u'　'):u' ',
+                                   ord(u'－'):u'-',
+                                   ord(u'（'):u'(',
+                                   ord(u'）'):u')',
+                                   })
+        return text
+
+    def _extend_code(self, code_orig):
+        ''' 辅助函数，自动补全 POI 编号。 '''
+        if code_orig and len(code_orig) == 6:
+            try:
+                site_largest_code = db.session.query(Site).filter(Site.code.ilike(u'{}%'.format(code_orig))).order_by(Site.id.desc()).first()
+                if not site_largest_code:
+                    largest_code = 0
+                else:
+                    largest_code = int(site_largest_code.code[6:])
+                return code_orig[:6] + '{:0>4d}'.format(largest_code + 1)
+            except:
+                pass
+        return code_orig
+
     def create_model(self, form):
         if not form.create_user.data:
             form.create_user.data = login.current_user
         form.update_user.data = login.current_user
+        form.code.data = self._extend_code(form.code.data)
+        form.business_hours.data = self._replace_full_width_chars(form.business_hours.data)
+        form.phone.data = self._replace_full_width_chars(form.phone.data)
         if form.brand.data:
             form.level.data = form.brand.data.level
         return super(SiteView, self).create_model(form)
 
     def update_model(self, form, model):
         form.update_user.data = login.current_user
+        form.code.data = self._extend_code(form.code.data)
+        form.business_hours.data = self._replace_full_width_chars(form.business_hours.data)
+        form.phone.data = self._replace_full_width_chars(form.phone.data)
         if form.brand.data:
             form.level.data = form.brand.data.level
         return super(SiteView, self).update_model(form, model)
@@ -290,6 +321,13 @@ class SiteView(MyModelView):
                 (u'''http://www.latlong.net/c/?lat=%f&long=%f''' % (model.latitude, model.longitude))
                 + address_orig)
 
+    def _list_data_source(view, context, model, name):
+        data_source = model.data_source or u''
+        if not data_source.startswith('http://') and not data_source.startswith('https://'):
+            data_source = 'http://' + data_source
+        return Markup(u'''<a href="%s" target="_blank">%s</a><br/>''' %
+                (data_source, data_source))
+
     column_formatters = {
         'logo': _list_thumbnail_logo,
         'top_images':_list_thumbnail_top_images,
@@ -297,6 +335,7 @@ class SiteView(MyModelView):
         'country':_list_country,
         'city':_list_city,
         'address_orig':_list_address_orig,
+        'data_source':_list_data_source,
     }
 
     def check_logo(form, field):
@@ -313,17 +352,18 @@ class SiteView(MyModelView):
     def check_code(form, field):
         ''' 检查 POI Code 编码是否符合规范的要求。 '''
         code = field.data or ''
-        if code:
-            if not len(code) == 10:
-                raise validators.ValidationError(u'编号应该刚好是10位！')
-            if not code[0] in 'SAREHU':
-                raise validators.ValidationError(u'编号首字母必须以"S A R E H U"其中一个之一！')
-            if not code[1:3].isalpha():
-                raise validators.ValidationError(u'编号第2、3位的国家标识必须都是字母！')
-            if not code[3:6].isalpha():
-                raise validators.ValidationError(u'编号第4～6位的城市标识必须都是字母！')
-            if not code[6:].isdigit():
-                raise validators.ValidationError(u'编号最后4位的 POI 编号必须都是数字！')
+        if len(code) < 6:
+            raise validators.ValidationError(u'编号至少需要填写前6位的类别、国家、城市代码')
+        if not code[0] in 'SAREHU':
+            raise validators.ValidationError(u'编号首字母必须以"S A R E H U"其中一个之一！')
+        if not code[1:3].isalpha():
+            raise validators.ValidationError(u'编号第2、3位的国家标识必须都是字母！')
+        if not code[3:6].isalpha():
+            raise validators.ValidationError(u'编号第4～6位的城市标识必须都是字母！')
+        if not len(code) in (6, 10):
+            raise validators.ValidationError(u'编号应该刚好是6位或10位！')
+        if len(code) > 6 and not code[6:].isdigit():
+            raise validators.ValidationError(u'编号最后4位的 POI 编号必须都是数字！')
 
     form_extra_fields = {
         'logo_id': fields.IntegerField('Logo id', validators=[check_logo]),
