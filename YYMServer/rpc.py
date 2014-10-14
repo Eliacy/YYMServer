@@ -449,6 +449,18 @@ class ReviewList(Resource):
         else:
             return marshal(result, review_fields)
 
+    @hmac_auth('api')
+    def delete(self):
+        # 不会真正删除信息，只是设置 valid = False ，以便未来查询。
+        args = id_parser.parse_args()
+        id = args['id']
+        review = db.session.query(Review).filter(Review.id == id).first()
+        if review:
+            review.valid = False
+            db.session.commit()
+            return '', 204
+        return 'Target Review do not exists!', 404
+
 api.add_resource(ReviewList, '/rpc/reviews')
 
 
