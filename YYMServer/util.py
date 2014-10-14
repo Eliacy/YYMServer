@@ -14,8 +14,9 @@ from YYMServer.models import *
 def get_users(user_ids_str):
     ''' 辅助函数：文本的用户 id 列表转为 User 对象的列表。'''
     user_ids = ()
+    user_ids_str = user_ids_str.strip()
     try:
-        user_ids = map(int, user_ids_str.split(' '))
+        user_ids = map(int, user_ids_str.split())
     except:
         pass
     users = []

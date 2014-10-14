@@ -36,14 +36,21 @@ id_parser.add_argument('id', type=int)
 
 
 class ImageUrl(fields.Raw):
-    def format(self, image):
-        return url_for('static', filename=image.path, _external=True)
+    def format(self, path):
+        return url_for('static', filename=path, _external=True)
+
+
+# 图片信息查询接口：
+image_fields_mini = {
+    'id': fields.Integer,
+    'url': ImageUrl(attribute='path'),
+}
 
 
 # 用户信息查询接口：
 user_fields_mini = {
     'id': fields.Integer,
-    'icon': ImageUrl(attribute='icon_image'),   # 没有就是 null
+    'icon': fields.Nested(image_fields_mini, attribute='icon_image'),   # 没有时会变成 id 为 0 的图片
     'name': fields.String,
 }
 
@@ -206,7 +213,7 @@ site_fields_mini = {
     'name': fields.String,
 }
 site_fields_brief = {
-    'logo': ImageUrl(attribute='logo_image'),   # 没有就是 null
+    'logo': fields.Nested(image_fields_mini, attribute='logo_image'),   # 没有时会变成 id 为 0 的图片
     'level': fields.String,
     'stars': fields.Float,
     'review_num': fields.Integer,
@@ -214,14 +221,14 @@ site_fields_brief = {
     'latitude': fields.Float,
     'address': fields.String,
     'keywords': fields.List(fields.String, attribute='formated_keywords'),
-    'top_images': fields.List(ImageUrl, attribute='valid_top_images'),
+    'top_images': fields.List(fields.Nested(image_fields_mini), attribute='valid_top_images'),
     'popular': fields.Integer,
 }
 site_fields_brief.update(site_fields_mini)
 site_fields = {
     'name_orig': fields.String,
     'address_orig': fields.String,
-    'gate_images': fields.List(ImageUrl, attribute='valid_gate_images'),
+    'gate_images': fields.List(fields.Nested(image_fields_mini), attribute='valid_gate_images'),
     'categories': fields.List(fields.String, attribute='valid_categories'),
     'environment': fields.String,       # 空字符串表示没有
     'payment': fields.String,   # 空字符串表示没有
@@ -349,7 +356,7 @@ review_fields_brief = {
     'selected': fields.Boolean,
     'published': fields.Boolean,
     'content': fields.String(attribute='brief_content'),   # brief 模式下，会将文字内容截断到特定长度
-    'images': fields.List(ImageUrl, attribute='valid_images'),  # brief 模式下，只会提供一张图片
+    'images': fields.List(fields.Nested(image_fields_mini), attribute='valid_images'),  # brief 模式下，只会提供一张图片
     'like_num': fields.Integer,
     'comment_num': fields.Integer,
     'images_num': fields.Integer,
