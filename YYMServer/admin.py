@@ -200,7 +200,7 @@ class SiteView(MyModelView):
                       'phone', 'transport', 'description', 'area_id', 'keywords', 'images_num',
                       ] + list(column_searchable_list)
     form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'create_user', 'update_user', 'code', 'name', 'name_orig', 
-                         'brand', 'logo', 'level', 'stars', 'popular', 'review_num', 'reviews', 'categories',
+                         'brand', 'logo_id', 'level', 'stars', 'popular', 'review_num', 'reviews', 'categories',
                          'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
                          'phone', 'transport', 'description', 'longitude', 'latitude', 'area', 'address',
                          'address_orig', 'keywords', 'top_images', 'images_num', 'gate_images', 'data_source',
@@ -234,7 +234,7 @@ class SiteView(MyModelView):
         columns = []
         for col in self.form_create_rules:
             columns.append(col)
-            if col == 'logo':
+            if col == 'logo_id':
                 if site.logo_id:
                     columns.append(_get_image_rule(u'Logo Image', (site.logo, )))
             elif col == 'top_images':
@@ -299,10 +299,21 @@ class SiteView(MyModelView):
         'address_orig':_list_address_orig,
     }
 
-    # 临时代码：展示表单验证实现方法
+    def check_logo(form, field):
+        ''' 检查选择的 logo 图是否在数据库记录中真正存在。 '''
+        logo_id = field.data or 0
+        if not field.data:      # 当文本框为空，覆盖 IntegerField 默认的是否是整数的检查，以允许空值
+            field.errors[:] = []
+            raise validators.StopValidation()   # Stop further validators running
+        if logo_id:
+            logo = db.session.query(Image).get(logo_id)
+            if not logo:
+                raise validators.ValidationError(u'所选定的 logo 图片在数据库中不存在！')
+
     def check_code(form, field):
+        ''' 检查 POI Code 编码是否符合规范的要求。 '''
         code = field.data or ''
-        if field.data:
+        if code:
             if not len(code) == 10:
                 raise validators.ValidationError(u'编号应该刚好是10位！')
             if not code[0] in 'SAREHU':
@@ -314,8 +325,11 @@ class SiteView(MyModelView):
             if not code[6:].isdigit():
                 raise validators.ValidationError(u'编号最后4位的 POI 编号必须都是数字！')
 
+    form_extra_fields = {
+        'logo_id': fields.IntegerField('Logo id', validators=[check_logo]),
+    }
     form_args = dict(
-        code=dict(validators=[check_code])
+        code=dict(validators=[check_code]),
     )
 
 

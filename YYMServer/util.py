@@ -30,8 +30,9 @@ def get_users(user_ids_str):
 def get_images(image_ids_str, valid_only=True):
     ''' 辅助函数：文本的图片 id 列表转为 Image 对象的列表。'''
     image_ids = ()
+    image_ids_str = image_ids_str.strip()
     try:
-        image_ids = map(int, image_ids_str.split(' '))
+        image_ids = map(int, image_ids_str.split())
     except:
         pass
     images = []
