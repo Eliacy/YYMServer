@@ -421,6 +421,23 @@ class BrandView(MyModelView):
                 site.level = form.level.data
         return super(BrandView, self).update_model(form, model)
 
+    def check_name(form, field):
+        ''' 检查以避免创建重复品牌，主要的依据是根据 name 的取值。'''
+        name = field.data or ''
+        name = name.strip()
+        if name:
+            query = db.session.query(Brand).filter(Brand.name.ilike(name))
+            id = request.args.get('id')
+            if id:
+                query = query.filter(Brand.id != id)
+            same_brand = query.first()
+            if same_brand:
+                raise validators.ValidationError(u'存在同名品牌 id {}: “{}”，建议检查当前品牌是否与之重复！'.format(same_brand.id, same_brand.name))
+
+    form_args = dict(
+        name=dict(validators=[check_name]),
+    )
+
 
 class RoleView(MyModelView):
     column_default_sort = None
