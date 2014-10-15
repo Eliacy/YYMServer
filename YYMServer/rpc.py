@@ -45,6 +45,7 @@ image_fields_mini = {
     'id': fields.Integer,
     'url': ImageUrl(attribute='path'),
 }
+# ToDo: 图片上传的接口！
 
 
 # 用户信息查询接口：
@@ -351,6 +352,19 @@ review_parser.add_argument('user', type=int)
 review_parser.add_argument('site', type=int)    # 相关联的 POI id
 review_parser.add_argument('city', type=int)    # 相关联的城市 id
 
+review_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 Review 的信息的参数集合
+review_parser_detail.add_argument('id', type=int)
+review_parser_detail.add_argument('published', type=bool)
+review_parser_detail.add_argument('user_id', type=int)
+review_parser_detail.add_argument('at_list', type=str)  # 最多允许@ 20 个用户，更多的可能会被丢掉。
+review_parser_detail.add_argument('stars', type=float)
+review_parser_detail.add_argument('content', type=unicode)
+review_parser_detail.add_argument('images', type=str)   # 最多允许绑定 10 张图片，更多的可能会被丢掉。
+review_parser_detail.add_argument('keywords', type=unicode)
+review_parser_detail.add_argument('total', type=int)
+review_parser_detail.add_argument('currency', type=unicode)
+review_parser_detail.add_argument('site_id', type=int)
+
 review_fields_brief = {
     'id': fields.Integer,
     'selected': fields.Boolean,
@@ -460,6 +474,35 @@ class ReviewList(Resource):
             db.session.commit()
             return '', 204
         return 'Target Review do not exists!', 404
+
+    @hmac_auth('api')
+    def post(self):
+        ''' 创建新晒单评论的接口。'''
+        args = review_parser_detail.parse_args()
+        at_list = util.truncate_list(args['at_list'], 200, 20)
+        images = util.truncate_list(args['images'], 200, 10)
+        keywords = util.truncate_list(args['keywords'], 200, 15)
+        keywords = keywords if not keywords or len(keywords) < 200 else keywords[:200]
+        review = Review(valid = True,
+                        published = args['published'],
+                        update_time = datetime.datetime.now(),
+                        user_id = args['user_id'],
+                        at_list = at_list,
+                        stars = args['stars'],
+                        content = args['content'],
+                        images = images,
+                        keywords = keywords,
+                        total = args['total'],
+                        currency = args['currency'],    # 这里没有做币种文字是否在有效范围内的判断
+                        site_id = args['site_id'],
+                       )
+        if args['published']:
+            review.publish_time = datetime.datetime.now()
+        db.session.add(review)
+        db.session.commit()
+        return review.id, 201
+
+    # 注意：put 中，publish_time 必须是首次发布，需要做检查！
 
 api.add_resource(ReviewList, '/rpc/reviews')
 

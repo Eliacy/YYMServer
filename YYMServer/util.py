@@ -11,6 +11,13 @@ from YYMServer import db
 from YYMServer.models import *
 
 
+def truncate_list(text, max_str_length, max_item_length):
+    ''' 辅助函数：检查 text 参数是否超出 max_str_length 个字符，如果超出则截断为只包含 max_item_length 个元素。'''
+    if text:
+        if text > max_str_length:
+            text = ' '.join(text.split()[:max_item_length])
+    return text
+
 def get_users(user_ids_str):
     ''' 辅助函数：文本的用户 id 列表转为 User 对象的列表。'''
     user_ids = ()
