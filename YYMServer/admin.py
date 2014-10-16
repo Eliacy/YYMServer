@@ -205,7 +205,7 @@ def _get_image_rule(label, images):
 class SiteView(MyModelView):
     column_default_sort = ('update_time', True)
     column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig')
-    column_filters = ['id', 'valid', 'order', 'create_time', 'create_user_id', 'update_user_id', 'brand_id', 
+    column_filters = ['id', 'valid', 'order', 'create_time', 'update_time', 'create_user_id', 'update_user_id', 'brand_id', 
                       'logo_id', 'level', 'stars', 'popular',
                       'review_num', 'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
                       'phone', 'transport', 'description', 'area_id', 'keywords', 'images_num',
@@ -421,15 +421,19 @@ class TagAlikeView(MyModelView):
 
 class BrandView(MyModelView):
     column_searchable_list = ('name', 'name_zh', 'description')
-    column_filters = ['id', 'valid', 'order', 'source', 'level'] + list(column_searchable_list)
+    column_filters = ['id', 'valid', 'order', 'create_time', 'update_time', 'create_user_id', 'update_user_id', 'source', 'level'] + list(column_searchable_list)
 
     def create_model(self, form):
+        if not form.create_user.data:
+            form.create_user.data = login.current_user
+        form.update_user.data = login.current_user
         if form.sites.data:
             for site in form.sites.data:
                 site.level = form.level.data
         return super(BrandView, self).create_model(form)
 
     def update_model(self, form, model):
+        form.update_user.data = login.current_user
         if form.sites.data:
             for site in form.sites.data:
                 site.level = form.level.data
@@ -463,7 +467,7 @@ class RoleView(MyModelView):
 
 
 class UserView(MyModelView):
-#    form_excluded_columns = ('icon', 'images', 'created_sites', 'updated_sites', 'share_records', 'reviews', 'comments', 'articles', 'tips', 'read_records', 'sent_messages', 'messages')       # 出于性能考虑，禁止显示这些涉及大数据量外键的字段。
+#    form_excluded_columns = ('icon', 'images', 'created_sites', 'updated_sites', 'created_brands', 'updated_brands', 'share_records', 'reviews', 'comments', 'articles', 'tips', 'read_records', 'sent_messages', 'messages')       # 出于性能考虑，禁止显示这些涉及大数据量外键的字段。
     form_create_rules = ('create_time', 'update_time', 'name', 'username', 'mobile', 'password', 'icon_id', 
                          'gender', 'level', 'exp', 'follow_num', 'fans_num', 'fans', 'follows', 'like_num',
                          'likes', 'share_num', 'review_num', 'favorite_num', 'favorites', 'badges', 'roles',
