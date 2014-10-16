@@ -368,8 +368,9 @@ class SiteView(MyModelView):
         id = request.args.get('id')
         if id:
             query = query.filter(Site.id != id)
-        if query.first():
-            raise validators.ValidationError(u'此编号已经被使用，请更新其中的序号以避免重复！')
+        same_code = query.first()
+        if same_code:
+            raise validators.ValidationError(u'存在 code 重复的 POI 数据 id {}: “{}”，建议检查确认！'.format(same_code.id, same_code.name))
 
     form_extra_fields = {
         'logo_id': fields.IntegerField('Logo id', validators=[check_logo]),
