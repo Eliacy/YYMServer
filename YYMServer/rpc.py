@@ -30,6 +30,14 @@ class Time(Resource):
 api.add_resource(Time, '/rpc/time')
 
 
+class CacheTime(Resource):
+    '''服务器缓存时间查询。'''
+    def get(self):
+        return {'cache_time': app.config['CACHE_DEFAULT_TIMEOUT']}
+
+api.add_resource(CacheTime, '/rpc/cache_time')
+
+
 # 常用公共辅助：
 id_parser = reqparse.RequestParser()
 id_parser.add_argument('id', type=int)
