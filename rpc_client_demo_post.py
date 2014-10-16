@@ -47,7 +47,8 @@ payload = {'published': '1',
 #body = '&'.join(('='.join((key, value.encode('utf-8'))) for key, value in payload.items()))
 # 注意：Flask 服务器上读取 POST 参数时，参数的顺序无法被保证，所以约定使用 json 格式封装请求参数。。
 #       也即， application/x-www-form-urlencoded 的请求将有可能存在验证无法通过问题，但文件上传相关的数据不会被用于校验！
-body = json.dumps(payload)
+# 注意：计算 POST 数据签名时，json 字符串必须保证使用 utf-8 编码！
+body = json.dumps(payload, ensure_ascii=False).encode('utf8')
 print body
 hasher.update(body)     # 如果是 POST 方法发送的，则 POST 的 body 也需要加入签名内容！
 
