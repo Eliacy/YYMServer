@@ -114,6 +114,17 @@ def get_image_size(path):
     else:
         return '[[==IMAGE DO NOT EXIST!!!==]]'
 
+def check_image_exist(form, field):
+    ''' 检查选择的图片是否在数据库记录中真正存在。 '''
+    logo_id = field.data or 0
+    if not field.data:      # 当文本框为空，覆盖 IntegerField 默认的是否是整数的检查，以允许空值
+        field.errors[:] = []
+        raise validators.StopValidation()   # Stop further validators running
+    if logo_id:
+        logo = db.session.query(Image).get(logo_id)
+        if not logo:
+            raise validators.ValidationError(u'所选定的图片在数据库中不存在！')
+
 
 # 参考：https://github.com/mrjoes/flask-admin/blob/master/examples/forms/simple.py
 class ImageView(MyModelView):
@@ -338,17 +349,6 @@ class SiteView(MyModelView):
         'data_source':_list_data_source,
     }
 
-    def check_logo(form, field):
-        ''' 检查选择的 logo 图是否在数据库记录中真正存在。 '''
-        logo_id = field.data or 0
-        if not field.data:      # 当文本框为空，覆盖 IntegerField 默认的是否是整数的检查，以允许空值
-            field.errors[:] = []
-            raise validators.StopValidation()   # Stop further validators running
-        if logo_id:
-            logo = db.session.query(Image).get(logo_id)
-            if not logo:
-                raise validators.ValidationError(u'所选定的 logo 图片在数据库中不存在！')
-
     def check_code(form, field):
         ''' 检查 POI Code 编码是否符合规范的要求。 '''
         code = field.data or ''
@@ -373,7 +373,7 @@ class SiteView(MyModelView):
             raise validators.ValidationError(u'存在 code 重复的 POI 数据 id {}: “{}”，建议检查确认！'.format(same_code.id, same_code.name))
 
     form_extra_fields = {
-        'logo_id': fields.IntegerField('Logo id', validators=[check_logo]),
+        'logo_id': fields.IntegerField('Logo id', validators=[check_image_exist]),
     }
     form_args = dict(
         code=dict(validators=[check_code]),
@@ -454,7 +454,14 @@ class RoleView(MyModelView):
 
 
 class UserView(MyModelView):
-    form_excluded_columns = ('images', 'created_sites', 'updated_sites', 'share_records', 'reviews', 'comments', 'articles', 'tips', 'read_records', 'sent_messages', 'messages')       # 出于性能考虑，禁止显示这些涉及大数据量外键的字段。
+#    form_excluded_columns = ('icon', 'images', 'created_sites', 'updated_sites', 'share_records', 'reviews', 'comments', 'articles', 'tips', 'read_records', 'sent_messages', 'messages')       # 出于性能考虑，禁止显示这些涉及大数据量外键的字段。
+    form_create_rules = ('create_time', 'update_time', 'name', 'username', 'mobile', 'password', 'icon_id', 
+                         'gender', 'level', 'exp', 'follow_num', 'fans_num', 'fans', 'follows', 'like_num',
+                         'likes', 'share_num', 'review_num', 'favorite_num', 'favorites', 'badges', 'roles',
+                         )
+    form_extra_fields = {
+        'icon_id': fields.IntegerField('Icon id', validators=[check_image_exist]),
+    }
     column_default_sort = None
     column_searchable_list = ('name', 'username', 'mobile')
     column_filters = ['id', 'create_time', 'update_time', 'icon_id', 'gender', 'level', 'exp', 'follow_num',
@@ -463,6 +470,19 @@ class UserView(MyModelView):
 
     def is_accessible(self):
         return super(UserView, self).is_accessible() and login.current_user.is_admin()
+
+    def get_one(self, id):
+        ''' ToDo：一个脏补丁，用来显示店铺相关的各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
+        user = super(UserView, self).get_one(id)
+        columns = []
+        for col in self.form_create_rules:
+            columns.append(col)
+            if col == 'icon_id':
+                if user.icon_id:
+                    columns.append(_get_image_rule(u'Icon Image', (user.icon, )))
+        self.form_edit_rules = columns
+        self._refresh_cache()
+        return user
 
 
 class ShareRecordView(MyModelView):
