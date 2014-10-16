@@ -240,7 +240,7 @@ site_fields = {
     'gate_images': fields.List(fields.Nested(image_fields_mini), attribute='valid_gate_images'),
     'categories': fields.List(fields.String, attribute='valid_categories'),
     'environment': fields.String,       # 空字符串表示没有
-    'payment': fields.String,   # 空字符串表示没有
+    'payment': fields.List(fields.String, attribute='formated_payment_types'),
     'menu': fields.String,      # 空字符串表示没有
     'ticket': fields.String,    # 空字符串表示没有
     'booking': fields.String,   # 空字符串表示没有
@@ -299,7 +299,7 @@ class SiteList(Resource):
         for site in query:
             site.stars = site.stars or 0.0      # POI 无星级时输出0，表示暂无评分。
             site.environment = site.environment or ''
-            site.payment = site.payment or ''
+            site.formated_payment_types = [] if not site.payment else [payment_types.get(code.lower(), code) for code in site.payment.split()]
             site.menu = site.menu or ''
             site.ticket = site.ticket or ''
             site.booking = site.booking or ''
@@ -323,7 +323,7 @@ class SiteList(Resource):
             result.append(site)
         return result
 
-    @hmac_auth('api')
+#    @hmac_auth('api')
     def get(self):
         args = site_parser.parse_args()
         # ToDo: 基于距离范围的搜索暂时没有实现！

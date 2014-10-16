@@ -353,7 +353,7 @@ class SiteView(MyModelView):
         ''' 检查 POI Code 编码是否符合规范的要求。 '''
         code = field.data or ''
         if len(code) < 6:
-            raise validators.ValidationError(u'编号至少需要填写前6位的类别、国家、城市代码')
+            raise validators.ValidationError(u'编号至少需要填写前6位的类别、国家、城市代码！')
         if not code[0] in 'SAREHU':
             raise validators.ValidationError(u'编号首字母必须以"S A R E H U"其中一个之一！')
         if not code[1:3].isalpha():
@@ -372,11 +372,20 @@ class SiteView(MyModelView):
         if same_code:
             raise validators.ValidationError(u'存在 code 重复的 POI 数据 id {}: “{}”，建议检查确认！'.format(same_code.id, same_code.name))
 
+    def check_payment(form, field):
+        ''' 检查 Payment 字段是否有不能识别的支付方式代码。'''
+        data = field.data or ''
+        code_list = data.split()
+        for code in code_list:
+            if not payment_types.has_key(code.lower()):
+                raise validators.ValidationError(u'支付方式代码 {} 不在支持列表内！'.format(code))
+
     form_extra_fields = {
         'logo_id': fields.IntegerField('Logo id', validators=[check_image_exist]),
     }
     form_args = dict(
         code=dict(validators=[check_code]),
+        payment=dict(validators=[check_payment]),
     )
 
 

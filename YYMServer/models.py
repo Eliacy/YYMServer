@@ -18,6 +18,33 @@ class Real(db.REAL):
 ## 注意：所有 Model 中的 DateTime 都会被当做时区 'Asia/Shanghai' 中的时间进行后续处理！输入输出时可能需要做时区转换！
 #####################################################################################################
 
+PAYMENT_TYPES = {'V': u'Visa',
+                 'M': u'Master',
+                 'Amex': u'American Express',
+                 'D': u'Discover',
+                 'UP': u'银联',
+                 'PP': u'Paypal',
+                 'Ali': u'支付宝',
+                 'JCB': u'JCB',
+                 'GW': u'Google Wallet',
+                 'AP': u'Amazon Payment',
+                 'WU': u'Western Union',
+                 'DC': u'Diners Club',
+                 'JCB': u'JCB',
+                 'HSBC': u'HSBC',
+                 'Serve': u'Serve',
+                 'Cash': u'Cash Only',
+                 'Mae': u'Masestro',
+                 'VE': u'Visa Electron',
+                 'YM': u'Yandex Money',
+                 'CPYW': u'Cash Pay Your Way',
+                 'QIWI': u'QIWI Wallet',
+                 'moneta': u'moneta ru',
+                 'ZONG': u'ZONG',
+                 'boku': u'boku',
+                 }
+payment_types = dict(([key.lower(), value] for key, value in PAYMENT_TYPES.items()))
+
 
 class Country(db.Model):   # 国家
     id = db.Column(db.Integer, primary_key=True)
