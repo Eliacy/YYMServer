@@ -364,7 +364,11 @@ class SiteView(MyModelView):
             raise validators.ValidationError(u'编号应该刚好是6位或10位！')
         if len(code) > 6 and not code[6:].isdigit():
             raise validators.ValidationError(u'编号最后4位的 POI 编号必须都是数字！')
-        if db.session.query(Site).filter(Site.code == code).first():
+        query = db.session.query(Site).filter(Site.code == code)
+        id = request.args.get('id')
+        if id:
+            query = query.filter(Site.id != id)
+        if query.first():
             raise validators.ValidationError(u'此编号已经被使用，请更新其中的序号以避免重复！')
 
     form_extra_fields = {

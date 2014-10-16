@@ -1,7 +1,12 @@
 Flask
 Flask-Admin
 Flask-Cache
+
 Flask-HmacAuth
+# 注意：Flask-HmacAuth 官方版本存在 bug ，需要检查是否已经修正对 POST
+# 的处理。依据是看 is_authorized() 函数中，是否出现 request.data
+# 字样。出现则表示 bug 是修正了的。
+
 Flask-Login
 Flask-RESTful
 Flask-SQLAlchemy
