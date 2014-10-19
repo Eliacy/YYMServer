@@ -368,7 +368,7 @@ review_parser_detail.add_argument('at_list', type=str)  # 最多允许@ 20 个�
 review_parser_detail.add_argument('stars', type=float)
 review_parser_detail.add_argument('content', type=unicode)
 review_parser_detail.add_argument('images', type=str)   # 最多允许绑定 10 张图片，更多的可能会被丢掉。
-review_parser_detail.add_argument('keywords', type=unicode)
+review_parser_detail.add_argument('keywords', type=unicode)     # 最多允许键入 15 个关键词，更多的可能会被丢掉。
 review_parser_detail.add_argument('total', type=int)
 review_parser_detail.add_argument('currency', type=unicode)
 review_parser_detail.add_argument('site_id', type=int)
@@ -404,6 +404,26 @@ class ReviewList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
+    def _format_review(self, review, brief=None):
+        ''' 辅助函数：用于格式化 Review 实例，用于接口输出。'''
+        review.valid_user = review.user
+        review.valid_user.icon_image = review.user.icon
+        review.valid_site = review.site
+        if review.site:
+            review.valid_site.city_name = '' if not review.site.area else review.site.area.city.name
+        review.images_num = 0 if not review.images else len(review.images.split())
+        review.currency = review.currency or u'人民币'
+        review.formated_keywords = [] if not review.keywords else review.keywords.split()
+        review.valid_at_users = []
+        if review.at_list:
+            review.valid_at_users = util.get_users(review.at_list)
+        review.valid_images = []
+        if review.images:
+            review.valid_images = util.get_images(review.images)
+        if brief:
+            review.brief_content = review.content[:80]
+            review.valid_images = review.valid_images[:1]
+
     @cache.memoize()
     def _get(self, brief=None, selected = None, published = None, id=None, site=None, city=None, user=None):
         # ToDo: Review 表中各计数缓存值的数据没有做动态更新，例如“赞”数！
@@ -427,23 +447,7 @@ class ReviewList(Resource):
         if published:
             query = query.filter(Review.published == True)
         for review in query:
-            review.valid_user = review.user
-            review.valid_user.icon_image = review.user.icon
-            review.valid_site = review.site
-            if review.site:
-                review.valid_site.city_name = '' if not review.site.area else review.site.area.city.name
-            review.images_num = 0 if not review.images else len(review.images.split())
-            review.currency = review.currency or u'人民币'
-            review.formated_keywords = [] if not review.keywords else review.keywords.split()
-            review.valid_at_users = []
-            if review.at_list:
-                review.valid_at_users = util.get_users(review.at_list)
-            review.valid_images = []
-            if review.images:
-                review.valid_images = util.get_images(review.images)
-            if brief:
-                review.brief_content = review.content[:80]
-                review.valid_images = review.valid_images[:1]
+            self._format_review(review, brief)
             result.append(review)
         return result
 
@@ -510,7 +514,36 @@ class ReviewList(Resource):
         db.session.commit()
         return review.id, 201
 
-    # 注意：put 中，publish_time 必须是首次发布，需要做检查！
+    @hmac_auth('api')
+    def put(self):
+        ''' 修改晒单评论内容的接口。'''
+        args = review_parser_detail.parse_args()
+        id = args['id']
+        review = db.session.query(Review).filter(Review.id == id).first()
+        if review:
+            at_list = util.truncate_list(args['at_list'], 200, 20)
+            images = util.truncate_list(args['images'], 200, 10)
+            keywords = util.truncate_list(args['keywords'], 200, 15)
+            keywords = keywords if not keywords or len(keywords) < 200 else keywords[:200]
+            review.valid = True
+            review.published = args['published']
+            review.update_time = datetime.datetime.now()
+            review.user_id = args['user_id']
+            review.at_list = at_list
+            review.stars = args['stars']
+            review.content = args['content']
+            review.images = images
+            review.keywords = keywords
+            review.total = args['total']
+            review.currency = args['currency']    # 这里没有做币种文字是否在有效范围内的判断
+            review.site_id = args['site_id']
+            if args['published'] and not review.publish_time:   # 只有首次发布才记录 publish_time 
+                review.publish_time = datetime.datetime.now()
+            db.session.commit()
+            self._format_review(review, brief=0)
+            return marshal(review, review_fields), 201
+        return 'Target Review do not exists!', 404
+
 
 api.add_resource(ReviewList, '/rpc/reviews')
 

@@ -42,6 +42,7 @@ PAYMENT_TYPES = {'V': u'Visa',
                  'moneta': u'moneta ru',
                  'ZONG': u'ZONG',
                  'boku': u'boku',
+                 'BML': u'Bill Me Later ',
                  }
 payment_types = dict(([key.lower(), value] for key, value in PAYMENT_TYPES.items()))
 
