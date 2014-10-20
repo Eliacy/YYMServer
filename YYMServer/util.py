@@ -52,9 +52,8 @@ def get_users(user_ids_str):
         pass
     users = []
     if user_ids:
-        for user_id in user_ids:
-            # ToDo: 产生的数据库查询次数过多，不够优化！
-            user = db.session.query(User).get(user_id)
+        valid_users = db.session.query(User).filter(User.id.in_(user_ids)).all()
+        for user in valid_users:
             if user:
                 user.icon_image = user.icon      # 为了缓存存储 User 对象时，icon 子对象仍然能够被读取。
                 users.append(user)
@@ -70,9 +69,10 @@ def get_images(image_ids_str, valid_only=True):
         pass
     images = []
     if image_ids:
+        valid_images = db.session.query(Image).filter(Image.id.in_(image_ids)).all()
+        valid_images_dic = dict(((image.id, image) for image in valid_images))
         for image_id in image_ids:
-            # ToDo: 产生的数据库查询次数过多，不够优化！
-            image = db.session.query(Image).get(image_id)
+            image = valid_images_dic.get(image_id, None)
             if valid_only:
                 if image:
                     images.append(image)
