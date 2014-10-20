@@ -47,6 +47,22 @@ PAYMENT_TYPES = {'V': u'Visa',
 payment_types = dict(([key.lower(), value] for key, value in PAYMENT_TYPES.items()))
 
 
+class TextLib(db.Model):   # 供替换用的文本库
+    id = db.Column(db.Integer, primary_key=True)
+    valid = db.Column(db.Boolean, default=True)   # 控制是否用户可见
+    create_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据最初创建时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
+    create_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 品牌信息上传人
+    create_user = db.relationship('User', backref=db.backref('created_textlibs', lazy='dynamic'), foreign_keys=[create_user_id])
+    update_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 品牌信息最后修改人
+    update_user = db.relationship('User', backref=db.backref('updated_textlibs', lazy='dynamic'), foreign_keys=[update_user_id])
+    note = db.Column(db.Unicode(80))    # 提示文本内容、用途的简短信息
+    content = db.Column(db.UnicodeText)     # 品牌的简介描述
+
+    def __unicode__(self):
+        return u'<TextLib %d: %s>' % (self.id, self.note)
+
+
 class Country(db.Model):   # 国家
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
@@ -144,7 +160,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     menu = db.Column(db.Unicode(20))    # 是否提供中文菜单
     ticket = db.Column(db.UnicodeText)         # 门票票价及购买方式，应支持换行
     booking = db.Column(db.UnicodeText)        # 预定方式，应支持换行
-    business_hours = db.Column(db.UnicodeText)         # 营业时间描述，应支持换行
+    business_hours = db.Column(db.UnicodeText)         # 营业时间描述，应支持换行，支持 {{text:id#注释}} 样式的标准文本替换
     phone = db.Column(db.UnicodeText)    # 联系电话
     transport = db.Column(db.UnicodeText)          # 公共交通的线路和站点文字描述，应支持换行
     description = db.Column(db.UnicodeText)     # POI 的简介描述

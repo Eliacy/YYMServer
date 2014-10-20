@@ -126,6 +126,22 @@ def check_image_exist(form, field):
             raise validators.ValidationError(u'所选定的图片在数据库中不存在！')
 
 
+class TextLibView(MyModelView):
+    column_default_sort = ('update_time', True)
+    column_searchable_list = ('note', 'content')
+    column_filters = ['id', 'valid', 'create_time', 'update_time', 'create_user_id', 'update_user_id',] + list(column_searchable_list)
+
+    def create_model(self, form):
+        if not form.create_user.data:
+            form.create_user.data = login.current_user
+        form.update_user.data = login.current_user
+        return super(TextLibView, self).create_model(form)
+
+    def update_model(self, form, model):
+        form.update_user.data = login.current_user
+        return super(TextLibView, self).update_model(form, model)
+
+
 # 参考：https://github.com/mrjoes/flask-admin/blob/master/examples/forms/simple.py
 class ImageView(MyModelView):
     column_default_sort = ('create_time', True)
@@ -467,7 +483,7 @@ class RoleView(MyModelView):
 
 
 class UserView(MyModelView):
-#    form_excluded_columns = ('icon', 'images', 'created_sites', 'updated_sites', 'created_brands', 'updated_brands', 'share_records', 'reviews', 'comments', 'articles', 'tips', 'read_records', 'sent_messages', 'messages')       # 出于性能考虑，禁止显示这些涉及大数据量外键的字段。
+#    form_excluded_columns = ('icon', 'images', 'created_sites', 'updated_sites', 'created_brands', 'updated_brands', 'share_records', 'reviews', 'comments', 'articles', 'tips', 'read_records', 'sent_messages', 'messages', 'created_textlibs', 'updated_textlibs')       # 出于性能考虑，禁止显示这些涉及大数据量外键的字段。
     form_create_rules = ('create_time', 'update_time', 'name', 'username', 'mobile', 'password', 'icon_id', 
                          'gender', 'level', 'exp', 'follow_num', 'fans_num', 'fans', 'follows', 'like_num',
                          'likes', 'share_num', 'review_num', 'favorite_num', 'favorites', 'badges', 'roles',
@@ -536,6 +552,7 @@ class MessageView(MyModelView):
 
 # Create admin
 admin = Admin(app, 'Admin', index_view=MyAdminIndexView(), base_template='my_master.html')
+admin.add_view(TextLibView(TextLib, db.session))
 admin.add_view(TipsView(Tips, db.session))
 admin.add_view(ArticleView(Article, db.session))
 admin.add_view(SiteView(Site, db.session))

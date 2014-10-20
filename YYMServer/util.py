@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import re
 from calendar import timegm
 from email.utils import formatdate
 
@@ -7,9 +8,32 @@ import pytz
 
 from flask.ext.restful import fields
 
-from YYMServer import db
+from YYMServer import db, cache
 from YYMServer.models import *
 
+
+textlib_re = re.compile(r'(\{\{text:\d+(|#.*?)\}\})')
+
+@cache.memoize()
+def _get_textlib(textlib_id):
+    textlib_item = db.session.query(TextLib).filter(TextLib.id == textlib_id).first()
+    return textlib_item
+
+def _replace_textlib(textlib_match):
+    ''' 私有辅助函数，对匹配得到的 textlib 标记，查库完成替换。'''
+    textlib_pattern = textlib_match.group()
+    try:
+        text_id = int(textlib_pattern.strip('{}').split(':')[1].split('#')[0])
+        textlib_item = _get_textlib(text_id)
+        if textlib_item:
+            return textlib_item.content
+    except Exception, e:
+        pass
+    return textlib_pattern
+
+def replace_textlib(text):
+    ''' 辅助函数：检查输入的 text 数据是否匹配 TextLib 替换代码，如果是则替换后返回。'''
+    return textlib_re.sub(_replace_textlib, text)
 
 def truncate_list(text, max_str_length, max_item_length):
     ''' 辅助函数：检查 text 参数是否超出 max_str_length 个字符，如果超出则截断为只包含 max_item_length 个元素。'''
@@ -29,6 +53,7 @@ def get_users(user_ids_str):
     users = []
     if user_ids:
         for user_id in user_ids:
+            # ToDo: 产生的数据库查询次数过多，不够优化！
             user = db.session.query(User).get(user_id)
             if user:
                 user.icon_image = user.icon      # 为了缓存存储 User 对象时，icon 子对象仍然能够被读取。
@@ -46,6 +71,7 @@ def get_images(image_ids_str, valid_only=True):
     images = []
     if image_ids:
         for image_id in image_ids:
+            # ToDo: 产生的数据库查询次数过多，不够优化！
             image = db.session.query(Image).get(image_id)
             if valid_only:
                 if image:

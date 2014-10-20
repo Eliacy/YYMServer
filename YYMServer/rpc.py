@@ -244,7 +244,7 @@ site_fields = {
     'menu': fields.String,      # 空字符串表示没有
     'ticket': fields.String,    # 空字符串表示没有
     'booking': fields.String,   # 空字符串表示没有
-    'business_hours': fields.String,    # 空字符串表示没有
+    'business_hours': fields.String(attribute='formated_business_hours'),    # 空字符串表示没有
     'phone': fields.String,     # 空字符串表示没有
     'transport': fields.String,         # 空字符串表示没有
     'description': fields.String,       # 空字符串表示没有
@@ -298,15 +298,15 @@ class SiteList(Resource):
         result = []
         for site in query:
             site.stars = site.stars or 0.0      # POI 无星级时输出0，表示暂无评分。
-            site.environment = site.environment or ''
+            site.environment = site.environment or u''
             site.formated_payment_types = [] if not site.payment else [payment_types.get(code.lower(), code) for code in site.payment.split()]
-            site.menu = site.menu or ''
-            site.ticket = site.ticket or ''
-            site.booking = site.booking or ''
-            site.business_hours = site.business_hours or ''
-            site.phone = site.phone or ''
-            site.transport = site.transport or ''
-            site.description = site.description or ''
+            site.menu = site.menu or u''
+            site.ticket = site.ticket or u''
+            site.booking = site.booking or u''
+            site.formated_business_hours = u'' if not site.business_hours else util.replace_textlib(site.business_hours)
+            site.phone = site.phone or u''
+            site.transport = site.transport or u''
+            site.description = site.description or u''
             site.logo_image = site.logo         # 为了缓存能工作
             site.city_name = '' if not site.area else site.area.city.name
             site.formated_keywords = [] if not site.keywords else site.keywords.translate({ord('{'):None, ord('}'):None}).split()
@@ -323,7 +323,7 @@ class SiteList(Resource):
             result.append(site)
         return result
 
-#    @hmac_auth('api')
+    @hmac_auth('api')
     def get(self):
         args = site_parser.parse_args()
         # ToDo: 基于距离范围的搜索暂时没有实现！
