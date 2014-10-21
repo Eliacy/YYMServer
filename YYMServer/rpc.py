@@ -49,11 +49,77 @@ class ImageUrl(fields.Raw):
 
 
 # 图片信息查询接口：
+image_parser_detail = reqparse.RequestParser()         # 用于创建一个图片上传信息的参数集合
+image_parser_detail.add_argument('type', type=int, default=4)      # 图片分类：1 表示店铺 logo；2 表示店铺门脸图；3 表示用户头像；4 表示评论图片。
+image_parser_detail.add_argument('path', type=unicode)  # 图片保存地址的完整 url （通常应该是云存储地址）
+image_parser_detail.add_argument('user', type=int)      # 图片上传人的账号 id 
+
 image_fields_mini = {
     'id': fields.Integer,
     'url': ImageUrl(attribute='path'),
 }
+
+image_fields = {
+    'type': fields.Integer,
+    'create_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'user_id': fields.Integer,
+}
+image_fields.update(image_fields_mini)
+
+
 # ToDo: 图片上传的接口！
+class ImageList(Resource):
+    '''提供图片的增、查、删三组服务。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    @cache.memoize()
+    def _get(self, id=None):
+        query = db.session.query(Image).filter(Image.valid == True)
+        if id:  # 必须显式指明 id ！
+            query = query.filter(Image.id == id)
+            result = query.all()
+        else:
+            result = []
+        return result
+
+    @hmac_auth('api')
+    @marshal_with(image_fields)
+    def get(self):
+        args = id_parser.parse_args()
+        id = args['id']
+        return self._get(id)
+
+    @hmac_auth('api')
+    def delete(self):
+        # 不会真正删除信息，只是设置 valid = False ，以便未来查询。
+        args = id_parser.parse_args()
+        id = args['id']
+        image = db.session.query(Image).filter(Image.id == id).filter(Image.valid == True).first()
+        if image:
+            image.valid = False
+            db.session.commit()
+            return '', 204
+        return 'Target Image do not exists!', 404
+
+    @hmac_auth('api')
+    def post(self):
+        ''' 保存新图片信息的接口。'''
+        args = image_parser_detail.parse_args()
+        image = Image(valid = True,
+                      type = args['type'],      # 这里没有做 type 取值是否在标准集合范围内的判断
+                      path = args['path'],
+                      create_time = datetime.datetime.now(),
+                      user_id = args['user'],
+                     )
+        db.session.add(image)
+        db.session.commit()
+        return image.id, 201
+
+api.add_resource(ImageList, '/rpc/images')
 
 
 # 用户信息查询接口：
@@ -205,7 +271,7 @@ api.add_resource(CountryList, '/rpc/countries')
 site_parser = reqparse.RequestParser()
 site_parser.add_argument('brief', type=int, default=1)     # 大于 0 表示只输出概要信息即可（默认只概要）。
 site_parser.add_argument('offset', type=int)    # offset 偏移量。
-site_parser.add_argument('limit', type=int)     # limit 限制，与 SQL 语句中的 limit 含义一致。
+site_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
 site_parser.add_argument('id', type=int)
 site_parser.add_argument('keywords', type=unicode)  # 搜索关键词，空格或英文加号分隔，默认的关系是“且”。搜索时大小写不敏感。
 site_parser.add_argument('area', type=int)      # 商圈 id。
@@ -354,7 +420,7 @@ review_parser.add_argument('brief', type=int, default=1)     # 大于 0 表示�
 review_parser.add_argument('selected', type=int)     # 大于 0 表示只输出置顶信息即可（例如 POI 详情页面中的晒单评论），不够 limit 的要求时，会用非置顶信息补足。
 review_parser.add_argument('published', type=int, default=1)     # 大于 0 表示只输出已发表的（默认只已发表的），否则也可输出草稿。
 review_parser.add_argument('offset', type=int)    # offset 偏移量。
-review_parser.add_argument('limit', type=int)     # limit 限制，与 SQL 语句中的 limit 含义一致。
+review_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
 review_parser.add_argument('id', type=int)
 review_parser.add_argument('user', type=int)
 review_parser.add_argument('site', type=int)    # 相关联的 POI id
@@ -480,7 +546,7 @@ class ReviewList(Resource):
         # 不会真正删除信息，只是设置 valid = False ，以便未来查询。
         args = id_parser.parse_args()
         id = args['id']
-        review = db.session.query(Review).filter(Review.id == id).first()
+        review = db.session.query(Review).filter(Review.id == id).filter(Review.valid == True).first()
         if review:
             review.valid = False
             db.session.commit()
@@ -519,13 +585,12 @@ class ReviewList(Resource):
         ''' 修改晒单评论内容的接口。'''
         args = review_parser_detail.parse_args()
         id = args['id']
-        review = db.session.query(Review).filter(Review.id == id).first()
+        review = db.session.query(Review).filter(Review.id == id).filter(Review.valid == True).first()
         if review:
             at_list = util.truncate_list(args['at_list'], 200, 20)
             images = util.truncate_list(args['images'], 200, 10)
             keywords = util.truncate_list(args['keywords'], 200, 15)
             keywords = keywords if not keywords or len(keywords) < 200 else keywords[:200]
-            review.valid = True
             review.published = args['published']
             review.update_time = datetime.datetime.now()
             review.user_id = args['user_id']

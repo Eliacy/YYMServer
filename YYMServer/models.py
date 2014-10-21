@@ -42,7 +42,8 @@ PAYMENT_TYPES = {'V': u'Visa',
                  'moneta': u'moneta ru',
                  'ZONG': u'ZONG',
                  'boku': u'boku',
-                 'BML': u'Bill Me Later ',
+                 'BML': u'Bill Me Later',
+                 'CB': u'Click and Buy',
                  }
 payment_types = dict(([key.lower(), value] for key, value in PAYMENT_TYPES.items()))
 
@@ -259,6 +260,7 @@ event.listen(
 
 class User(db.Model):
     id = db.Column(db.Integer, autoincrement='ignore_fk', primary_key=True)
+    valid = db.Column(db.Boolean, default=True)   # 控制是否当作已删除处理（False 表示删除）
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 用户属性信息修改时间，以服务器时间为准
     name = db.Column(db.Unicode(100))    # 可见用户昵称
@@ -293,24 +295,24 @@ class User(db.Model):
         for role in self.roles:
             if role.id == 7:
                 check = True
-        return check
+        return check and self.valid
 
     def is_operator(self):
         check = False
         for role in self.roles:
             if role.id == 8:
                 check = True
-        return check
+        return check and self.valid
 
     # Flask-Login integration
     def is_authenticated(self):
-        return True
+        return self.valid
 
     def is_active(self):
-        return True
+        return self.valid
 
     def is_anonymous(self):
-        return False
+        return not self.valid
 
     def get_id(self):
         return self.id

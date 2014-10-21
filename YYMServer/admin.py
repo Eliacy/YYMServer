@@ -43,7 +43,7 @@ class LoginForm(form.Form):
             raise validators.ValidationError('Invalid password')
 
     def get_user(self):
-        return db.session.query(User).filter_by(username=self.username.data).first()
+        return db.session.query(User).filter(User.valid == True).filter(User.username == self.username.data).first()
 
 
 # Initialize flask-login
@@ -484,7 +484,7 @@ class RoleView(MyModelView):
 
 class UserView(MyModelView):
 #    form_excluded_columns = ('icon', 'images', 'created_sites', 'updated_sites', 'created_brands', 'updated_brands', 'share_records', 'reviews', 'comments', 'articles', 'tips', 'read_records', 'sent_messages', 'messages', 'created_textlibs', 'updated_textlibs')       # 出于性能考虑，禁止显示这些涉及大数据量外键的字段。
-    form_create_rules = ('create_time', 'update_time', 'name', 'username', 'mobile', 'password', 'icon_id', 
+    form_create_rules = ('valid', 'create_time', 'update_time', 'name', 'username', 'mobile', 'password', 'icon_id', 
                          'gender', 'level', 'exp', 'follow_num', 'fans_num', 'fans', 'follows', 'like_num',
                          'likes', 'share_num', 'review_num', 'favorite_num', 'favorites', 'badges', 'roles',
                          )
@@ -493,7 +493,7 @@ class UserView(MyModelView):
     }
     column_default_sort = None
     column_searchable_list = ('name', 'username', 'mobile')
-    column_filters = ['id', 'create_time', 'update_time', 'icon_id', 'gender', 'level', 'exp', 'follow_num',
+    column_filters = ['id', 'valid', 'create_time', 'update_time', 'icon_id', 'gender', 'level', 'exp', 'follow_num',
                       'fans_num', 'like_num', 'share_num', 'review_num', 'favorite_num', 'badges',
                       ] + list(column_searchable_list)
 
