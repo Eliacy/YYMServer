@@ -154,6 +154,7 @@ user_fields_mini = {
     'icon': fields.Nested(image_fields_mini, attribute='icon_image'),   # 没有时会变成 id 为 0 的图片
     'name': fields.String,
 }
+#### 当指定用户 id 进行查询时，即使该用户 valid 为 False，也仍然给出详细信息。
 
 
 # 分类及子分类接口：
@@ -455,7 +456,7 @@ review_parser.add_argument('city', type=int)    # 相关联的城市 id
 review_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 Review 的信息的参数集合
 review_parser_detail.add_argument('id', type=int)
 review_parser_detail.add_argument('published', type=bool)
-review_parser_detail.add_argument('user_id', type=int)
+review_parser_detail.add_argument('user', type=int)
 review_parser_detail.add_argument('at_list', type=str)  # 最多允许@ 20 个用户，更多的可能会被丢掉。
 review_parser_detail.add_argument('stars', type=float)
 review_parser_detail.add_argument('content', type=unicode)
@@ -463,7 +464,7 @@ review_parser_detail.add_argument('images', type=str)   # 最多允许绑定 10 
 review_parser_detail.add_argument('keywords', type=unicode)     # 最多允许键入 15 个关键词，更多的可能会被丢掉。
 review_parser_detail.add_argument('total', type=int)
 review_parser_detail.add_argument('currency', type=unicode)
-review_parser_detail.add_argument('site_id', type=int)
+review_parser_detail.add_argument('site', type=int)
 
 review_fields_brief = {
     'id': fields.Integer,
@@ -590,7 +591,7 @@ class ReviewList(Resource):
         review = Review(valid = True,
                         published = args['published'],
                         update_time = datetime.datetime.now(),
-                        user_id = args['user_id'],
+                        user_id = args['user'],
                         at_list = at_list,
                         stars = args['stars'],
                         content = args['content'],
@@ -598,7 +599,7 @@ class ReviewList(Resource):
                         keywords = keywords,
                         total = args['total'],
                         currency = args['currency'],    # 这里没有做币种文字是否在有效范围内的判断
-                        site_id = args['site_id'],
+                        site_id = args['site'],
                        )
         if args['published']:
             review.publish_time = datetime.datetime.now()
@@ -619,7 +620,7 @@ class ReviewList(Resource):
             keywords = keywords if not keywords or len(keywords) < 200 else keywords[:200]
             review.published = args['published']
             review.update_time = datetime.datetime.now()
-            review.user_id = args['user_id']
+            review.user_id = args['user']
             review.at_list = at_list
             review.stars = args['stars']
             review.content = args['content']
@@ -627,7 +628,7 @@ class ReviewList(Resource):
             review.keywords = keywords
             review.total = args['total']
             review.currency = args['currency']    # 这里没有做币种文字是否在有效范围内的判断
-            review.site_id = args['site_id']
+            review.site_id = args['site']
             if args['published'] and not review.publish_time:   # 只有首次发布才记录 publish_time 
                 review.publish_time = datetime.datetime.now()
             db.session.commit()
