@@ -442,12 +442,14 @@ event.listen(
 class Tips(db.Model):        # 首页 Tips 文档
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
+    default = db.Column(db.Boolean, default=False)      # 控制是否是该城市默认显示的 Tips
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 晒单评论的作者
     user = db.relationship('User', backref=db.backref('tips', lazy='dynamic'))
     city_id = db.Column(db.Integer, db.ForeignKey('city.id'))   # Tips 所对应的城市
     city = db.relationship('City', backref=db.backref('tips', lazy='dynamic'))
+    title = db.Column(db.Unicode(50))   # Tips 的标题，用于列表选单，不用于正文显示
     content = db.Column(db.UnicodeText)         # 晒单评论的文本正文，需区分自然段、小标题、分隔符、排序列表等特殊格式！以及支持对其他 Tips 的引用（例如该国家通用的内容）！
 
     def __unicode__(self):

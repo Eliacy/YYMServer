@@ -524,8 +524,8 @@ class ShareRecordView(MyModelView):
 
 class TipsView(MyModelView):
     column_default_sort = ('update_time', True)
-    column_searchable_list = ('content', )
-    column_filters = ['id', 'valid', 'create_time', 'update_time', 'user_id', 'city_id'] + list(column_searchable_list)
+    column_searchable_list = ('title', 'content', )
+    column_filters = ['id', 'valid', 'default', 'create_time', 'update_time', 'user_id', 'city_id', 'title'] + list(column_searchable_list)
 
     def create_model(self, form):
         if not form.user.data:
