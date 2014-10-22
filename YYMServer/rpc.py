@@ -49,6 +49,13 @@ class ImageUrl(fields.Raw):
 
 
 # 图片信息查询接口：
+image_parser = reqparse.RequestParser()
+image_parser.add_argument('id', type=int)
+image_parser.add_argument('offset', type=int)    # offset 偏移量。
+image_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
+image_parser.add_argument('site', type=int)      # 指定 POI id，获取所有相关图片
+image_parser.add_argument('review', type=int)   # 指定晒单评论 id，获取所有相关图片
+
 image_parser_detail = reqparse.RequestParser()         # 用于创建一个图片上传信息的参数集合
 image_parser_detail.add_argument('type', type=int, default=4)      # 图片分类：1 表示店铺 logo；2 表示店铺门脸图；3 表示用户头像；4 表示评论图片。
 image_parser_detail.add_argument('path', type=unicode)  # 图片保存地址的完整 url （通常应该是云存储地址）
@@ -77,21 +84,40 @@ class ImageList(Resource):
         return '%s' % self.__class__.__name__
 
     @cache.memoize()
-    def _get(self, id=None):
+    def _get(self, id=None, site=None, review=None):
         query = db.session.query(Image).filter(Image.valid == True)
-        if id:  # 必须显式指明 id ！
+        if id:
             query = query.filter(Image.id == id)
-            result = query.all()
+            return query.all()
         else:
-            result = []
-        return result
+            if review:
+                related_review = db.session.query(Review).filter(Review.valid == True).filter(Review.published == True).filter(Review.id == review).first()
+                if related_review:
+                    return util.get_images(related_review.images or '')
+            if site:
+                related_reviews = db.session.query(Review).filter(Review.valid == True).filter(Review.published == True).join(Review.site).filter(Site.id == site).order_by(Review.selected.desc()).order_by(Review.publish_time.desc()).all()
+                # ToDo: 这里没有充分控制图片的排列顺序！
+                image_ids = ' '.join((review.images or '' for review in related_reviews))
+                image_ids = ' '.join(set(image_ids.strip().split()))
+                related_site = db.session.query(Site).filter(Site.valid == True).filter(Site.id == site).first()
+                if related_site:
+                    image_ids = (related_site.gate_images or '') + ' ' + image_ids
+                return util.get_images(image_ids)
+        return []
 
     @hmac_auth('api')
     @marshal_with(image_fields)
     def get(self):
-        args = id_parser.parse_args()
+        args = image_parser.parse_args()
         id = args['id']
-        return self._get(id)
+        result = self._get(id, args['site'], args['review'])
+        offset = args['offset']
+        if offset:
+            result = result[offset:]
+        limit = args['limit']
+        if limit:
+            result = result[:limit]
+        return result
 
     @hmac_auth('api')
     def delete(self):
@@ -519,12 +545,12 @@ class ReviewList(Resource):
 
     @hmac_auth('api')
     def get(self):
-        # 如果 selected 数量不够，就得用没被 selected 的内容来补。
         args = review_parser.parse_args()
         brief = args['brief']
         selected = args['selected']
         limit = args['limit']
         if selected:
+            # 如果 selected 数量不够，就得用没被 selected 的内容来补。
             result = self._get(brief, True, args['published'], args['id'], args['site'], args['city'], args['user'])
             if limit and len(result) < limit:
                 result += self._get(brief, False, args['published'], args['id'], args['site'], args['city'], args['user'])
