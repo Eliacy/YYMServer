@@ -380,6 +380,7 @@ class SiteList(Resource):
             query = query.join(Site.categories).filter(Category.id == category)
         if keywords:
             # 搜索关键词目前支持在 POI 名称、地址的中文、原文中进行模糊搜索。
+            # ToDo: 搜索关键词还应考虑支持 description 和 keywords 两项！
             keywords = keywords.translate({ord('+'):' '})
             keyword_list = keywords.split()
             for keyword in keyword_list:
@@ -490,7 +491,7 @@ review_fields.update(review_fields_brief)
 review_fields['content'] = fields.String        # 非 brief 模式下，提供完整的文字内容
 
 class ReviewList(Resource):
-    '''获取某 POI 的晒单评论列表，或者单独一条晒单评论详情的服务。'''
+    '''获取某 POI 的晒单评论列表，以及对单独一条晒单评论详情进行查、增、删、改的服务。'''
     def __repr__(self):
         '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
         于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
@@ -560,7 +561,6 @@ class ReviewList(Resource):
         offset = args['offset']
         if offset:
             result = result[offset:]
-        limit = args['limit']
         if limit:
             result = result[:limit]
         if brief:
@@ -642,7 +642,125 @@ api.add_resource(ReviewList, '/rpc/reviews')
 
 # 二级子评论接口：
 comment_parser = reqparse.RequestParser()
-comment_parser.add_argument('review', type=int)         # 相关联的晒单评论 id
+comment_parser.add_argument('id', type=int)
+comment_parser.add_argument('offset', type=int)    # offset 偏移量。
+comment_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
+comment_parser.add_argument('article', type=int)      # 指定推荐文章的 id，获取所有相关子评论
+comment_parser.add_argument('review', type=int)         # 指定晒单评论 id，获取所有相关子评论
+
+
+comment_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 Comment 的信息的参数集合
+comment_parser_detail.add_argument('id', type=int)
+comment_parser_detail.add_argument('review', type=int)
+comment_parser_detail.add_argument('article', type=int)
+comment_parser_detail.add_argument('user', type=int)
+comment_parser_detail.add_argument('at_list', type=str)  # 最多允许@ 20 个用户，更多的可能会被丢掉。
+comment_parser_detail.add_argument('content', type=unicode)
+
+comment_fields = {
+    'id': fields.Integer,
+    'publish_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'review_id': fields.Integer,        # 绑定的晒单评论 id
+    'article_id': fields.Integer,        # 绑定的首页文章 id
+    'user': fields.Nested(user_fields_mini, attribute='valid_user'),
+    'at_list': fields.List(fields.Nested(user_fields_mini), attribute='valid_at_users'),        # 子评论通常只允许 @ 一个人，但为了界面一致，仍然用列表输出。
+    'content': fields.String,   
+}
+
+
+class CommentList(Resource):
+    '''获取某晒单评论的子评论列表，或者进行增、删、改的服务。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    def _format_comment(self, comment):
+        ''' 辅助函数：用于格式化 Comment 实例，用于接口输出。'''
+        comment.valid_user = comment.user
+        comment.valid_at_users = util.get_users(comment.at_list or '')
+    
+    @cache.memoize()
+    def _get(self, id=None, article=None, review=None):
+        query = db.session.query(Comment).filter(Comment.valid == True)
+        query = query.order_by(Comment.publish_time)
+        if id:
+            query = query.filter(Comment.id == id)
+        if article:
+            query = query.filter(Comment.article_id == article)
+        if review:
+            query = query.filter(Comment.review_id == review)
+        result = []
+        for comment in query:
+            self._format_comment(comment)
+            result.append(comment)
+        return result
+
+    @hmac_auth('api')
+    @marshal_with(comment_fields)
+    def get(self):
+        args = comment_parser.parse_args()
+        result = self._get(args['id'], args['article'], args['review'])
+        offset = args['offset']
+        if offset:
+            result = result[offset:]
+        limit = args['limit']
+        if limit:
+            result = result[:limit]
+        return result
+
+    @hmac_auth('api')
+    def delete(self):
+        # 不会真正删除信息，只是设置 valid = False ，以便未来查询。
+        args = id_parser.parse_args()
+        id = args['id']
+        review = db.session.query(Comment).filter(Comment.id == id).filter(Comment.valid == True).first()
+        if review:
+            review.valid = False
+            db.session.commit()
+            return '', 204
+        return 'Target Comment do not exists!', 404
+
+    @hmac_auth('api')
+    def post(self):
+        ''' 创建新的子评论的接口。'''
+        args = comment_parser_detail.parse_args()
+        at_list = util.truncate_list(args['at_list'], 200, 20)
+        comment = Comment(valid = True,
+                          publish_time = datetime.datetime.now(),
+                          update_time = datetime.datetime.now(),
+                          review_id = args['review'],
+                          article_id = args['article'],
+                          user_id = args['user'],
+                          at_list = at_list,
+                          content = args['content'],
+                         )
+        db.session.add(comment)
+        db.session.commit()
+        return comment.id, 201
+
+    @hmac_auth('api')
+    def put(self):
+        ''' 修改晒单评论内容的接口。'''
+        args = comment_parser_detail.parse_args()
+        id = args['id']
+        comment = db.session.query(Comment).filter(Comment.id == id).filter(Comment.valid == True).first()
+        if comment:
+            at_list = util.truncate_list(args['at_list'], 200, 20)
+            comment.update_time = datetime.datetime.now()
+            comment.review_id = args['review']
+            comment.article_id = args['article']
+            comment.user_id = args['user']
+            comment.at_list = at_list
+            comment.content = args['content']
+            db.session.commit()
+            self._format_comment(comment)
+            return marshal(comment, comment_fields), 201
+        return 'Target Comment do not exists!', 404
+
+api.add_resource(CommentList, '/rpc/comments')
 
 
 # ==== json 网络服务样例 ====

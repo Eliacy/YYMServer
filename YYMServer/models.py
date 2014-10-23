@@ -61,7 +61,7 @@ class TextLib(db.Model):   # 供替换用的文本库
     content = db.Column(db.UnicodeText)     # 品牌的简介描述
 
     def __unicode__(self):
-        return u'<TextLib %d: %s>' % (self.id, self.note)
+        return u'<TextLib [%d] %s>' % (self.id, self.note)
 
 
 class Country(db.Model):   # 国家
@@ -74,7 +74,7 @@ class Country(db.Model):   # 国家
     default_city = db.relationship('City', foreign_keys=[default_city_id], post_update=True)
 
     def __unicode__(self):
-        return u'<Country %s>' % self.name
+        return u'<Country [%d] %s>' % (self.id, self.name)
 
 
 class City(db.Model):   # 城市
@@ -89,7 +89,7 @@ class City(db.Model):   # 城市
     country = db.relationship('Country', backref=db.backref('cities', lazy='dynamic'), foreign_keys=[country_id])
 
     def __unicode__(self):
-        return u'<City %s>' % self.name
+        return u'<City [%d] %s>' % (self.id, self.name)
 
 
 class Area(db.Model):   # 商区
@@ -103,7 +103,7 @@ class Area(db.Model):   # 商区
     city = db.relationship('City', backref=db.backref('areas', lazy='dynamic'))
 
     def __unicode__(self):
-        return u'<Area %s>' % self.name
+        return u'<Area [%d] %s>' % (self.id, self.name)
 
 
 class Brand(db.Model):   # 品牌
@@ -123,7 +123,7 @@ class Brand(db.Model):   # 品牌
     description = db.Column(db.UnicodeText)     # 品牌的简介描述
 
     def __unicode__(self):
-        return u'<Brand %s>' % self.name
+        return u'<Brand [%d] %s>' % (self.id, self.name)
 
 
 categories = db.Table('categories',
@@ -179,7 +179,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     data_source = db.Column(db.Unicode(500))    # 本 POI 数据采集的原始网址
 
     def __unicode__(self):
-        return u'<Site id %d: %s>' % (self.id, self.name)
+        return u'<Site [%d] %s>' % (self.id, self.name)
 
 
 event.listen(
@@ -198,7 +198,7 @@ class Category(db.Model):       # POI 分类
     parent = db.relationship('Category', remote_side=[id], backref=db.backref('children', lazy='dynamic'))
 
     def __unicode__(self):
-        return u'<Category %s>' % self.name
+        return u'<Category [%d] %s>' % (self.id, self.name)
 
 
 fans = db.Table('fans',
@@ -234,7 +234,7 @@ class ShareRecord(db.Model):
     action_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 用户分享文章或店铺的时间点
 
     def __unicode__(self):
-        return u'<ShareRecord %s: site %d, review %d>' % (self.user.name, self.site_id or -1, self.review_id or -1)
+        return u'<ShareRecord [%d] %s: site %d, review %d>' % (self.id, self.user.name, self.site_id or -1, self.review_id or -1)
 
 
 roles_users = db.Table('roles_users',
@@ -248,7 +248,7 @@ class Role(db.Model):
     name = db.Column(db.Unicode(80), unique=True)
 
     def __unicode__(self):
-        return u'<Role %s>' % self.name
+        return u'<Role [%d] %s>' % (self.id, self.name)
 
 
 event.listen(
@@ -319,7 +319,7 @@ class User(db.Model):
 
     # Required for administrative interface
     def __unicode__(self):
-        return u'<User %s>' % self.name
+        return u'<User [%d] %s>' % (self.id, self.name)
 
 
 event.listen(
@@ -346,7 +346,7 @@ class Image(db.Model):  # 全局图片存储
     user = db.relationship('User', backref=db.backref('images', lazy='dynamic'), foreign_keys=[user_id])
 
     def __unicode__(self):
-        return u'<Image id %d: %s>' % (self.id, 'None' if not self.path else self.path.split('/')[-1])
+        return u'<Image [%d] %s>' % (self.id, 'None' if not self.path else self.path.split('/')[-1])
 
 
 class Review(db.Model):        # 用户晒单评论
@@ -371,7 +371,7 @@ class Review(db.Model):        # 用户晒单评论
     comment_num = db.Column(db.Integer, default=0)      # 本晒单的评论总数，只是一个缓存值，实际数据根据“评论”的行为表计算得出
 
     def __unicode__(self):
-        return u'<Review %s: %s>' % (self.user.name, self.update_time.strftime('%y-%m-%d'))
+        return u'<Review [%d] %s: %s>' % (self.id, self.user.name, self.update_time.strftime('%y-%m-%d'))
 
 
 event.listen(
@@ -396,7 +396,7 @@ class Comment(db.Model):        # 用户子评论
     content = db.Column(db.UnicodeText)        # 评论的文字正文，需要注意检查内容长度
 
     def __unicode__(self):
-        return u'<Comment %s: %s>' % (self.user.name, self.update_time.strftime('%y-%m-%d'))
+        return u'<Comment [%d] %s: %s>' % (self.id, self.user.name, self.update_time.strftime('%y-%m-%d'))
 
 
 city_articles = db.Table('city_articles',
@@ -429,7 +429,7 @@ class Article(db.Model):        # 首页推荐文章
     comment_num = db.Column(db.Integer, default=0)      # 本晒单的评论总数，只是一个缓存值，实际数据根据“评论”的行为表计算得出
 
     def __unicode__(self):
-        return u'<Article %s: %s>' % (self.user.name, self.title)
+        return u'<Article [%d] %s: %s>' % (self.id, self.user.name, self.title)
 
 
 event.listen(
@@ -453,7 +453,7 @@ class Tips(db.Model):        # 首页 Tips 文档
     content = db.Column(db.UnicodeText)         # 晒单评论的文本正文，需区分自然段、小标题、分隔符、排序列表等特殊格式！以及支持对其他 Tips 的引用（例如该国家通用的内容）！
 
     def __unicode__(self):
-        return u'<Tips %s: %s>' % (self.city.name, self.update_time.strftime('%y-%m-%d'))
+        return u'<Tips [%d] %s: %s>' % (self.id, self.city.name, self.update_time.strftime('%y-%m-%d'))
 
 
 event.listen(
@@ -472,7 +472,7 @@ class UserReadMessage(db.Model):        # 辅助用关联关系表，未做 Admi
     has_read = db.Column(db.Boolean, default=False)     # 该用户是否已经读过特定私信
 
     def __unicode__(self):
-        return u'<UserReadMessage %s: msg %d, has_read %d>' % (self.user.name, self.message_id or -1, self.has_read)
+        return u'<UserReadMessage [%d] %s: msg %d, has_read %d>' % (self.id, self.user.name, self.message_id or -1, self.has_read)
 
 
 class Message(db.Model):        # 用户私信， #ToDo: 当前的数据库结构设计可能存在性能问题。。
@@ -487,6 +487,6 @@ class Message(db.Model):        # 用户私信， #ToDo: 当前的数据库结�
                                       backref=db.backref('messages', lazy='dynamic'))   # 反向为该用户的全部信息
 
     def __unicode__(self):
-        return u'<Message %s: %s>' % (self.sender_user.name, self.create_time.strftime('%y-%m-%d'))
+        return u'<Message [%d] %s: %s>' % (self.id, self.sender_user.name, self.create_time.strftime('%y-%m-%d'))
 
 
