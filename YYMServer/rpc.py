@@ -57,9 +57,9 @@ image_parser.add_argument('site', type=int)      # 指定 POI id，获取所有�
 image_parser.add_argument('review', type=int)   # 指定晒单评论 id，获取所有相关图片
 
 image_parser_detail = reqparse.RequestParser()         # 用于创建一个图片上传信息的参数集合
-image_parser_detail.add_argument('type', type=int, default=4)      # 图片分类：1 表示店铺 logo；2 表示店铺门脸图；3 表示用户头像；4 表示评论图片。
-image_parser_detail.add_argument('path', type=unicode)  # 图片保存地址的完整 url （通常应该是云存储地址）
-image_parser_detail.add_argument('user', type=int)      # 图片上传人的账号 id 
+image_parser_detail.add_argument('type', type=int, default=4, required=True)      # 图片分类：1 表示店铺 logo；2 表示店铺门脸图；3 表示用户头像；4 表示评论图片。
+image_parser_detail.add_argument('path', type=unicode, required=True)  # 图片保存地址的完整 url （通常应该是云存储地址）
+image_parser_detail.add_argument('user', type=int, required=True)      # 图片上传人的账号 id 
 
 image_fields_mini = {
     'id': fields.Integer,
@@ -456,16 +456,16 @@ review_parser.add_argument('city', type=int)    # 相关联的城市 id
 
 review_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 Review 的信息的参数集合
 review_parser_detail.add_argument('id', type=int)
-review_parser_detail.add_argument('published', type=bool)
-review_parser_detail.add_argument('user', type=int)
-review_parser_detail.add_argument('at_list', type=str)  # 最多允许@ 20 个用户，更多的可能会被丢掉。
-review_parser_detail.add_argument('stars', type=float)
-review_parser_detail.add_argument('content', type=unicode)
-review_parser_detail.add_argument('images', type=str)   # 最多允许绑定 10 张图片，更多的可能会被丢掉。
-review_parser_detail.add_argument('keywords', type=unicode)     # 最多允许键入 15 个关键词，更多的可能会被丢掉。
-review_parser_detail.add_argument('total', type=int)
-review_parser_detail.add_argument('currency', type=unicode)
-review_parser_detail.add_argument('site', type=int)
+review_parser_detail.add_argument('published', type=bool, required=True)
+review_parser_detail.add_argument('user', type=int, required=True)
+review_parser_detail.add_argument('at_list', type=str, required=True)  # 最多允许@ 20 个用户，更多的可能会被丢掉。
+review_parser_detail.add_argument('stars', type=float, required=True)
+review_parser_detail.add_argument('content', type=unicode, required=True)
+review_parser_detail.add_argument('images', type=str, required=True)   # 最多允许绑定 10 张图片，更多的可能会被丢掉。
+review_parser_detail.add_argument('keywords', type=unicode, required=True)     # 最多允许键入 15 个关键词，更多的可能会被丢掉。
+review_parser_detail.add_argument('total', type=int, required=True)
+review_parser_detail.add_argument('currency', type=unicode, required=True)
+review_parser_detail.add_argument('site', type=int, required=True)
 
 review_fields_brief = {
     'id': fields.Integer,
@@ -651,11 +651,11 @@ comment_parser.add_argument('review', type=int)         # 指定晒单评论 id�
 
 comment_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 Comment 的信息的参数集合
 comment_parser_detail.add_argument('id', type=int)
-comment_parser_detail.add_argument('review', type=int)
-comment_parser_detail.add_argument('article', type=int)
-comment_parser_detail.add_argument('user', type=int)
-comment_parser_detail.add_argument('at_list', type=str)  # 最多允许@ 20 个用户，更多的可能会被丢掉。
-comment_parser_detail.add_argument('content', type=unicode)
+comment_parser_detail.add_argument('review', type=int, required=True)
+comment_parser_detail.add_argument('article', type=int, required=True)
+comment_parser_detail.add_argument('user', type=int, required=True)
+comment_parser_detail.add_argument('at_list', type=str, required=True)  # 最多允许@ 20 个用户，更多的可能会被丢掉。
+comment_parser_detail.add_argument('content', type=unicode, required=True)
 
 comment_fields = {
     'id': fields.Integer,
@@ -685,7 +685,7 @@ class CommentList(Resource):
     @cache.memoize()
     def _get(self, id=None, article=None, review=None):
         query = db.session.query(Comment).filter(Comment.valid == True)
-        query = query.order_by(Comment.publish_time)
+        query = query.order_by(Comment.publish_time.desc())
         if id:
             query = query.filter(Comment.id == id)
         if article:
