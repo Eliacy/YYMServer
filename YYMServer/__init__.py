@@ -42,7 +42,7 @@ except OSError:
 cache = Cache(app, config=app.config)
 
 # 准备 api 接口
-api = restful.Api(app)
+api = restful.Api(app, catch_all_404s=True)
 
 # 准备 api 签名机制
 accountmgr = DictAccountBroker(

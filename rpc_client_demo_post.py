@@ -20,7 +20,7 @@ ts = time.time()
 resp = requests.get(host+"/rpc/time")
 print resp
 print resp.text
-server_ts = json.loads(resp.text)['timestamp']
+server_ts = json.loads(resp.text)['data']['timestamp']
 # 注意：服务器时间戳检查不允许时间戳快于服务器时间，因此做对时调整时需要稍稍多调慢一些，才能增大连接成功的概率！
 time_diff = ts - server_ts
 print 'time diff:', time_diff, '\n'

@@ -5,7 +5,8 @@ import time
 from sqlalchemy.orm import aliased
 
 from flask import jsonify, request, url_for
-from flask.ext.restful import reqparse, Resource, fields, marshal_with, marshal
+from flask.ext.restful import reqparse, Resource, fields, marshal_with, marshal, abort
+from flask.ext.restful import output_json as restful_output_json
 from flask.ext.hmacauth import hmac_auth
 
 from YYMServer import app, db, cache, api, util
@@ -13,6 +14,19 @@ from YYMServer.models import *
 
 from flask.ext.restful.representations.json import output_json
 output_json.func_globals['settings'] = {'ensure_ascii': False, 'encoding': 'utf8'}
+
+
+@api.representation('application/json')
+def output_json(data, code, headers=None):
+    ''' 定制输出内容，固定输出 status 和 message 字段，以方便客户端解析。'''
+    message = 'OK'
+    if type(data) == dict:
+        if data.has_key('message'):
+            message = data.pop('message')
+        if data.has_key('status'):
+            code = data.pop('status')
+    data = {'status': code, 'message': message, 'data':data}
+    return restful_output_json(data, code, headers)
 
 
 # 基础接口：
@@ -131,7 +145,7 @@ class ImageList(Resource):
             image.valid = False
             db.session.commit()
             return '', 204
-        return 'Target Image do not exists!', 404
+        abort(404, message='Target Image do not exists!')
 
     @hmac_auth('api')
     def post(self):
@@ -145,7 +159,7 @@ class ImageList(Resource):
                      )
         db.session.add(image)
         db.session.commit()
-        return image.id, 201
+        return {'id': image.id}, 201
 
 api.add_resource(ImageList, '/rpc/images')
 
@@ -658,7 +672,7 @@ class ReviewList(Resource):
             review.valid = False
             db.session.commit()
             return '', 204
-        return 'Target Review do not exists!', 404
+        abort(404, message='Target Review do not exists!')
 
     @hmac_auth('api')
     def post(self):
@@ -685,7 +699,7 @@ class ReviewList(Resource):
             review.publish_time = datetime.datetime.now()
         db.session.add(review)
         db.session.commit()
-        return review.id, 201
+        return {'id': review.id}, 201
 
     @hmac_auth('api')
     def put(self):
@@ -714,7 +728,7 @@ class ReviewList(Resource):
             db.session.commit()
             self._format_review(review, brief=0)
             return marshal(review, review_fields), 201
-        return 'Target Review do not exists!', 404
+        abort(404, message='Target Review do not exists!')
 
 
 api.add_resource(ReviewList, '/rpc/reviews')
@@ -801,7 +815,7 @@ class CommentList(Resource):
             review.valid = False
             db.session.commit()
             return '', 204
-        return 'Target Comment do not exists!', 404
+        abort(404, message='Target Comment do not exists!')
 
     @hmac_auth('api')
     def post(self):
@@ -819,7 +833,7 @@ class CommentList(Resource):
                          )
         db.session.add(comment)
         db.session.commit()
-        return comment.id, 201
+        return {'id': comment.id}, 201
 
     @hmac_auth('api')
     def put(self):
@@ -838,7 +852,7 @@ class CommentList(Resource):
             db.session.commit()
             self._format_comment(comment)
             return marshal(comment, comment_fields), 201
-        return 'Target Comment do not exists!', 404
+        abort(404, message='Target Comment do not exists!')
 
 api.add_resource(CommentList, '/rpc/comments')
 
