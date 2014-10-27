@@ -4,6 +4,7 @@ import sys
 # 用于 virtualenv 的：
 sys.path.insert(0, '/var/www/youyoumm/lib/python2.7/site-packages')
 # 用于载入 Application 自身的：
+sys.path.insert(0, '/var/www/youyoumm/YYMServer/flask-hmacauth')
 sys.path.insert(0, '/var/www/youyoumm/YYMServer')
 
 from flup.server.fcgi import WSGIServer
