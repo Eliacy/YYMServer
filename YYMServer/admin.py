@@ -355,6 +355,9 @@ class SiteView(MyModelView):
         return Markup(u'''<a href="%s" target="_blank">%s</a><br/>''' %
                 (data_source, data_source))
 
+    def _list_business_hours(view, context, model, name):
+        return util.replace_textlib(model.business_hours)
+
     column_formatters = {
         'logo': _list_thumbnail_logo,
         'top_images':_list_thumbnail_top_images,
@@ -363,6 +366,7 @@ class SiteView(MyModelView):
         'city':_list_city,
         'address_orig':_list_address_orig,
         'data_source':_list_data_source,
+        'business_hours':_list_business_hours,
     }
 
     def check_code(form, field):
