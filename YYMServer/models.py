@@ -266,7 +266,7 @@ class User(db.Model):
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 用户属性信息修改时间，以服务器时间为准
     name = db.Column(db.Unicode(100), default=u'')    # 可见用户昵称
     username = db.Column(db.String(80), unique=True, default='')    # 登陆用用户名，App 端会是设备 id（匿名用户）或手机号（已注册用户）
-    mobile = db.Column(db.String(120), unique=True, default='')     # 用户手机号
+    mobile = db.Column(db.String(120), unique=True)     # 用户手机号。注：由于设置了 unique ，所以未填本项的都保留为 null 。
     password = db.Column(db.String(80), default='')         # Hash 处理之后的登陆密码
     icon_id = db.Column(db.Integer, db.ForeignKey('image.id', use_alter=True, name='fk_icon'))     # 用户头像的图片 id
     icon = db.relationship('Image', foreign_keys=[icon_id], post_update=True)

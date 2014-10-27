@@ -2,6 +2,8 @@
 
 import time
 
+from sqlalchemy.orm import aliased
+
 from flask import jsonify, request, url_for
 from flask.ext.restful import reqparse, Resource, fields, marshal_with, marshal
 from flask.ext.hmacauth import hmac_auth
@@ -149,12 +151,90 @@ api.add_resource(ImageList, '/rpc/images')
 
 
 # 用户信息查询接口：
+user_parser = reqparse.RequestParser()
+user_parser.add_argument('id', type=int)
+user_parser.add_argument('offset', type=int)    # offset 偏移量。
+user_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
+user_parser.add_argument('follow', type=int)      # 关注指定 id 所对应用户的账号列表
+user_parser.add_argument('fan', type=int)         # 有指定 id 所对应用户作为粉丝的账号列表
+
+user_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 User 的信息的参数集合
+user_parser_detail.add_argument('id', type=int)
+user_parser_detail.add_argument('icon', type=int, required=True)        # 用户头像对应图片的 id
+user_parser_detail.add_argument('name', type=unicode, required=True)    # 用户昵称
+user_parser_detail.add_argument('mobile', type=str, required=True)  # 预留手机号接口，但 App 前端在初期版本不应该允许用户修改！
+user_parser_detail.add_argument('gender', type=unicode, required=True)    # 用户性别：文字直接表示的“男、女、未知”
+
 user_fields_mini = {
     'id': fields.Integer,
-    'icon': fields.Nested(image_fields_mini, attribute='icon_image'),   # 没有时会变成 id 为 0 的图片
-    'name': fields.String,
+    'icon': fields.Nested(image_fields_mini, attribute='icon_image'),   # 用户头像，没有时会变成 id 为 0 的图片
+    'name': fields.String,      # 用户昵称
+    'level': fields.Integer,    # 用数字表示的用户等级
 }
-#### 当指定用户 id 进行查询时，即使该用户 valid 为 False，也仍然给出详细信息。
+user_fields = {
+    'anonymous': fields.Boolean,
+    'create_time': util.DateTime,    # 首次创建时间，RFC822-formatted datetime string in UTC
+    'update_time': util.DateTime,    # 用户属性修改时间，RFC822-formatted datetime string in UTC
+    'username': fields.String,  # 登陆用用户名，App 端会是设备 id（匿名用户）或手机号（已注册用户）
+    'mobile': fields.String,    # 用户手机号
+    'gender': fields.String,    # 性别：文字直接表示的“男、女、未知”
+    'exp': fields.Integer,      # 与用户等级对应的用户经验，需要根据每天的行为日志做更新
+    'follow_num': fields.Integer,      # 该用户已关注的账号的数量，是一个缓存值
+    'fans_num': fields.Integer,      # 该用户拥有的粉丝数量，是一个缓存值
+    'like_num': fields.Integer,      # 该用户喜欢的晒单评论数量，是一个缓存值
+    'share_num': fields.Integer,      # 该用户的分享行为数量，是一个缓存值
+    'review_num': fields.Integer,      # 该用户发表的晒单评论数量，是一个缓存值
+    'favorite_num': fields.Integer,      # 该用户收藏的店铺的数量，是一个缓存值
+    'badges': fields.String,    # 用户拥有的徽章名称列表
+}
+user_fields.update(user_fields_mini)
+
+
+#### 用户登录时应记录其设备 id ！
+class UserList(Resource):
+    '''对用户账号信息进行查询、注册、修改的服务接口。不提供删除接口。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    def _format_user(self, user):
+        ''' 辅助函数：用于格式化 User 实例，用于接口输出。'''
+        user.icon_image = user.icon
+    
+    @cache.memoize()
+    def _get(self, id=None, follow=None, fan=None):
+        # 当指定用户 id 进行查询时，即使该用户 valid 为 False，也仍然给出详细信息。
+        result = []
+        if id:
+            query = db.session.query(User).filter(User.id == id)
+            result = query.all()
+        elif follow:
+            Main_User = aliased(User)
+            query = db.session.query(User).filter(User.valid == True).join(fans, User.id == fans.columns.fan_id).join(Main_User, fans.columns.user_id == Main_User.id).filter(Main_User.id == follow).order_by(fans.columns.action_time.desc())
+            result = query.all()
+        elif fan:
+            Main_User = aliased(User)
+            query = db.session.query(User).filter(User.valid == True).join(fans, User.id == fans.columns.user_id).join(Main_User, fans.columns.fan_id == Main_User.id).filter(Main_User.id == fan).order_by(fans.columns.action_time.desc())
+            result = query.all()
+        [self._format_user(user) for user in result]
+        return result
+
+    @hmac_auth('api')
+    @marshal_with(user_fields)
+    def get(self):
+        args = user_parser.parse_args()
+        result = self._get(args['id'], args['follow'], args['fan'])
+        offset = args['offset']
+        if offset:
+            result = result[offset:]
+        limit = args['limit']
+        if limit:
+            result = result[:limit]
+        return result
+
+api.add_resource(UserList, '/rpc/users')
 
 
 # 分类及子分类接口：
