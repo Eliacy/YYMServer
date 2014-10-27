@@ -71,8 +71,9 @@ class HmacManager(object):
         ts = datetime.datetime.fromtimestamp(float(timestamp))
 
         #is the timestamp valid?
-        if ts < datetime.datetime.now()-datetime.timedelta(seconds=self._valid_time) \
-                or ts > datetime.datetime.now():
+        server_now = datetime.datetime.now()
+        if ts < server_now - datetime.timedelta(seconds=self._valid_time) \
+                or ts > server_now + datetime.timedelta(seconds=self._valid_time):
             #TODO: add logging
             return False
 
