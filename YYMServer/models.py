@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 
-import datetime
+import datetime, random, time
 
 from sqlalchemy import event
 from sqlalchemy import DDL
 from werkzeug.security import generate_password_hash
 
 from YYMServer import db
+
+random.seed()
 
 
 class Real(db.REAL):
@@ -46,6 +48,28 @@ PAYMENT_TYPES = {'V': u'Visa',
                  'CB': u'Click and Buy',
                  }
 payment_types = dict(([key.lower(), value] for key, value in PAYMENT_TYPES.items()))
+
+# ToDo: 需要给每组用户默认属性指定一个默认 icon 图片 id ！
+DEFAULT_USER_GROUPS = ((u'美丽', None),  # (昵称前缀, 该组默认头像)
+                       (u'幸福', None),
+                       (u'快乐', None),
+                       (u'高雅', None),
+                       (u'智慧', None),
+                       (u'可爱', None),
+                       )
+CHINESE_MONTHS = {1: u'一月',
+                  2: u'二月',
+                  3: u'三月',
+                  4: u'四月',
+                  5: u'五月',
+                  6: u'六月',
+                  7: u'七月',
+                  8: u'八月',
+                  9: u'九月',
+                  10: u'十月',
+                  11: u'十一月',
+                  12: u'十二月',
+                  }
 
 
 class TextLib(db.Model):   # 供替换用的文本库
@@ -264,7 +288,7 @@ class User(db.Model):
     anonymous = db.Column(db.Boolean, default=False)  # 表示是否是系统自动生成的非注册用户
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 用户属性信息修改时间，以服务器时间为准
-    name = db.Column(db.Unicode(100), default=u'')    # 可见用户昵称
+    name = db.Column(db.Unicode(100), unique=True)    # 可见用户昵称。注：由于设置了 unique ，所以未填本项的都保留为 null 。
     username = db.Column(db.String(80), unique=True, default='')    # 登陆用用户名，App 端会是设备 id（匿名用户）或手机号（已注册用户）
     mobile = db.Column(db.String(120), unique=True)     # 用户手机号。注：由于设置了 unique ，所以未填本项的都保留为 null 。
     password = db.Column(db.String(80), default='')         # Hash 处理之后的登陆密码
@@ -290,6 +314,7 @@ class User(db.Model):
     badges = db.Column(db.Unicode(500), default=u'')  # 用户拥有的徽章名称列表
     roles = db.relationship('Role', secondary=roles_users,
                             backref=db.backref('users', lazy='dynamic'))
+    # ToDo: 勋章内容的更新机制暂未实现！
 
     def is_admin(self):
         check = False
@@ -332,8 +357,24 @@ event.listen(
 @event.listens_for(User, 'before_insert')
 @event.listens_for(User, 'before_update')
 def encrypt_password(mapper, connection, target):
-    if not target.password.startswith('pbkdf2:sha1:'):
+    if target.password and not target.password.startswith('pbkdf2:sha1:'):
         target.password = generate_password_hash(target.password)
+
+@event.listens_for(User, 'before_insert')
+def generate_default_name_and_icon(mapper, connection, target):
+    if not target.name and not target.icon_id:
+        name_leading, icon_id = DEFAULT_USER_GROUPS[random.randint(0, 5)]
+        month_addon = CHINESE_MONTHS[datetime.date.today().month]
+        number_ending = (int(time.time() * 1000)) % 100000
+        while True:
+            name = name_leading + month_addon + unicode(number_ending)
+            has_same_name = db.session.query(User).filter(User.name == name).first()
+            if has_same_name:
+                number_ending += 97
+            else:
+                break
+        target.name = name
+        target.icon_id = icon_id
 
 
 class Image(db.Model):  # 全局图片存储

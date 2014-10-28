@@ -174,10 +174,11 @@ user_parser.add_argument('fan', type=int)         # 有指定 id 所对应用户
 
 user_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 User 的信息的参数集合
 user_parser_detail.add_argument('id', type=int)
-user_parser_detail.add_argument('icon', type=int, required=True)        # 用户头像对应图片的 id
-user_parser_detail.add_argument('name', type=unicode, required=True)    # 用户昵称
-user_parser_detail.add_argument('mobile', type=str, required=True)  # 预留手机号接口，但 App 前端在初期版本不应该允许用户修改！
-user_parser_detail.add_argument('gender', type=unicode, required=True)    # 用户性别：文字直接表示的“男、女、未知”
+user_parser_detail.add_argument('icon', type=int)        # 用户头像对应图片的 id
+user_parser_detail.add_argument('name', type=unicode)    # 用户昵称
+user_parser_detail.add_argument('mobile', type=str)  # 预留手机号接口，但 App 前端在初期版本不应该允许用户修改！
+user_parser_detail.add_argument('password', type=str)  # 账号密码的明文
+user_parser_detail.add_argument('gender', type=unicode)    # 用户性别：文字直接表示的“男、女、未知”
 
 user_fields_mini = {
     'id': fields.Integer,
@@ -205,6 +206,7 @@ user_fields.update(user_fields_mini)
 
 
 #### 用户登录时应记录其设备 id ！
+### 用户登陆时提供默认账号的 token ！以便合并其历史行为！
 class UserList(Resource):
     '''对用户账号信息进行查询、注册、修改的服务接口。不提供删除接口。'''
     def __repr__(self):
@@ -247,6 +249,41 @@ class UserList(Resource):
         if limit:
             result = result[:limit]
         return result
+
+    @hmac_auth('api')
+    def post(self):
+        ''' 用户注册或创建新的匿名用户的接口。'''
+        args = user_parser_detail.parse_args()
+        mobile = args['mobile']
+        password = args['password']
+        if mobile and password:
+            has_same_mobile = db.session.query(User).filter(User.mobile == mobile).first()
+            if has_same_mobile:
+                abort(409, message='This mobile number has been used by another user!')
+            if len(password) < 6:
+                abort(403, message='The password length should be at least 6 characters!')
+            anonymous = False
+            username = mobile
+        else:
+            anonymous = True
+            mobile = None
+            password = None
+#            username = u'设备 id'
+        user = User(valid = True,
+                    anonymous = anonymous,
+                    create_time = datetime.datetime.now(),
+                    update_time = datetime.datetime.now(),
+                    icon_id = args['icon'],
+                    name = args['name'],        # name 为空时，Model 会自动生成默认的 name 和 icon 
+                    username = username,
+                    mobile = mobile,
+                    password = password,        # 明文 password 会被 Model 自动加密保存
+                    gender = args['gender'],
+                   )
+        db.session.add(user)
+        db.session.commit()
+        return {'id': user.id}, 201
+        #### 注册后要调用登陆逻辑，返回用户 token 等。
 
 api.add_resource(UserList, '/rpc/users')
 
