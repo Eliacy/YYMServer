@@ -356,7 +356,7 @@ class SiteView(MyModelView):
                 (data_source, data_source))
 
     def _list_business_hours(view, context, model, name):
-        return util.replace_textlib(model.business_hours)
+        return Markup(u'''<table width="300" cellpadding="5"><tr> </tr></table>''') + util.replace_textlib(model.business_hours)
 
     column_formatters = {
         'logo': _list_thumbnail_logo,
