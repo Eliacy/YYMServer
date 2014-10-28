@@ -220,12 +220,12 @@ user_parser.add_argument('fan', type=int)         # 有指定 id 所对应用户
 user_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 User 的信息的参数集合
 user_parser_detail.add_argument('id', type=int)
 user_parser_detail.add_argument('icon', type=int)        # 用户头像对应图片的 id
-user_parser_detail.add_argument('name', type=unicode)    # 用户昵称
-user_parser_detail.add_argument('mobile', type=str)  # 预留手机号接口，但 App 前端在初期版本不应该允许用户修改！
-user_parser_detail.add_argument('password', type=str)  # 账号密码的明文
+user_parser_detail.add_argument('name', type=unicode)    # 用户昵称，不能与已有的昵称重复，否则报错。
+user_parser_detail.add_argument('mobile', type=str)  # 预留手机号接口，但 App 前端在初期版本不应该允许用户修改！不能与其他用户的手机号重复，否则报错。
+user_parser_detail.add_argument('password', type=str)  # 账号密码的明文，至少6个字符。
 user_parser_detail.add_argument('gender', type=unicode)    # 用户性别：文字直接表示的“男、女、未知”
 user_parser_detail.add_argument('token', type=str)  # 旧 token，用于迁移登录前发生的匿名行为。
-user_parser_detail.add_argument('device', type=str, required=True)      # 设备 id 。
+user_parser_detail.add_argument('device', type=str)      # 设备 id 。
 
 user_fields_mini = {
     'id': fields.Integer,
@@ -354,7 +354,7 @@ class UserList(Resource):
             name = args['name']
             if name:
                 has_same_name = db.session.query(User).filter(User.name == name).first()
-                if has_same_name:
+                if has_same_name and has_same_name.id != id:
                     abort(409, message='The name has been used by another user!')
                 user.name = name
             password = args['password']
