@@ -138,6 +138,8 @@ class TextLibView(MyModelView):
         return super(TextLibView, self).create_model(form)
 
     def update_model(self, form, model):
+        if not form.create_user.data:
+            form.__delitem__('create_user')
         form.update_user.data = login.current_user
         return super(TextLibView, self).update_model(form, model)
 
@@ -156,6 +158,8 @@ class ImageView(MyModelView):
         return super(ImageView, self).create_model(form)
 
     def update_model(self, form, model):
+        if not form.user.data:
+            form.__delitem__('user')
         if form.path.data.filename:
             form.note.data = u'[%s] %s' % (form.path.data.filename, form.note.data or u'')
         return super(ImageView, self).update_model(form, model)
@@ -278,6 +282,8 @@ class SiteView(MyModelView):
         return super(SiteView, self).create_model(form)
 
     def update_model(self, form, model):
+        if not form.create_user.data:
+            form.__delitem__('create_user')
         form.update_user.data = login.current_user
         form.code.data = self._extend_code(form.code.data)
         form.business_hours.data = self._replace_full_width_chars(form.business_hours.data)
@@ -453,6 +459,8 @@ class BrandView(MyModelView):
         return super(BrandView, self).create_model(form)
 
     def update_model(self, form, model):
+        if not form.create_user.data:
+            form.__delitem__('create_user')
         form.update_user.data = login.current_user
         if form.sites.data:
             for site in form.sites.data:
