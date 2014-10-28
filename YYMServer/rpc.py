@@ -218,6 +218,11 @@ class UserList(Resource):
     def _format_user(self, user):
         ''' 辅助函数：用于格式化 User 实例，用于接口输出。'''
         user.icon_image = user.icon
+
+    def _check_password(self, password):
+        ''' 辅助函数：用于检查用户提交的新密码的合规性。'''
+        if len(password) < 6:
+            abort(403, message='The password length should be at least 6 characters!')
     
     @cache.memoize()
     def _get(self, id=None, follow=None, fan=None):
@@ -260,8 +265,7 @@ class UserList(Resource):
             has_same_mobile = db.session.query(User).filter(User.mobile == mobile).first()
             if has_same_mobile:
                 abort(409, message='This mobile number has been used by another user!')
-            if len(password) < 6:
-                abort(403, message='The password length should be at least 6 characters!')
+            self._check_password(password)
             anonymous = False
             username = mobile
         else:
@@ -284,6 +288,35 @@ class UserList(Resource):
         db.session.commit()
         return {'id': user.id}, 201
         #### 注册后要调用登陆逻辑，返回用户 token 等。
+
+    @hmac_auth('api')
+    def put(self):
+        ''' 修改用户详细属性信息的接口。'''
+        args = user_parser_detail.parse_args()
+        id = args['id']
+        user = db.session.query(User).filter(User.id == id).filter(User.valid == True).first()
+        if user:
+            user.update_time = datetime.datetime.now()
+            icon_id = args['icon']
+            if icon_id:
+                user.icon_id = icon_id
+            name = args['name']
+            if name:
+                has_same_name = db.session.query(User).filter(User.name == name).first()
+                if has_same_name:
+                    abort(409, message='The name has been used by another user!')
+                user.name = name
+            password = args['password']
+            if password:
+                self._check_password(password)
+                user.password = password        # 明文 password 会被 Model 自动加密保存
+            gender = args['gender']
+            if gender:
+                user.gender = gender
+            db.session.commit()
+            self._format_user(user)
+            return marshal(user, user_fields), 201
+        abort(404, message='Target User do not exists!')
 
 api.add_resource(UserList, '/rpc/users')
 
