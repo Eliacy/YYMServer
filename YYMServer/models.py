@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import datetime, random, time
+import datetime, random, time, uuid
 
 from sqlalchemy import event
 from sqlalchemy import DDL
@@ -280,6 +280,15 @@ event.listen(
     "after_create",
     DDL("ALTER TABLE %(table)s AUTO_INCREMENT = 7;").execute_if(dialect=('postgresql', 'mysql'))
 )
+
+
+class Token(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))     # 用户 id
+    user = db.relationship('User', backref=db.backref('tokens', lazy='dynamic'), foreign_keys=[user_id])
+    token = db.Column(db.String(50), default=uuid.uuid4)         # 用户登陆后的临时唯一标识
+    device = db.Column(db.String(50))    # 设备 id
 
 
 class User(db.Model):

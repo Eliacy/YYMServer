@@ -3,6 +3,7 @@
 import time
 
 from sqlalchemy.orm import aliased
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from flask import jsonify, request, url_for
 from flask.ext.restful import reqparse, Resource, fields, marshal_with, marshal, abort
@@ -164,6 +165,50 @@ class ImageList(Resource):
 api.add_resource(ImageList, '/rpc/images')
 
 
+# 用户登陆接口：
+login_parser = reqparse.RequestParser()
+login_parser.add_argument('username', type=str, required=True)         # 用户名，只支持 ASCii 字符。
+login_parser.add_argument('password', type=str, required=True)    # 密码，只支持 ASCii 字符。
+login_parser.add_argument('token', type=str)     # 旧 token，用于迁移登录前发生的匿名行为。
+login_parser.add_argument('device', type=str, required=True)      # 设备 id 。
+
+def _generate_token(new_user, device, old_token=None):
+    '''辅助函数：根据新登陆的 user 实例创建对应 token。如果提供了旧 token ，相应做旧 token 的历史行为记录迁移。'''
+    if old_token:
+        old_user = db.session.query(User).join(User.tokens).filter(Token.token == old_token).first()
+        if old_user:
+            pass        # ToDo: 生成一个后台任务，合并旧 token 的行为数据到当前登陆的新账号！
+    # 永远生成新 token，而不复用之前产生的 token。
+    token = Token(user_id = new_user.id,
+                  device = device,
+                  )
+    db.session.add(token)
+    db.session.commit()
+    return token.token
+
+
+class TokenList(Resource):
+    '''用户登陆，并返回账号 token 的接口。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    @hmac_auth('api')
+    def post(self):
+        ''' 用户登陆接口。'''
+        args = login_parser.parse_args()
+        user = db.session.query(User).filter(User.valid == True).filter(User.anonymous == False).filter(User.username == args['username']).first()
+        if not user or not check_password_hash(user.password, args['password']):
+            abort(403, message='Login Failed!')
+        old_token = args['token']
+        token = _generate_token(user, args['device'], old_token)
+        return {'token': token}, 201
+
+api.add_resource(TokenList, '/rpc/tokens')
+
+
 # 用户信息查询接口：
 user_parser = reqparse.RequestParser()
 user_parser.add_argument('id', type=int)
@@ -179,6 +224,8 @@ user_parser_detail.add_argument('name', type=unicode)    # 用户昵称
 user_parser_detail.add_argument('mobile', type=str)  # 预留手机号接口，但 App 前端在初期版本不应该允许用户修改！
 user_parser_detail.add_argument('password', type=str)  # 账号密码的明文
 user_parser_detail.add_argument('gender', type=unicode)    # 用户性别：文字直接表示的“男、女、未知”
+user_parser_detail.add_argument('token', type=str)  # 旧 token，用于迁移登录前发生的匿名行为。
+user_parser_detail.add_argument('device', type=str, required=True)      # 设备 id 。
 
 user_fields_mini = {
     'id': fields.Integer,
@@ -205,8 +252,6 @@ user_fields = {
 user_fields.update(user_fields_mini)
 
 
-#### 用户登录时应记录其设备 id ！
-### 用户登陆时提供默认账号的 token ！以便合并其历史行为！
 class UserList(Resource):
     '''对用户账号信息进行查询、注册、修改的服务接口。不提供删除接口。'''
     def __repr__(self):
@@ -258,9 +303,11 @@ class UserList(Resource):
     @hmac_auth('api')
     def post(self):
         ''' 用户注册或创建新的匿名用户的接口。'''
+        user = None
         args = user_parser_detail.parse_args()
         mobile = args['mobile']
         password = args['password']
+        device = args['device']
         if mobile and password:
             has_same_mobile = db.session.query(User).filter(User.mobile == mobile).first()
             if has_same_mobile:
@@ -268,26 +315,30 @@ class UserList(Resource):
             self._check_password(password)
             anonymous = False
             username = mobile
-        else:
+        else:   # 匿名用户
             anonymous = True
             mobile = None
             password = None
-#            username = u'设备 id'
-        user = User(valid = True,
-                    anonymous = anonymous,
-                    create_time = datetime.datetime.now(),
-                    update_time = datetime.datetime.now(),
-                    icon_id = args['icon'],
-                    name = args['name'],        # name 为空时，Model 会自动生成默认的 name 和 icon 
-                    username = username,
-                    mobile = mobile,
-                    password = password,        # 明文 password 会被 Model 自动加密保存
-                    gender = args['gender'],
-                   )
-        db.session.add(user)
-        db.session.commit()
-        return {'id': user.id}, 201
-        #### 注册后要调用登陆逻辑，返回用户 token 等。
+            # 如果已经存在相同设备 id 的匿名账号，则直接用这个匿名账号登陆并返回 token ！
+            user = db.session.query(User).filter(User.valid == True).filter(User.anonymous == True).join(User.tokens).filter(Token.device == device).order_by(Token.id.desc()).first()
+            username = unicode(device)
+        if user is None:
+            user = User(valid = True,
+                        anonymous = anonymous,
+                        create_time = datetime.datetime.now(),
+                        update_time = datetime.datetime.now(),
+                        icon_id = args['icon'],
+                        name = args['name'],        # name 为空时，Model 会自动生成默认的 name 和 icon 
+                        username = username,
+                        mobile = mobile,
+                        password = password,        # 明文 password 会被 Model 自动加密保存
+                        gender = args['gender'],
+                       )
+            db.session.add(user)
+            db.session.commit()
+        # 注册后要调用登陆逻辑，返回用户 token 等。
+        token = _generate_token(user, device, args['token'], )
+        return {'id': user.id, 'token': token}, 201
 
     @hmac_auth('api')
     def put(self):
