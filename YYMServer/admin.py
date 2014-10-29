@@ -546,14 +546,33 @@ class TipsView(MyModelView):
 
 
 class ArticleView(MyModelView):
+    form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'user', 'cities', 'countries', 
+                         'title', 'caption_id', 'content', 'keywords', 'comment_num',
+                         )
+    form_extra_fields = {
+        'caption_id': fields.IntegerField('Caption id', validators=[check_image_exist]),
+    }
     column_default_sort = ('update_time', True)
     column_searchable_list = ('title', 'keywords', 'content')
-    column_filters = ['id', 'valid', 'order', 'create_time', 'update_time', 'user_id', 'comment_num'] + list(column_searchable_list)
+    column_filters = ['id', 'valid', 'order', 'create_time', 'update_time', 'user_id', 'caption_id', 'comment_num'] + list(column_searchable_list)
 
     def create_model(self, form):
         if not form.user.data:
             form.user.data = login.current_user
         return super(ArticleView, self).create_model(form)
+
+    def get_one(self, id):
+        ''' ToDo：一个脏补丁，用来显示各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
+        article = super(ArticleView, self).get_one(id)
+        columns = []
+        for col in self.form_create_rules:
+            columns.append(col)
+            if col == 'caption_id':
+                if article.caption_id:
+                    columns.append(_get_image_rule(u'Caption Image', (article.caption, )))
+        self.form_edit_rules = columns
+        self._refresh_cache()
+        return article
 
 
 class MessageView(MyModelView):

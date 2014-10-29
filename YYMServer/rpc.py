@@ -372,6 +372,78 @@ class UserList(Resource):
 api.add_resource(UserList, '/rpc/users')
 
 
+# 首页文章接口：
+article_parser = reqparse.RequestParser()
+article_parser.add_argument('brief', type=int, default=1)     # 大于 0 表示只输出概要信息即可（默认只概要）。
+article_parser.add_argument('offset', type=int)    # offset 偏移量。
+article_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
+article_parser.add_argument('id', type=int)
+article_parser.add_argument('city', type=int)      # 城市 id。
+
+article_fields_brief = {
+    'id': fields.Integer,
+    'create_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'title': fields.String,         # 首页文章的标题
+    'caption': fields.Nested(image_fields_mini, attribute='caption_image'),     # 首页文章的标题衬图（也即首图）
+    'keywords': fields.List(fields.String, attribute='formated_keywords'),      # 概要状态通常只使用第一个关键词
+}
+article_fields = {
+    'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'content': fields.String,         # 晒单评论的文本正文，需区分自然段、小标题、图片、店铺链接、分隔符等特殊格式！
+    # ToDo: 这里需要和客户端统一一下图文混排的方案！
+    'comment_num': fields.Integer,
+}
+article_fields.update(article_fields_brief)
+
+
+class ArticleList(Resource):
+    '''按城市获取相关首页推荐文章的接口。'''
+
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    @cache.memoize()
+    def _get(self, brief=None, id=None, city=None):
+        # ToDo: Article 表中各计数缓存值的数据没有做动态更新，例如子评论数！
+        query = db.session.query(Article).filter(Article.valid == True)
+        if id:
+            query = query.filter(Article.id == id)
+        if city:
+            city_object = db.session.query(City).filter(City.valid == True).filter(City.id == city).first()
+            country = -1 if not city_object else city_object.country_id
+            query_city = query.join(Article.cities).filter(City.id == city)
+            query_country = query.join(Article.countries).filter(Country.id == country)
+            query = query_city.union(query_country)
+        query = query.order_by(Article.order.desc()).order_by(Article.create_time.desc())
+        result = []
+        for article in query:
+            article.caption_image = article.caption
+            article.formated_keywords = [] if not article.keywords else article.keywords.strip().split()
+            result.append(article)
+        return result
+
+    @hmac_auth('api')
+    def get(self):
+        args = article_parser.parse_args()
+        brief = args['brief']
+        result = self._get(brief, args['id'], args['city'])
+        offset = args['offset']
+        if offset:
+            result = result[offset:]
+        limit = args['limit']
+        if limit:
+            result = result[:limit]
+        if brief:
+            return marshal(result, article_fields_brief)
+        else:
+            return marshal(result, article_fields)
+
+api.add_resource(ArticleList, '/rpc/articles')
+
+
 # 分类及子分类接口：
 category_fields = {
     'id': fields.Integer,

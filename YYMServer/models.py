@@ -258,7 +258,7 @@ class ShareRecord(db.Model):
     action_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 用户分享文章或店铺的时间点
 
     def __unicode__(self):
-        return u'<ShareRecord [%d] %s: site %d, review %d>' % (self.id, self.user.name, self.site_id or -1, self.review_id or -1)
+        return u'<ShareRecord [%d] %s: site %d, review %d>' % (self.id, None if not self.user else self.user.name, self.site_id or -1, self.review_id or -1)
 
 
 roles_users = db.Table('roles_users',
@@ -422,7 +422,7 @@ class Review(db.Model):        # 用户晒单评论
     comment_num = db.Column(db.Integer, default=0)      # 本晒单的评论总数，只是一个缓存值，实际数据根据“评论”的行为表计算得出
 
     def __unicode__(self):
-        return u'<Review [%d] %s: %s>' % (self.id, self.user.name, self.update_time.strftime('%y-%m-%d'))
+        return u'<Review [%d] %s: %s>' % (self.id, None if not self.user else self.user.name, self.update_time.strftime('%y-%m-%d'))
 
 
 event.listen(
@@ -447,7 +447,7 @@ class Comment(db.Model):        # 用户子评论
     content = db.Column(db.UnicodeText)        # 评论的文字正文，需要注意检查内容长度
 
     def __unicode__(self):
-        return u'<Comment [%d] %s: %s>' % (self.id, self.user.name, self.update_time.strftime('%y-%m-%d'))
+        return u'<Comment [%d] %s: %s>' % (self.id, None if not self.user else self.user.name, self.update_time.strftime('%y-%m-%d'))
 
 
 city_articles = db.Table('city_articles',
@@ -468,19 +468,21 @@ class Article(db.Model):        # 首页推荐文章
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 晒单评论的作者
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 首页文章的作者
     user = db.relationship('User', backref=db.backref('articles', lazy='dynamic'))
     cities = db.relationship('City', secondary=city_articles,
                                       backref=db.backref('articles', lazy='dynamic'))
     countries = db.relationship('Country', secondary=country_articles,
                                       backref=db.backref('articles', lazy='dynamic'))
     title = db.Column(db.Unicode(50), default=u'')   # 首页文章的标题
-    content = db.Column(db.UnicodeText)         # 晒单评论的文本正文，需区分自然段、小标题、图片、店铺链接、分隔符等特殊格式！
-    keywords = db.Column(db.Unicode(200), default=u'')       # 晒单评论关键词，空格分隔
-    comment_num = db.Column(db.Integer, default=0)      # 本晒单的评论总数，只是一个缓存值，实际数据根据“评论”的行为表计算得出
+    caption_id = db.Column(db.Integer, db.ForeignKey('image.id'))     # 首页文章的标题首图的图片 id
+    caption = db.relationship('Image')
+    content = db.Column(db.UnicodeText)         # 首页文章的文本正文，需区分自然段、小标题、图片、店铺链接、分隔符等特殊格式！
+    keywords = db.Column(db.Unicode(200), default=u'')       # 首页文章关键词，空格分隔
+    comment_num = db.Column(db.Integer, default=0)      # 本文章的评论总数，只是一个缓存值，实际数据根据“评论”的行为表计算得出
 
     def __unicode__(self):
-        return u'<Article [%d] %s: %s>' % (self.id, self.user.name, self.title)
+        return u'<Article [%d] %s: %s>' % (self.id, None if not self.user else self.user.name, self.title)
 
 
 event.listen(
@@ -523,7 +525,7 @@ class UserReadMessage(db.Model):        # 辅助用关联关系表，未做 Admi
     has_read = db.Column(db.Boolean, default=False)     # 该用户是否已经读过特定私信
 
     def __unicode__(self):
-        return u'<UserReadMessage [%d] %s: msg %d, has_read %d>' % (self.id, self.user.name, self.message_id or -1, self.has_read)
+        return u'<UserReadMessage [%d] %s: msg %d, has_read %d>' % (self.id, None if not self.user else self.user.name, self.message_id or -1, self.has_read)
 
 
 class Message(db.Model):        # 用户私信， #ToDo: 当前的数据库结构设计可能存在性能问题。。
