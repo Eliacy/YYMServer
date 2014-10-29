@@ -130,6 +130,14 @@ class TextLibView(MyModelView):
     column_default_sort = ('update_time', True)
     column_searchable_list = ('note', 'content')
     column_filters = ['id', 'valid', 'create_time', 'update_time', 'create_user_id', 'update_user_id',] + list(column_searchable_list)
+    form_ajax_refs = {
+        'create_user': {
+            'fields': (User.id,)
+        },
+        'update_user': {
+            'fields': (User.id,)
+        },
+    }
 
     def create_model(self, form):
         if not form.create_user.data:
@@ -149,6 +157,11 @@ class ImageView(MyModelView):
     column_default_sort = ('create_time', True)
     column_searchable_list = ('path', 'note')
     column_filters = ['id', 'valid', 'type', 'create_time', 'user_id'] + list(column_searchable_list)
+    form_ajax_refs = {
+        'user': {
+            'fields': (User.id,)
+        },
+    }
 
     def create_model(self, form):
         if form.path.data.filename:
@@ -231,7 +244,7 @@ class SiteView(MyModelView):
                       'phone', 'transport', 'description', 'area_id', 'keywords', 'images_num',
                       ] + list(column_searchable_list)
     form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'create_user', 'update_user', 'code', 'name', 'name_orig', 
-                         'brand', 'logo_id', 'level', 'stars', 'popular', 'review_num', 'reviews', 'categories',
+                         'brand', 'logo', 'level', 'stars', 'popular', 'review_num', 'reviews', 'categories',
                          'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
                          'phone', 'transport', 'description', 'longitude', 'latitude', 'area', 'address',
                          'address_orig', 'keywords', 'top_images', 'images_num', 'gate_images', 'data_source',
@@ -244,6 +257,32 @@ class SiteView(MyModelView):
                    'country', 'city', 'area', 'address',
                    'address_orig', 'keywords', 'top_images', 'images_num', 'gate_images', 'data_source',
                    )
+    form_ajax_refs = {
+        'create_user': {
+            'fields': (User.id,)
+        },
+        'update_user': {
+            'fields': (User.id,)
+        },
+        'brand': {
+            'fields': (Brand.id, Brand.name,)
+        },
+        'logo': {
+            'fields': (Image.id,)
+        },
+        'categories': {
+            'fields': (Category.id, Category.name)
+        },
+        'area': {
+            'fields': (Area.id, Area.name)
+        },
+        'fans': {
+            'fields': (User.id,)
+        },
+        'reviews': {
+            'fields': (Review.id,)
+        },
+    }
 
     def _replace_full_width_chars(self, text):
         ''' 辅助函数，替换 ：、空格、－、（、）到英文半角版本。'''
@@ -291,29 +330,6 @@ class SiteView(MyModelView):
         if form.brand.data:
             form.level.data = form.brand.data.level
         return super(SiteView, self).update_model(form, model)
-
-    def get_one(self, id):
-        ''' ToDo：一个脏补丁，用来显示店铺相关的各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
-        site = super(SiteView, self).get_one(id)
-        columns = []
-        for col in self.form_create_rules:
-            columns.append(col)
-            if col == 'logo_id':
-                if site.logo_id:
-                    columns.append(_get_image_rule(u'Logo Image', (site.logo, )))
-            elif col == 'top_images':
-                if site.top_images:
-                    columns.append(_get_image_rule(u'Top Images', 
-                                                   util.get_images(site.top_images, valid_only=False)
-                                                   ))
-            elif col == 'gate_images':
-                if site.gate_images:
-                    columns.append(_get_image_rule(u'Gate Images', 
-                                                   util.get_images(site.gate_images, valid_only=False)
-                                                   ))
-        self.form_edit_rules = columns
-        self._refresh_cache()
-        return site
 
     def _list_thumbnail_logo(view, context, model, name):
         if not model.logo_id:
@@ -406,9 +422,6 @@ class SiteView(MyModelView):
             if not payment_types.has_key(code.lower()):
                 raise validators.ValidationError(u'支付方式代码 {} 不在支持列表内！'.format(code))
 
-    form_extra_fields = {
-        'logo_id': fields.IntegerField('Logo id', validators=[check_image_exist]),
-    }
     form_args = dict(
         code=dict(validators=[check_code]),
         payment=dict(validators=[check_payment]),
@@ -421,6 +434,20 @@ class ReviewView(MyModelView):
     column_filters = ['id', 'valid', 'selected', 'published', 'publish_time', 'update_time', 'user_id',
                       'stars', 'content', 'total', 'currency', 'site_id', 'like_num', 'comment_num',
                       ] + list(column_searchable_list)
+    form_ajax_refs = {
+        'fans': {
+            'fields': (User.id,)
+        },
+        'user': {
+            'fields': (User.id,)
+        },
+        'site': {
+            'fields': (Site.id, Site.code, Site.name, Site.name_orig)
+        },
+        'comments': {
+            'fields': (Comment.id,)
+        },
+    }
 
     def create_model(self, form):
         if not form.user.data:
@@ -433,6 +460,17 @@ class CommentView(MyModelView):
     column_searchable_list = ()
     column_filters = ['id', 'valid', 'publish_time', 'update_time', 'review_id', 'article_id', 'user_id', 'content'
                       ] + list(column_searchable_list)
+    form_ajax_refs = {
+        'review': {
+            'fields': (Review.id,)
+        },
+        'article': {
+            'fields': (Article.id,)
+        },
+        'user': {
+            'fields': (User.id,)
+        },
+    }
 
     def create_model(self, form):
         if not form.user.data:
@@ -445,9 +483,73 @@ class TagAlikeView(MyModelView):
     column_filters = ['id', 'valid', 'order',] + list(column_searchable_list)
 
 
+class CountryView(TagAlikeView):
+    form_ajax_refs = {
+        'default_city': {
+            'fields': (City.id, City.name,)
+        },
+        'cities': {
+            'fields': (City.id, City.name,)
+        },
+        'articles': {
+            'fields': (Article.id,)
+        },
+    }
+
+
+class CityView(TagAlikeView):
+    form_ajax_refs = {
+        'country': {
+            'fields': (Country.id, Country.name,)
+        },
+        'areas': {
+            'fields': (Area.id, Area.name,)
+        },
+        'articles': {
+            'fields': (Article.id,)
+        },
+        'tips': {
+            'fields': (Tips.id,)
+        },
+    }
+
+
+class AreaView(TagAlikeView):
+    form_ajax_refs = {
+        'city': {
+            'fields': (City.id, City.name,)
+        },
+        'sites': {
+            'fields': (Site.id, Site.code, Site.name, Site.name_orig)
+        },
+    }
+
+
+class CategoryView(TagAlikeView):
+    form_ajax_refs = {
+        'parent': {
+            'fields': (Category.id, Category.name)
+        },
+        'sites': {
+            'fields': (Site.id, Site.code, Site.name, Site.name_orig)
+        },
+    }
+
+
 class BrandView(MyModelView):
     column_searchable_list = ('name', 'name_zh', 'description')
     column_filters = ['id', 'valid', 'order', 'create_time', 'update_time', 'create_user_id', 'update_user_id', 'source', 'level'] + list(column_searchable_list)
+    form_ajax_refs = {
+        'create_user': {
+            'fields': (User.id,)
+        },
+        'update_user': {
+            'fields': (User.id,)
+        },
+        'sites': {
+            'fields': (Site.id, Site.code, Site.name, Site.name_orig)
+        },
+    }
 
     def create_model(self, form):
         if not form.create_user.data:
@@ -489,6 +591,11 @@ class RoleView(MyModelView):
     column_default_sort = None
     column_searchable_list = ('name',)
     column_filters = ['id'] + list(column_searchable_list)
+    form_ajax_refs = {
+        'users': {
+            'fields': (User.id,)
+        },
+    }
 
     def is_accessible(self):
         return super(RoleView, self).is_accessible() and login.current_user.is_admin()
@@ -496,39 +603,75 @@ class RoleView(MyModelView):
 
 class UserView(MyModelView):
 #    form_excluded_columns = ('icon', 'images', 'created_sites', 'updated_sites', 'created_brands', 'updated_brands', 'share_records', 'reviews', 'comments', 'articles', 'tips', 'read_records', 'sent_messages', 'messages', 'created_textlibs', 'updated_textlibs')       # 出于性能考虑，禁止显示这些涉及大数据量外键的字段。
-    form_create_rules = ('valid', 'create_time', 'update_time', 'name', 'username', 'mobile', 'password', 'icon_id', 
+    form_create_rules = ('valid', 'create_time', 'update_time', 'name', 'username', 'mobile', 'password', 'icon', 
                          'gender', 'level', 'exp', 'follow_num', 'fans_num', 'fans', 'follows', 'like_num',
                          'likes', 'share_num', 'review_num', 'favorite_num', 'favorites', 'badges', 'roles',
                          )
-    form_extra_fields = {
-        'icon_id': fields.IntegerField('Icon id', validators=[check_image_exist]),
-    }
     column_default_sort = None
     column_searchable_list = ('name', 'username', 'mobile')
     column_filters = ['id', 'valid', 'create_time', 'update_time', 'icon_id', 'gender', 'level', 'exp', 'follow_num',
                       'fans_num', 'like_num', 'share_num', 'review_num', 'favorite_num', 'badges',
                       ] + list(column_searchable_list)
+    form_ajax_refs = {
+        'icon': {
+            'fields': (Image.id,)
+        },
+        'fans': {
+            'fields': (User.id,)
+        },
+        'follows': {
+            'fields': (User.id,)
+        },
+        'likes': {
+            'fields': (Review.id,)
+        },
+        'favorites': {
+            'fields': (Site.id, Site.code, Site.name, Site.name_orig)
+        },
+        'roles': {
+            'fields': (Role.id, Role.name,)
+        },
+        'images': {
+            'fields': (Image.id,)
+        },
+        'reviews': {
+            'fields': (Review.id,)
+        },
+        'comments': {
+            'fields': (Comment.id,)
+        },
+        'articles': {
+            'fields': (Article.id,)
+        },
+        'tips': {
+            'fields': (Tips.id,)
+        },
+        'sent_messages': {
+            'fields': (Message.id,)
+        },
+        'messages': {
+            'fields': (Message.id,)
+        },
+    }
 
     def is_accessible(self):
         return super(UserView, self).is_accessible() and login.current_user.is_admin()
-
-    def get_one(self, id):
-        ''' ToDo：一个脏补丁，用来显示店铺相关的各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
-        user = super(UserView, self).get_one(id)
-        columns = []
-        for col in self.form_create_rules:
-            columns.append(col)
-            if col == 'icon_id':
-                if user.icon_id:
-                    columns.append(_get_image_rule(u'Icon Image', (user.icon, )))
-        self.form_edit_rules = columns
-        self._refresh_cache()
-        return user
 
 
 class ShareRecordView(MyModelView):
     column_searchable_list = ('target', )
     column_filters = ['user_id', 'site_id', 'review_id', 'action_time'] + list(column_searchable_list)
+    form_ajax_refs = {
+        'user': {
+            'fields': (User.id,)
+        },
+        'site': {
+            'fields': (Site.id, Site.code, Site.name, Site.name_orig)
+        },
+        'review': {
+            'fields': (Review.id,)
+        },
+    }
 
     def is_accessible(self):
         return super(ShareRecordView, self).is_accessible() and login.current_user.is_admin()
@@ -538,6 +681,14 @@ class TipsView(MyModelView):
     column_default_sort = ('update_time', True)
     column_searchable_list = ('title', 'content', )
     column_filters = ['id', 'valid', 'default', 'create_time', 'update_time', 'user_id', 'city_id', 'title'] + list(column_searchable_list)
+    form_ajax_refs = {
+        'user': {
+            'fields': (User.id,)
+        },
+        'city': {
+            'fields': (City.id, City.name,)
+        },
+    }
 
     def create_model(self, form):
         if not form.user.data:
@@ -547,38 +698,50 @@ class TipsView(MyModelView):
 
 class ArticleView(MyModelView):
     form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'user', 'cities', 'countries', 
-                         'title', 'caption_id', 'content', 'keywords', 'comment_num',
+                         'title', 'caption', 'content', 'keywords', 'comment_num',
                          )
-    form_extra_fields = {
-        'caption_id': fields.IntegerField('Caption id', validators=[check_image_exist]),
-    }
     column_default_sort = ('update_time', True)
     column_searchable_list = ('title', 'keywords', 'content')
     column_filters = ['id', 'valid', 'order', 'create_time', 'update_time', 'user_id', 'caption_id', 'comment_num'] + list(column_searchable_list)
+    form_ajax_refs = {
+        'user': {
+            'fields': (User.id,)
+        },
+        'cities': {
+            'fields': (City.id, City.name,)
+        },
+        'countries': {
+            'fields': (Country.id, Country.name,)
+        },
+        'caption': {
+            'fields': (Image.id,)
+        },
+        'comments': {
+            'fields': (Comment.id,)
+        },
+    }
 
     def create_model(self, form):
         if not form.user.data:
             form.user.data = login.current_user
         return super(ArticleView, self).create_model(form)
 
-    def get_one(self, id):
-        ''' ToDo：一个脏补丁，用来显示各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
-        article = super(ArticleView, self).get_one(id)
-        columns = []
-        for col in self.form_create_rules:
-            columns.append(col)
-            if col == 'caption_id':
-                if article.caption_id:
-                    columns.append(_get_image_rule(u'Caption Image', (article.caption, )))
-        self.form_edit_rules = columns
-        self._refresh_cache()
-        return article
-
 
 class MessageView(MyModelView):
     column_default_sort = ('create_time', True)
     column_searchable_list = ('content', 'group_key')
     column_filters = ['id', 'valid', 'create_time', 'sender_user_id'] + list(column_searchable_list)
+    form_ajax_refs = {
+        'read_records': {
+            'fields': (UserReadMessage.id,)
+        },
+        'sender_user': {
+            'fields': (User.id,)
+        },
+        'users': {
+            'fields': (User.id,)
+        },
+    }
 
 
 # Create admin
@@ -590,11 +753,11 @@ admin.add_view(SiteView(Site, db.session))
 admin.add_view(ReviewView(Review, db.session))
 admin.add_view(CommentView(Comment, db.session))
 admin.add_view(ImageView(Image, db.session))
-admin.add_view(TagAlikeView(Category, db.session))
+admin.add_view(CategoryView(Category, db.session))
 admin.add_view(BrandView(Brand, db.session))
-admin.add_view(TagAlikeView(Country, db.session))
-admin.add_view(TagAlikeView(City, db.session))
-admin.add_view(TagAlikeView(Area, db.session))
+admin.add_view(CountryView(Country, db.session))
+admin.add_view(CityView(City, db.session))
+admin.add_view(AreaView(Area, db.session))
 admin.add_view(UserView(User, db.session))
 admin.add_view(RoleView(Role, db.session))
 admin.add_view(ShareRecordView(ShareRecord, db.session))
