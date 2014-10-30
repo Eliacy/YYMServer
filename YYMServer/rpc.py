@@ -374,10 +374,10 @@ api.add_resource(UserList, '/rpc/users')
 
 # 首页文章接口：
 article_parser = reqparse.RequestParser()
+article_parser.add_argument('id', type=int)
 article_parser.add_argument('brief', type=int, default=1)     # 大于 0 表示只输出概要信息即可（默认只概要）。
 article_parser.add_argument('offset', type=int)    # offset 偏移量。
 article_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
-article_parser.add_argument('id', type=int)
 article_parser.add_argument('city', type=int)      # 城市 id。
 
 article_fields_brief = {
@@ -389,7 +389,7 @@ article_fields_brief = {
 }
 article_fields = {
     'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
-    'content': fields.String,         # 晒单评论的文本正文，需区分自然段、小标题、图片、店铺链接、分隔符等特殊格式！
+    'content': fields.String,         # 首页文章的文本正文，需区分自然段、小标题、图片、店铺链接、分隔符等特殊格式！
     # ToDo: 这里需要和客户端统一一下图文混排的方案！
     'comment_num': fields.Integer,
 }
@@ -442,6 +442,59 @@ class ArticleList(Resource):
             return marshal(result, article_fields)
 
 api.add_resource(ArticleList, '/rpc/articles')
+
+
+# 小贴士接口：
+tips_parser = reqparse.RequestParser()
+tips_parser.add_argument('id', type=int)
+tips_parser.add_argument('brief', type=int, default=1)     # 大于 0 表示只输出概要信息即可（默认只概要）。
+tips_parser.add_argument('city', type=int)      # 城市 id。
+
+tips_fields_brief = {
+    'id': fields.Integer,
+    'default': fields.Boolean,  # 是否是当前城市的默认贴士
+    'create_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'title': fields.String,         # Tips 的标题，用于列表选单，不用于正文显示
+}
+tips_fields = {
+    'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'content': fields.String,         # 小贴士的文本正文，需区分自然段、小标题、分隔符、排序列表等特殊格式！以及支持对其他 Tips 的引用（例如该国家通用的内容）
+    # ToDo: 这里需要和客户端统一一下图文混排的方案！
+}
+tips_fields.update(tips_fields_brief)
+
+
+class TipsList(Resource):
+    '''按城市获取相关小贴士文档的接口。'''
+
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    @cache.memoize()
+    def _get(self, brief=None, id=None, city=None):
+        query = db.session.query(Tips).filter(Tips.valid == True)
+        if id:
+            query = query.filter(Tips.id == id)
+        if city:
+            query= query.filter(Tips.city_id == city)
+        query = query.order_by(Tips.default.desc())
+        result = query.all()
+        return result
+
+    @hmac_auth('api')
+    def get(self):
+        args = tips_parser.parse_args()
+        brief = args['brief']
+        result = self._get(brief, args['id'], args['city'])
+        if brief:
+            return marshal(result, tips_fields_brief)
+        else:
+            return marshal(result, tips_fields)
+
+api.add_resource(TipsList, '/rpc/tips')
 
 
 # 分类及子分类接口：
@@ -583,10 +636,10 @@ api.add_resource(CountryList, '/rpc/countries')
 
 # POI 接口：
 site_parser = reqparse.RequestParser()
+site_parser.add_argument('id', type=int)
 site_parser.add_argument('brief', type=int, default=1)     # 大于 0 表示只输出概要信息即可（默认只概要）。
 site_parser.add_argument('offset', type=int)    # offset 偏移量。
 site_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
-site_parser.add_argument('id', type=int)
 site_parser.add_argument('keywords', type=unicode)  # 搜索关键词，空格或英文加号分隔，默认的关系是“且”。搜索时大小写不敏感。
 site_parser.add_argument('area', type=int)      # 商圈 id。
 site_parser.add_argument('city', type=int)      # 城市 id。
@@ -731,12 +784,12 @@ api.add_resource(SiteList, '/rpc/sites')
 
 # 晒单评论接口：
 review_parser = reqparse.RequestParser()
+review_parser.add_argument('id', type=int)
 review_parser.add_argument('brief', type=int, default=1)     # 大于 0 表示只输出概要信息即可（默认只概要）。
 review_parser.add_argument('selected', type=int)     # 大于 0 表示只输出置顶信息即可（例如 POI 详情页面中的晒单评论），不够 limit 的要求时，会用非置顶信息补足。
 review_parser.add_argument('published', type=int, default=1)     # 大于 0 表示只输出已发表的（默认只已发表的），否则也可输出草稿。
 review_parser.add_argument('offset', type=int)    # offset 偏移量。
 review_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
-review_parser.add_argument('id', type=int)
 review_parser.add_argument('user', type=int)
 review_parser.add_argument('site', type=int)    # 相关联的 POI id
 review_parser.add_argument('city', type=int)    # 相关联的城市 id
