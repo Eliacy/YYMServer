@@ -331,6 +331,29 @@ class SiteView(MyModelView):
             form.level.data = form.brand.data.level
         return super(SiteView, self).update_model(form, model)
 
+    def get_one(self, id):
+        ''' ToDo：一个脏补丁，用来显示店铺相关的各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
+        site = super(SiteView, self).get_one(id)
+        columns = []
+        for col in self.form_create_rules:
+            columns.append(col)
+            if col == 'logo':
+                if site.logo_id:
+                    columns.append(_get_image_rule(u'Logo Image', (site.logo, )))
+            elif col == 'top_images':
+                if site.top_images:
+                    columns.append(_get_image_rule(u'Top Images', 
+                                                   util.get_images(site.top_images, valid_only=False)
+                                                   ))
+            elif col == 'gate_images':
+                if site.gate_images:
+                    columns.append(_get_image_rule(u'Gate Images', 
+                                                   util.get_images(site.gate_images, valid_only=False)
+                                                   ))
+        self.form_edit_rules = columns
+        self._refresh_cache()
+        return site
+
     def _list_thumbnail_logo(view, context, model, name):
         if not model.logo_id:
             return ''
@@ -657,6 +680,19 @@ class UserView(MyModelView):
     def is_accessible(self):
         return super(UserView, self).is_accessible() and login.current_user.is_admin()
 
+    def get_one(self, id):
+        ''' ToDo：一个脏补丁，用来显示各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
+        user = super(UserView, self).get_one(id)
+        columns = []
+        for col in self.form_create_rules:
+            columns.append(col)
+            if col == 'icon':
+                if user.icon_id:
+                    columns.append(_get_image_rule(u'Icon Image', (user.icon, )))
+        self.form_edit_rules = columns
+        self._refresh_cache()
+        return user
+
 
 class ShareRecordView(MyModelView):
     column_searchable_list = ('target', )
@@ -725,6 +761,19 @@ class ArticleView(MyModelView):
         if not form.user.data:
             form.user.data = login.current_user
         return super(ArticleView, self).create_model(form)
+
+    def get_one(self, id):
+        ''' ToDo：一个脏补丁，用来显示各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
+        article = super(ArticleView, self).get_one(id)
+        columns = []
+        for col in self.form_create_rules:
+            columns.append(col)
+            if col == 'caption':
+                if article.caption_id:
+                    columns.append(_get_image_rule(u'Caption Image', (article.caption, )))
+        self.form_edit_rules = columns
+        self._refresh_cache()
+        return article
 
 
 class MessageView(MyModelView):
