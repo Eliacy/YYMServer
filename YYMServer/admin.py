@@ -7,6 +7,7 @@ import PIL
 
 from flask import url_for, redirect, request
 from jinja2 import Markup
+from sqlalchemy import or_
 from werkzeug import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from wtforms import form, fields, validators
@@ -15,6 +16,8 @@ from flask.ext.admin import Admin, AdminIndexView
 from flask.ext.admin import form as admin_form
 from flask.ext.admin import helpers, expose
 from flask.ext.admin.contrib.sqla import ModelView
+from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
+from flask.ext.admin.model.ajax import DEFAULT_PAGE_SIZE
 from flask.ext import login
 
 from YYMServer import app, db, file_path, util
@@ -22,8 +25,6 @@ from YYMServer.models import *
 
 
 # 完整代码参考：https://github.com/mrjoes/flask-admin/blob/master/examples/auth/auth.py
-
-
 # Define login and registration forms (for flask-login)
 # ToDo: 可以考虑利用 Flask-Security 完善后台权限管理及功能！
 class LoginForm(form.Form):
@@ -55,6 +56,19 @@ def init_login():
     @login_manager.user_loader
     def load_user(user_id):
         return db.session.query(User).get(user_id)
+
+
+class IlikeQueryAjaxModelLoader(QueryAjaxModelLoader):
+    ''' 支持大小写不敏感的 ilike 检索方式的 Ajax 外键搜索的后台接口。'''
+
+    def get_list(self, term, offset=0, limit=DEFAULT_PAGE_SIZE):
+        # 这个函数直接复制了 https://github.com/mrjoes/flask-admin/blob/master/flask_admin/contrib/sqla/ajax.py 的原始代码，需要定期同步更新！
+        query = self.session.query(self.model)
+
+        filters = (field.ilike(u'%%%s%%' % term) for field in self._cached_fields)
+        query = query.filter(or_(*filters))
+
+        return query.offset(offset).limit(limit).all()
 
 
 # Create customized model view class
@@ -264,9 +278,9 @@ class SiteView(MyModelView):
         'update_user': {
             'fields': (User.id,)
         },
-        'brand': {
-            'fields': (Brand.id, Brand.name,)
-        },
+        'brand': IlikeQueryAjaxModelLoader('brand', db.session, Brand, 
+            fields = [Brand.id, Brand.name,]
+        ),
         'logo': {
             'fields': (Image.id,)
         },
@@ -464,9 +478,9 @@ class ReviewView(MyModelView):
         'user': {
             'fields': (User.id,)
         },
-        'site': {
-            'fields': (Site.id, Site.code, Site.name, Site.name_orig)
-        },
+        'site': IlikeQueryAjaxModelLoader('site', db.session, Site, 
+            fields = [Site.id, Site.code, Site.name, Site.name_orig]
+        ),
         'comments': {
             'fields': (Comment.id,)
         },
@@ -542,9 +556,9 @@ class AreaView(TagAlikeView):
         'city': {
             'fields': (City.id, City.name,)
         },
-        'sites': {
-            'fields': (Site.id, Site.code, Site.name, Site.name_orig)
-        },
+        'site': IlikeQueryAjaxModelLoader('site', db.session, Site, 
+            fields = [Site.id, Site.code, Site.name, Site.name_orig]
+        ),
     }
 
 
@@ -553,9 +567,9 @@ class CategoryView(TagAlikeView):
         'parent': {
             'fields': (Category.id, Category.name)
         },
-        'sites': {
-            'fields': (Site.id, Site.code, Site.name, Site.name_orig)
-        },
+        'site': IlikeQueryAjaxModelLoader('site', db.session, Site, 
+            fields = [Site.id, Site.code, Site.name, Site.name_orig]
+        ),
     }
 
 
@@ -569,9 +583,9 @@ class BrandView(MyModelView):
         'update_user': {
             'fields': (User.id,)
         },
-        'sites': {
-            'fields': (Site.id, Site.code, Site.name, Site.name_orig)
-        },
+        'site': IlikeQueryAjaxModelLoader('site', db.session, Site, 
+            fields = [Site.id, Site.code, Site.name, Site.name_orig]
+        ),
     }
 
     def create_model(self, form):
@@ -648,9 +662,9 @@ class UserView(MyModelView):
         'likes': {
             'fields': (Review.id,)
         },
-        'favorites': {
-            'fields': (Site.id, Site.code, Site.name, Site.name_orig)
-        },
+        'favorites': IlikeQueryAjaxModelLoader('favorites', db.session, Site, 
+            fields = [Site.id, Site.code, Site.name, Site.name_orig]
+        ),
         'roles': {
             'fields': (Role.id, Role.name,)
         },
@@ -701,9 +715,9 @@ class ShareRecordView(MyModelView):
         'user': {
             'fields': (User.id,)
         },
-        'site': {
-            'fields': (Site.id, Site.code, Site.name, Site.name_orig)
-        },
+        'site': IlikeQueryAjaxModelLoader('site', db.session, Site, 
+            fields = [Site.id, Site.code, Site.name, Site.name_orig]
+        ),
         'review': {
             'fields': (Review.id,)
         },
