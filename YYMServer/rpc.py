@@ -1103,6 +1103,83 @@ class CommentList(Resource):
 api.add_resource(CommentList, '/rpc/comments')
 
 
+# 用户消息对话线索接口
+### 可能缓存时间只能设置得非常短，要不新消息会延迟收到。。
+### 返回的对话线索需要有个合理排序，以便客户端分批获取。似乎同样需要有一个截止 id，在这个 id 之前的对话线索就不返回了。
+message_parser = reqparse.RequestParser()
+message_parser.add_argument('stop', type=int, default=0)   # 截止 message id，也即返回数据只考虑 id 大于这一指定值的 message 消息。（注意：分批读取时每次请求的截止 message id 不能轻易变化，否则会使缓存失效！而应该使用 offset 来控制！）
+message_parser.add_argument('offset', type=int)    # offset 偏移量。
+message_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
+message_parser.add_argument('user', type=int)      # 仅获取这一指定用户的消息
+message_parser.add_argument('thread', type=str)         # 仅获取这一指定对话线索的消息
+
+message_fields_thread = {
+    'thread': fields.String,        # 对话线索标识
+    'create_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'user': fields.Nested(user_fields_mini, attribute='valid_user'),        # 发送人的账号信息
+    'content': fields.String,   # 消息文本正文，如果是系统发送的消息，则可能存在应用内资源的跳转链接。（截取前 100 个字符差不多够了吧？）
+    'unread': fields.Integer,   # 该线索的未读消息数
+}
+
+class MessageThreadList(Resource):
+    '''获取对话线索的列表，每个线索提供信息概要和未读数。并能够将一个对话线索的全部消息设置为已读。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+api.add_resource(MessageThreadList, '/rpc/messages/threads')
+
+# 用户消息接口
+### 用户消息的获取需要有个截止 id，在这个 id 之前的消息就不返回了。
+### 指定对话线索标记为已读。（在本对话线索的所有新消息都读取后）
+### 发新消息
+### 暂时不提供删除、修改操作。
+message_parser_detail = reqparse.RequestParser()         # 用于创建新 message 信息的参数集合
+message_parser_detail.add_argument('user', type=int, required=True)     # 消息发送人
+message_parser_detail.add_argument('content', type=unicode, required=True)      # 消息文本正文，如果是系统发送的消息，则可能存在应用内资源的跳转链接。
+message_parser_detail.add_argument('thread', type=str, required=True)   # 对话线索标识，也即后台数据库中的 group_key （私信消息分组快捷键，将本消息相关 user_id 按从小到大排序，用“_”连接作为 Key）
+
+message_fields = {
+    'id': fields.Integer,
+    'create_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'user_id': fields.Integer,        # 发送人的 user id （message 详情通常用于提取一个对话线索中的详细消息，因此 user 的详细属性就不展开了。）
+    'content': fields.String,   # 消息文本正文，如果是系统发送的消息，则可能存在应用内资源的跳转链接。
+    'thread': fields.String,        # 对话线索标识。其实是冗余的，因为在参数里通常已经指定 thread 了，但再次显示用于确认。
+}
+
+class MessageList(Resource):
+    '''获取用户消息详情的列表，每个线索提供信息概要和未读数。并能够通过这一接口创建新用户消息。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+api.add_resource(MessageList, '/rpc/messages')
+
+# 用户消息未读数接口
+### 为节省性能，应该只返回是否有未读数就行了。
+message_parser_unread = reqparse.RequestParser()         
+message_parser_unread.add_argument('user', type=int, required=True)     # 仅获取此指定用户的消息
+message_parser_unread.add_argument('thread', type=str, required=True)   # 对话线索标识，也即后台数据库中的 group_key （私信消息分组快捷键，将本消息相关 user_id 按从小到大排序，用“_”连接作为 Key）
+
+message_fields_unread = {
+    'thread': fields.String,        # 对话线索标识，为空时标识是该用户的全部维度消息数
+    'unread': fields.Integer,   # 指定用户的未读消息数。当前版本只返回 0 或 1，而不会给准确的具体数字以降低计算量
+}
+
+class MessageUnreadList(Resource):
+    '''获取指定用户的未读消息信息，当前版本暂时只提供了未读数。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+api.add_resource(MessageUnreadList, '/rpc/messages/unread')
+
 # ==== json 网络服务样例 ====
 cac_parser = reqparse.RequestParser()
 cac_parser.add_argument('a', type=int, help=u'被相加的第一个数字')
