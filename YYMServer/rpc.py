@@ -675,7 +675,7 @@ site_fields = {
     'environment': fields.String,       # 空字符串表示没有
     'payment': fields.List(fields.String, attribute='formated_payment_types'),
     'menu': fields.String,      # 空字符串表示没有
-    'ticket': fields.String,    # 空字符串表示没有
+    'ticket': fields.String(attribute='formated_ticket'),    # 空字符串表示没有
     'booking': fields.String,   # 空字符串表示没有
     'business_hours': fields.String(attribute='formated_business_hours'),    # 空字符串表示没有
     'phone': fields.String,     # 空字符串表示没有
@@ -735,7 +735,7 @@ class SiteList(Resource):
             site.environment = site.environment or u''
             site.formated_payment_types = [] if not site.payment else [payment_types.get(code.lower(), code) for code in site.payment.split()]
             site.menu = site.menu or u''
-            site.ticket = site.ticket or u''
+            site.formated_ticket = u'' if not site.ticket else util.replace_textlib(site.ticket)
             site.booking = site.booking or u''
             site.formated_business_hours = u'' if not site.business_hours else util.replace_textlib(site.business_hours)
             site.phone = site.phone or u''

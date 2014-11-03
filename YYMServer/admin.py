@@ -417,6 +417,9 @@ class SiteView(MyModelView):
     def _list_business_hours(view, context, model, name):
         return Markup(u'''<table width="300" cellpadding="5"><tr> </tr></table>''') + util.replace_textlib(model.business_hours)
 
+    def _list_ticket(view, context, model, name):
+        return Markup(u'''<table width="300" cellpadding="5"><tr> </tr></table>''') + util.replace_textlib(model.ticket)
+
     column_formatters = {
         'logo': _list_thumbnail_logo,
         'top_images':_list_thumbnail_top_images,
@@ -426,6 +429,7 @@ class SiteView(MyModelView):
         'address_orig':_list_address_orig,
         'data_source':_list_data_source,
         'business_hours':_list_business_hours,
+        'ticket':_list_ticket,
     }
 
     def check_code(form, field):
