@@ -11,6 +11,8 @@ from flask.ext.restful import reqparse, Resource, fields, marshal_with, marshal,
 from flask.ext.restful import output_json as restful_output_json
 from flask.ext.hmacauth import hmac_auth
 
+from qiniu.auth import digest
+
 from YYMServer import app, db, cache, api, util
 from YYMServer.models import *
 
@@ -164,6 +166,60 @@ class ImageList(Resource):
         return {'id': image.id}, 201
 
 api.add_resource(ImageList, '/rpc/images')
+
+
+# 图片上传的回调接口：
+image_call_parser= reqparse.RequestParser()         # 用于创建七牛云存储 callback 接口的参数集合
+image_call_parser.add_argument('id', type=int)      # 图片在数据库中的 id ，如果是覆盖数据库中已存在的图片，则应提供这个参数指定图片的原始 id 。
+image_call_parser.add_argument('type', type=int, default=4, required=True)      # 图片分类：1 表示店铺 logo；2 表示店铺门脸图；3 表示用户头像；4 表示评论图片。
+image_call_parser.add_argument('user', type=int, required=True)      # 图片上传人的账号 id 
+image_call_parser.add_argument('note', type=unicode, required=True)  # 图片备注信息
+image_call_parser.add_argument('name', type=unicode, required=True)  # 图片原始文件名
+image_call_parser.add_argument('size', type=int, required=True)  # 图片大小
+image_call_parser.add_argument('mime', type=str, required=True)  # 图片 MIME TYPE
+image_call_parser.add_argument('width', type=int, required=True)  # 图片宽
+image_call_parser.add_argument('height', type=int, required=True)  # 图片高
+image_call_parser.add_argument('hash', type=str, required=True)  # 图片 hash ，也即 etag 取值。
+
+class ImageCall(Resource):
+    '''配合七牛云存储的上传回调接口，将保存已上传到云存储的图片的信息到数据库。'''
+
+    @marshal_with(image_fields)
+    def post(self):
+        # 检查七牛签名：
+        sign = request.headers.get('Authorization', '').strip().split()[-1]
+        path = request.script_root + request.path
+        body =  request.environ['body_copy']
+        mac = digest.Mac()
+        data = path.encode('utf-8') + '\n' + body
+        token = mac.sign(data)
+        if sign != token:
+            abort(403, message='QiNiu Authorization failed!')
+        # 更新回调发过来的图片信息
+        args = image_call_parser.parse_args()
+        id = args['id']
+        is_new_image = True
+        if id:
+            image = db.session.query(Image).filter(Image.valid == True).filter(Image.id == id).first()
+            if image:
+                is_new_image = False
+        if is_new_image:
+            image = Image(valid = True)
+        image.type = args['type']
+        image.path = 'qiniu:%s' % args['hash']
+        image.note = args['note']
+        image.user_id = args['user']
+        image.name = args['name']
+        image.size = args['size']
+        image.mime = args['mime']
+        image.width = args['width']
+        image.height = args['height']
+        if is_new_image:
+            db.session.add(image)
+        db.session.commit()
+        return image
+
+api.add_resource(ImageCall, '/rpc/images/call')
 
 
 # 用户登陆接口：

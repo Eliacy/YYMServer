@@ -7,6 +7,9 @@ DEBUG = False
 JSON_AS_ASCII = False
 # Create dummy secrey key so we can use flash
 SECRET_KEY = 'YouYouMM_and_KeshaQ_SEC_KEY_408'
+# 七牛 key：
+QINIU_ACCESS_KEY = 'SHOULD_REPLACE_TO_REAL_QINIU_ACCESS_KEY'
+QINIU_SECRET_KEY = 'SHOULD_REPLACE_TO_REAL_QINIU_SECRET_KEY'
 # 设置静态文件（主要是图片）存储路径
 STATIC_FOLDER = 'files'
 # 数据库连接设置：

@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 
 import os, os.path
+from cStringIO import StringIO
 
 from flask import Flask
 from flask.ext.cache import Cache
 from flask.ext.sqlalchemy import SQLAlchemy
 from flask.ext import restful
 from flask.ext.hmacauth import DictAccountBroker, HmacManager
+
+import qiniu.conf
 
 
 # 准备配置文件
@@ -24,6 +27,40 @@ try:
     app.config.from_envvar('YYMSERVER_SETTINGS')
 except Exception:
     pass
+
+# 七牛服务器回调时，制作 request.body 的复制品（可以通过 request.environ['body_copy'] 访问）：
+class WSGICopyBody(object):
+    def __init__(self, application):
+        self.application = application
+
+    def __call__(self, environ, start_response):
+        qbox_header = environ.get('HTTP_AUTHORIZATION', '')
+        if not qbox_header:
+            return self.application(environ, start_response)
+
+        # 仅对源自七牛的访问做修正：
+        length = environ.get('CONTENT_LENGTH', '0')
+        length = 0 if length == '' else int(length)
+        body = environ['wsgi.input'].read(length)
+        environ['body_copy'] = body
+        environ['wsgi.input'] = StringIO(body)
+        # Call the wrapped application
+        app_iter = self.application(environ, 
+                                    self._sr_callback(start_response))
+        # Return modified response
+        return app_iter
+
+    def _sr_callback(self, start_response):
+        def callback(status, headers, exc_info=None):
+            # Call upstream start_response
+            start_response(status, headers, exc_info)
+        return callback
+
+app.wsgi_app = WSGICopyBody(app.wsgi_app)
+
+# 准备七牛 API：
+qiniu.conf.ACCESS_KEY = app.config['QINIU_ACCESS_KEY']
+qiniu.conf.SECRET_KEY = app.config['QINIU_SECRET_KEY']
 
 # 准备数据库
 db = SQLAlchemy(app)

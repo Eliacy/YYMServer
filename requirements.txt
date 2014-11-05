@@ -18,4 +18,5 @@ MySQL-python
 pytz
 # PIL
 # redis
+qiniu 	# 七牛云存储 SDK
 

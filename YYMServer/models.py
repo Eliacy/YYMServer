@@ -391,10 +391,15 @@ class Image(db.Model):  # 全局图片存储
     valid = db.Column(db.Boolean, default=True)   # 控制是否当作已删除处理（False 表示删除）
     type = db.Column(db.SmallInteger, default=1)   # 图片分类：1 表示店铺 logo；2 表示店铺门脸图；3 表示用户头像；4 表示评论图片。
     path = db.Column(db.String(120), default='')    # 图片所在存储路径
-    note = db.Column(db.Unicode(120), default=u'')   # 图片的备忘描述文字，[] 中的内容是系统自动生成的，通常用于保存图片原始文件名。
+    note = db.Column(db.Unicode(120), default=u'')   # 图片的备忘描述文字
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 图片上传时间，以服务器时间为准
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 图片上传人
     user = db.relationship('User', backref=db.backref('images', lazy='dynamic'), foreign_keys=[user_id])
+    name = db.Column(db.Unicode(80), default=u'')   # 图片的原始文件名
+    size = db.Column(db.Integer, default=0)        # 图片的存储大小，单位是 Byte 
+    mime = db.Column(db.String(50), default='')    # 图片的原始 mime 信息
+    width = db.Column(db.SmallInteger, default=0)   # 图片原始宽度
+    height = db.Column(db.SmallInteger, default=0)   # 图片原始高度
 
     def __unicode__(self):
         return u'<Image [%d] %s>' % (self.id, 'None' if not self.path else self.path.split('/')[-1])
