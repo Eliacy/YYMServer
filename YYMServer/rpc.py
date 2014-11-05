@@ -210,9 +210,12 @@ class ImageCall(Resource):
             image = Image(valid = True)
         image.type = args['type']
         image.path = 'qiniu:%s' % args['hash']
-        image.note = args['note']
-        image.user_id = args['user']
-        image.name = args['name']
+        if args['note']:
+            image.note = args['note']
+        if args['user']:
+            image.user_id = args['user']
+        if args['name']:
+            image.name = args['name']
         image.size = args['size']
         image.mime = args['mime']
         image.width = args['width']
