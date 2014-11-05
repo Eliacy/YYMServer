@@ -28,7 +28,11 @@ for image in db.session.query(Image).filter(~Image.path.ilike('qiniu:%')).all():
                 name = name.split('[')[1]
             if ']' in name:
                 name = name.split(']')[0]
-        print image.id, util.upload_image(full_path, image.id, image.type, image.user_id or 0, note, name, use_flash=False).decode('utf-8')
+        result = util.upload_image(full_path, image.id, image.type, image.user_id or 0, note, name, use_flash=False)
+        if type(result) == dict:
+            print image.id, result
+        else:
+            print image.id, result.decode('utf-8')
 #        print image.id, image.path, name, note, full_path
 
 

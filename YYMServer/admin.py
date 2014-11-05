@@ -172,8 +172,8 @@ class TextLibView(MyModelView):
 # 参考：https://github.com/mrjoes/flask-admin/blob/master/examples/forms/simple.py
 class ImageView(MyModelView):
     column_default_sort = ('create_time', True)
-    column_searchable_list = ('path', 'note')
-    column_filters = ['id', 'valid', 'type', 'create_time', 'user_id'] + list(column_searchable_list)
+    column_searchable_list = ('path', 'note', 'name')
+    column_filters = ['id', 'valid', 'type', 'create_time', 'user_id', 'size', 'mime', 'width', 'height'] + list(column_searchable_list)
     form_ajax_refs = {
         'user': {
             'fields': (User.id,)
