@@ -6,7 +6,11 @@ from email.utils import formatdate
 
 import pytz
 
+import flask
+from flask.ext.admin import form as admin_form
 from flask.ext.restful import fields
+
+import qiniu.rs
 
 from YYMServer import db, cache
 from YYMServer.models import *
@@ -34,6 +38,32 @@ def _replace_textlib(textlib_match):
 def replace_textlib(text):
     ''' 辅助函数：检查输入的 text 数据是否匹配 TextLib 替换代码，如果是则替换后返回。'''
     return textlib_re.sub(_replace_textlib, text)
+
+def extend_image_path(path):
+    ''' 辅助函数：对给定的图片资源，扩展为外网可访问的完整路径（未处理云存储私有授权问题）。'''
+    if path.startswith('qiniu:'):
+        etag, params = (path[6:].split('?') + [''])[:2]
+        url = qiniu.rs.make_base_url('youyoumm.qiniudn.com', etag)
+        if params:
+            return url + '?' + params
+        return url
+    else:
+        return flask.url_for('static', filename=path, _external=True)
+
+def url_for(path):
+    ''' 辅助函数：对给定图片资源，扩展为经过访问授权的外网完整路径。'''
+    base_url = extend_image_path(path)
+    if path.startswith('qiniu:'):
+        policy = qiniu.rs.GetPolicy()
+        return policy.make_request(base_url)
+    return base_url
+
+def url_for_thumb(path):
+    ''' 辅助函数：对给定图片资源，生成经过访问授权的外网缩略图。'''
+    if path.startswith('qiniu:'):
+        return url_for(path + '?imageView2/2/w/100')
+    else:
+        return url_for(admin_form.thumbgen_filename(path))
 
 def truncate_list(text, max_str_length, max_item_length):
     ''' 辅助函数：检查 text 参数是否超出 max_str_length 个字符，如果超出则截断为只包含 max_item_length 个元素。'''

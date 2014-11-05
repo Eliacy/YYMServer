@@ -120,7 +120,10 @@ def uuid_name(obj, file_data):
     # flask-admin 的文件上传组件似乎总是在实际存储时把文件名弄成小写：
     return secure_filename('%s%s' % (uuid.uuid4(), extension))
 
-def get_image_size(path):
+def get_image_size(image_obj):
+    path = image_obj.path
+    if path.startswith('qiniu:'):
+        return '%dx%d' % (image_obj.width, image_obj.height)
     full_path = os.path.join(file_path, path)
     if path and os.path.exists(full_path):
         im = PIL.Image.open(full_path)
@@ -179,7 +182,7 @@ class ImageView(MyModelView):
 
     def create_model(self, form):
         if form.path.data.filename:
-            form.note.data = u'[%s] %s' % (form.path.data.filename, form.note.data or u'')
+            form.name.data = form.path.data.filename
         if not form.user.data:
             form.user.data = login.current_user
         return super(ImageView, self).create_model(form)
@@ -188,7 +191,7 @@ class ImageView(MyModelView):
         if not form.user.data:
             form.__delitem__('user')
         if form.path.data.filename:
-            form.note.data = u'[%s] %s' % (form.path.data.filename, form.note.data or u'')
+            form.name.data = form.path.data.filename
         return super(ImageView, self).update_model(form, model)
 
     def _list_thumbnail(view, context, model, name):
@@ -196,10 +199,10 @@ class ImageView(MyModelView):
             return ''
         return Markup('%d, (%s)<br/>%s<br/><a href="%s" target="_blank"><img src="%s"></a>' % 
                          (model.id,
-                          get_image_size(model.path),
+                          get_image_size(model),
                           model.path, 
-                          url_for('static', filename=model.path),
-                          url_for('static', filename=admin_form.thumbgen_filename(model.path)),
+                          util.url_for(model.path),
+                          util.url_for_thumb(model.path),
                           ))
 
     column_formatters = {
@@ -220,10 +223,10 @@ def _get_images_code(images):
     image_code = u''
     for image in images:
         image = (image.id, 
-                 get_image_size(image.path), 
+                 get_image_size(image), 
                  util.strip_image_note(image.note),
-                 url_for('static', filename=image.path), 
-                 url_for('static', filename=admin_form.thumbgen_filename(image.path)),
+                 util.url_for(image.path), 
+                 util.url_for_thumb(image.path),
                  )
         image_code += u'''<td  align="center" valign="top">[id: %d]<br/>(%s)<br/>～%s～<br/><a href="%s" target="_blank"><img src="%s"/></a></td>\n''' % image
     code = u'''

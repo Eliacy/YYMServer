@@ -65,7 +65,7 @@ id_parser.add_argument('id', type=int)
 
 class ImageUrl(fields.Raw):
     def format(self, path):
-        return url_for('static', filename=path, _external=True)
+        return util.extend_image_path(path)
 
 
 # 图片信息查询接口：
@@ -90,6 +90,9 @@ image_fields = {
     'type': fields.Integer,
     'create_time': util.DateTime,    # RFC822-formatted datetime string in UTC
     'user_id': fields.Integer,
+    'mime': fields.String,
+    'width': fields.Integer,
+    'height': fields.Integer,
 }
 image_fields.update(image_fields_mini)
 
