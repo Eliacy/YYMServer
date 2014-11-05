@@ -66,7 +66,7 @@ def url_for_thumb(path):
     else:
         return url_for(admin_form.thumbgen_filename(path))
 
-def upload_image(file_path, id, type, user, note, name):
+def upload_image(file_path, id, type, user, note, name, use_flash=True):
     ''' 辅助函数：上传文件到七牛云存储。'''
     policy = qiniu.rs.PutPolicy(qiniu_bucket)
     policy.callbackUrl = qiniu_callback
@@ -87,7 +87,8 @@ def upload_image(file_path, id, type, user, note, name):
 
     ret, err = qiniu.io.put_file(uptoken, None, file_path)
     if err is not None:
-        flask.flash(u'QiNiu uploading failed! %s' % unicode(err))
+        if use_flash:
+            flask.flash(u'QiNiu uploading failed! %s' % unicode(err))
         return err
     return ret
 
@@ -141,6 +142,8 @@ def get_images(image_ids_str, valid_only=True):
 def strip_image_note(note):
     ''' 辅助函数：去掉图片备注文字中的自动生成部分，输入正常的用户备注。'''
     note = note or u''
+    if ('[' not in note) or (']' not in note):
+        return note
     leading = u''
     if '[' in note:
         leading = note.split('[')[0]
