@@ -61,6 +61,8 @@ app.wsgi_app = WSGICopyBody(app.wsgi_app)
 # 准备七牛 API：
 qiniu.conf.ACCESS_KEY = app.config['QINIU_ACCESS_KEY']
 qiniu.conf.SECRET_KEY = app.config['QINIU_SECRET_KEY']
+qiniu_bucket = app.config['QINIU_BUCKET']
+qiniu_callback = app.config['QINIU_CALLBACK']
 
 # 准备数据库
 db = SQLAlchemy(app)

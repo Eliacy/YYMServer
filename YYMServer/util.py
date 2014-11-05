@@ -11,8 +11,9 @@ from flask.ext.admin import form as admin_form
 from flask.ext.restful import fields
 
 import qiniu.rs
+import qiniu.io
 
-from YYMServer import db, cache
+from YYMServer import db, cache, qiniu_bucket, qiniu_callback
 from YYMServer.models import *
 
 
@@ -64,6 +65,31 @@ def url_for_thumb(path):
         return url_for(path + '?imageView2/2/w/100')
     else:
         return url_for(admin_form.thumbgen_filename(path))
+
+def upload_image(file_path, id, type, user, note, name):
+    ''' 辅助函数：上传文件到七牛云存储。'''
+    policy = qiniu.rs.PutPolicy(qiniu_bucket)
+    policy.callbackUrl = qiniu_callback
+    callback_dic = {
+      'id': str(id),
+      'type': str(type),
+      'user': str(user),
+      'note': note or u'',
+      'name': name or u'',   # 原始文件名这个不靠谱，最好自己存
+      'size': '$(fsize)',
+      'mime': '$(mimeType)',
+      'width': '$(imageInfo.width)',
+      'height': '$(imageInfo.height)',
+      'hash': '$(etag)',
+    }
+    policy.callbackBody = '&'.join(('='.join((key, value)) for key, value in callback_dic.items()))
+    uptoken = policy.token()
+
+    ret, err = qiniu.io.put_file(uptoken, None, file_path)
+    if err is not None:
+        flask.flash(u'QiNiu uploading failed! %s' % unicode(err))
+        return err
+    return ret
 
 def truncate_list(text, max_str_length, max_item_length):
     ''' 辅助函数：检查 text 参数是否超出 max_str_length 个字符，如果超出则截断为只包含 max_item_length 个元素。'''

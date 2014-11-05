@@ -180,6 +180,15 @@ class ImageView(MyModelView):
         },
     }
 
+    def after_model_change(self, form, model, is_created):
+        '''如果上传了新图片，则迁移图片文件到七牛云存储上。'''
+        if form.path.data:
+            full_path = os.path.join(file_path, model.path)
+            print util.upload_image(full_path, model.id, model.type, model.user_id, model.note, model.name)
+        else:
+            pass
+        return super(ImageView, self).after_model_change(form, model, is_created)
+
     def create_model(self, form):
         if form.path.data.filename:
             form.name.data = form.path.data.filename
