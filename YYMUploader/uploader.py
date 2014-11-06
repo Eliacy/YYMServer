@@ -3,6 +3,7 @@
 import codecs
 import os, os.path
 import getpass
+import sys
 import time
 import hashlib
 import json
@@ -19,13 +20,15 @@ API_SECRET = 'Nj4_iv_52Y'
 
 LOG_NAME = 'uploader.log'
 
+default_encoding = sys.stdin.encoding
+
 current_path = os.path.split(os.path.realpath(__file__))[0]
 print '=', u'尝试上传目录 %s 中未上传过的图片文件（jpg, png, gif）：' % current_path
 
 # 准备日志：
 import logging
 logger = logging.getLogger('YYMUploader')
-hdlr = logging.FileHandler(os.path.join(current_path, LOG_NAME), encoding='utf-8')
+hdlr = logging.FileHandler(os.path.join(current_path, LOG_NAME), encoding=default_encoding)
 formatter = logging.Formatter(u'%(asctime)s | %(levelname)s | %(message)s')
 hdlr.setFormatter(formatter)
 logger.addHandler(hdlr) 
@@ -37,13 +40,28 @@ resp = requests.get(API_HOST + '/rpc/time')
 server_ts = json.loads(resp.text)['data']['timestamp']
 time_diff = ts - server_ts
 
+def extract(filename):
+    ''' 辅助函数：处理原始文件名，拆分为真实文件名和注释（中文括号之内的部分当做注释）。'''
+    if type(filename) == str:
+        filename = unicode(filename, default_encoding)
+    if u'（' not in filename or u'）' not in filename:
+        return filename, u''
+    leading = u''
+    note = filename
+    if u'（' in note:
+        leading, note = note.split(u'（', 1)
+    ending = u''
+    if u'）' in note:
+        note, ending = note.split(u'）', 1)
+    return leading + ending, note
+
 def rpc_post(path, param, payload):
     timestamp = int(time.time() - time_diff)
     params = {'timestamp': str(timestamp), 'key': API_KEY,}
     params.update(param)
     query = '&'.join(('='.join((key, value.encode('utf-8'))) for key, value in params.items()))
     hasher = hmac.new(API_SECRET, digestmod=hashlib.sha1, msg=path + '?' + query)
-    body = json.dumps(payload, ensure_ascii=False).encode('utf8')
+    body = json.dumps(payload, ensure_ascii=False)
     hasher.update(body)     # 如果是 POST 方法发送的，则 POST 的 body 也需要加入签名内容！
     sig = hasher.hexdigest()
     resp = requests.post(API_HOST + path, params=params, data=json.dumps(payload), headers={'X-Auth-Signature': sig, 'Content-Type':'application/json'})
@@ -96,10 +114,10 @@ while not user_id:
 
 # 读取历史处理日志：
 history_dic = {}
-with codecs.open(os.path.join(current_path, LOG_NAME), 'r', 'utf-8') as f:
+with codecs.open(os.path.join(current_path, LOG_NAME), 'r', default_encoding) as f:
     for line in f.readlines():
-        time_str, level, message = line.split('|')[:3]
-        filename, id_str, resp = message.strip().split(':')[:3]
+        time_str, level, message = line.split('|', 2)
+        filename, note, id_str, resp = message.strip().split(':', 3)
         level = level.strip()
         filename = filename.strip()
         if level.lower() == 'info':
@@ -109,17 +127,18 @@ with codecs.open(os.path.join(current_path, LOG_NAME), 'r', 'utf-8') as f:
 for filename in os.listdir(current_path):
     endfix = filename.split('.')[-1].lower()
     if endfix in ['jpg', 'jpeg', 'png', 'gif']:
+        full_path = os.path.join(current_path, filename)
+        filename, note = extract(filename)
         if history_dic.has_key(filename):
             continue
-        full_path = os.path.join(current_path, filename)
-        ret, err = upload_image(full_path, 0, 2, user_id, u'', filename)
+        ret, err = upload_image(full_path, 0, 2, user_id, note, filename)
         if err is None:
             image_id = ret['data']['id']
-            print '*', filename, u'上传成功。id 为：', image_id
-            logger.info(filename + u':' + unicode(image_id) + u':' + unicode(ret))
+            print '*', filename, u'上传成功。id 为：', image_id, u'注释为：', note
+            logger.info(filename + u':' + note + u':' + unicode(image_id) + u':' + unicode(ret))
         else:
             print '*', filename, u'上传出错！', err
-            logger.error(filename + u': :' + err)
+            logger.error(filename + u':' + note + u': :' + err)
 
 print '=', u'找不到更多未上传的图片文件了！'
 print '=', u'按回车键结束程序运行。'
