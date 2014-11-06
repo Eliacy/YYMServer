@@ -10,7 +10,7 @@ __file_path = os.path.split(os.path.realpath(__file__))[0]
 import logging
 logger = logging.getLogger('upload_image')
 hdlr = logging.FileHandler(os.path.join(__file_path, 'upload_image.log'))
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+formatter = logging.Formatter(u'%(asctime)s %(levelname)s %(message)s')
 hdlr.setFormatter(formatter)
 logger.addHandler(hdlr) 
 logger.setLevel(logging.WARNING)
@@ -44,7 +44,7 @@ for image in db.session.query(Image).filter(~Image.path.ilike('qiniu:%')).all():
             logger.info(unicode(image.id) + u':' + unicode(result))
         else:
             print image.id, 'error'
-            logger.error(unicode(image.id) + u':' + unicode(result.decode('utf-8')))
+            logger.error(unicode(image.id) + u':' + result)
 #        print image.id, image.path, name, note, full_path
 
 
