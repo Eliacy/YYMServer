@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import json
 import time
 
 from sqlalchemy import func
@@ -226,6 +227,30 @@ class ImageCall(Resource):
         return image
 
 api.add_resource(ImageCall, '/rpc/images/call')
+
+
+# 七牛云存储签名验证生成接口：
+uptoken_parser = reqparse.RequestParser()
+uptoken_parser.add_argument('params', type=unicode, required=True)         # callbackBody 数据
+
+
+class UpTokenList(Resource):
+    '''根据输入参数，计算七牛云存储图片上传 token 的接口。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    @hmac_auth('public')
+    def post(self):
+        ''' 生成七牛文件上传 token 。'''
+        args = uptoken_parser.parse_args()
+        params = args['params']
+        callback_dic = json.loads(params)
+        return {'token': util.gen_upload_token(callback_dic)}, 201
+
+api.add_resource(UpTokenList, '/rpc/uptokens')
 
 
 # 用户登陆接口：

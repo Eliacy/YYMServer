@@ -1,5 +1,6 @@
 # Path for uploaded files:
 YYMServer/files/*
+YYMUploader/*.jpg
 
 # vim temperary files:
 *~

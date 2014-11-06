@@ -8,13 +8,11 @@ import hashlib
 import json
 
 import requests
+import qiniu.io
 
 from flask.ext.hmacauth import hmac
 
-from YYMServer import util
-
 API_HOST = 'http://rpc.youyoumm.com'
-#API_HOST = 'http://127.0.0.1:5000'
 API_KEY = '9oF_9Y0a0e'
 API_SECRET = 'Nj4_iv_52Y'
 
@@ -51,9 +49,31 @@ def rpc_post(path, param, payload):
     resp_dic = json.loads(resp.text)
     return resp_dic
 
+def upload_image(file_path, id, type, user, note, name):
+    ''' 辅助函数：上传文件到七牛云存储。'''
+    callback_dic = {
+      'id': str(id),
+      'type': str(type),
+      'user': str(user),
+      'note': note or u'',
+      'name': name or u'',   # 原始文件名这个不靠谱，最好自己存
+      'size': '$(fsize)',
+      'mime': '$(mimeType)',
+      'width': '$(imageInfo.width)',
+      'height': '$(imageInfo.height)',
+      'hash': '$(etag)',
+    }
+    resp = rpc_post('/rpc/uptokens', {}, {'params': json.dumps(callback_dic, ensure_ascii=False).encode('utf8')})
+    status = resp['status']
+    if status == 201:
+        uptoken = resp['data']['token']
+        ret, err = qiniu.io.put_file(uptoken, None, file_path)
+        return (ret, err)
+    else:
+        return (resp, resp)
+
 # 用户登陆
 user_id = None
-#user_id = 321
 while not user_id:
     print '=', u'用户名：',
     username = raw_input()
@@ -91,7 +111,7 @@ for filename in os.listdir(current_path):
         if history_dic.has_key(filename):
             continue
         full_path = os.path.join(current_path, filename)
-        ret, err = util.upload_image(full_path, 0, 2, user_id, u'', filename)
+        ret, err = upload_image(full_path, 0, 2, user_id, u'', filename)
         if err is None:
             image_id = json.loads(ret)['data']['id']
             print '*', filename, u'上传成功。id 为：', image_id
@@ -101,6 +121,7 @@ for filename in os.listdir(current_path):
             logger.error(filename + u': :' + err)
 
 print '=', u'找不到更多未上传的图片文件了！'
-
+print '=', u'按回车键结束程序运行。'
+raw_input()
 
 

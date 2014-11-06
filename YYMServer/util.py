@@ -66,10 +66,15 @@ def url_for_thumb(path):
     else:
         return url_for(admin_form.thumbgen_filename(path))
 
-def upload_image(file_path, id, type, user, note, name):
-    ''' 辅助函数：上传文件到七牛云存储。'''
+def gen_upload_token(callback_dic):
+    ''' 辅助函数：面向 callback 上传图片场景生成七牛 token。'''
     policy = qiniu.rs.PutPolicy(qiniu_bucket)
     policy.callbackUrl = qiniu_callback
+    policy.callbackBody = '&'.join(('='.join((key, value)) for key, value in callback_dic.items()))
+    return policy.token()
+
+def upload_image(file_path, id, type, user, note, name):
+    ''' 辅助函数：上传文件到七牛云存储。'''
     callback_dic = {
       'id': str(id),
       'type': str(type),
@@ -82,9 +87,7 @@ def upload_image(file_path, id, type, user, note, name):
       'height': '$(imageInfo.height)',
       'hash': '$(etag)',
     }
-    policy.callbackBody = '&'.join(('='.join((key, value)) for key, value in callback_dic.items()))
-    uptoken = policy.token()
-
+    uptoken = gen_upload_token(callback_dic)
     ret, err = qiniu.io.put_file(uptoken, None, file_path)
     return (ret, err)
 
