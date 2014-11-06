@@ -58,6 +58,7 @@ def init_login():
         return db.session.query(User).get(user_id)
 
 
+# 几个改进类：
 class IlikeQueryAjaxModelLoader(QueryAjaxModelLoader):
     ''' 支持大小写不敏感的 ilike 检索方式的 Ajax 外键搜索的后台接口。'''
 
@@ -69,6 +70,17 @@ class IlikeQueryAjaxModelLoader(QueryAjaxModelLoader):
         query = query.filter(or_(*filters))
 
         return query.offset(offset).limit(limit).all()
+
+
+class ImageUploadInput(admin_form.ImageUploadInput):
+    ''' 修改图片资源缩略图的显示方式。'''
+    def get_url(self, field):
+        return util.url_for_thumb(field.data or '')
+
+
+class ImageUploadField(admin_form.ImageUploadField):
+    ''' 调用能显示云存储缩略图的图片上传组件。'''
+    widget = ImageUploadInput()
 
 
 # Create customized model view class
@@ -221,7 +233,7 @@ class ImageView(MyModelView):
     # Alternative way to contribute field is to override it completely.
     # In this case, Flask-Admin won't attempt to merge various parameters for the field.
     form_extra_fields = {
-        'path': admin_form.ImageUploadField('Image',
+        'path': ImageUploadField('Image',
                                       base_path=file_path,
                                       thumbnail_size=(100, 100, True),
                                       namegen=uuid_name)
