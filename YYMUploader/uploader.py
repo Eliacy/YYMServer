@@ -6,11 +6,12 @@ import getpass
 import time
 import hashlib
 import json
+import hmac
 
 import requests
 import qiniu.io
 
-from flask.ext.hmacauth import hmac
+''' 如果 exe 程序出现杀毒软件报错，可以用 upx 加壳来保护。'''
 
 API_HOST = 'http://rpc.youyoumm.com'
 API_KEY = '9oF_9Y0a0e'
@@ -113,7 +114,7 @@ for filename in os.listdir(current_path):
         full_path = os.path.join(current_path, filename)
         ret, err = upload_image(full_path, 0, 2, user_id, u'', filename)
         if err is None:
-            image_id = json.loads(ret)['data']['id']
+            image_id = ret['data']['id']
             print '*', filename, u'上传成功。id 为：', image_id
             logger.info(filename + u':' + unicode(image_id) + u':' + unicode(ret))
         else:
