@@ -87,8 +87,9 @@ api = restful.Api(app, catch_all_404s=True)
 accountmgr = DictAccountBroker(
     accounts={
         # 注意：key 中尽量不用特殊字符，例如 ^ 之类，因为 key 会用于 url 拼接，有可能因为 url 自动转义造成签名验证问题。
-        '4nM_mLISvh': {'secret': 'Yu8{Lnka%Y', 'rights': ['api', 'demo']},
+        '4nM_mLISvh': {'secret': 'Yu8{Lnka%Y', 'rights': ['api', 'public', 'demo']},    # App 用的秘钥
         'demo_key': {'secret': 'demo_secret', 'rights': ['demo']},
+        '9oF_9Y0a0e': {'secret': 'Nj4_iv_52Y', 'rights': ['public', 'demo']},    # 文件上传脚本用的秘钥
     })
 hmacmgr = HmacManager(accountmgr, app, account_id=lambda x: x.values.get('key'), timestamp=lambda x: x.values.get('timestamp'))
 

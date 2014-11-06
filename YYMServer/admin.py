@@ -196,7 +196,9 @@ class ImageView(MyModelView):
         '''如果上传了新图片，则迁移图片文件到七牛云存储上。'''
         if form.path.data:
             full_path = os.path.join(file_path, model.path)
-            print util.upload_image(full_path, model.id, model.type, model.user_id, model.note, model.name)
+            ret, err = util.upload_image(full_path, model.id, model.type, model.user_id, model.note, model.name)
+            if err is not None:
+                flask.flash(u'QiNiu uploading failed! %s' % unicode(err))
         else:
             pass
         return super(ImageView, self).after_model_change(form, model, is_created)

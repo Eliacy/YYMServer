@@ -13,7 +13,7 @@ hdlr = logging.FileHandler(os.path.join(__file_path, 'upload_image.log'))
 formatter = logging.Formatter(u'%(asctime)s %(levelname)s %(message)s')
 hdlr.setFormatter(formatter)
 logger.addHandler(hdlr) 
-logger.setLevel(logging.WARNING)
+logger.setLevel(logging.INFO)
 
 for image in db.session.query(Image).filter(~Image.path.ilike('qiniu:%')).all():
     full_path = os.path.join(file_path, image.path)
@@ -38,13 +38,13 @@ for image in db.session.query(Image).filter(~Image.path.ilike('qiniu:%')).all():
                 name = name.split('[')[1]
             if ']' in name:
                 name = name.split(']')[0]
-        result = util.upload_image(full_path, image.id, image.type, image.user_id or 0, note, name, use_flash=False)
-        if type(result) == dict:
-            print image.id, result
-            logger.info(unicode(image.id) + u':' + unicode(result))
+        ret, err = util.upload_image(full_path, image.id, image.type, image.user_id or 0, note, name)
+        if err is None:
+            print image.id, ret
+            logger.info(unicode(image.id) + u':' + unicode(ret))
         else:
             print image.id, 'error'
-            logger.error(unicode(image.id) + u':' + result)
+            logger.error(unicode(image.id) + u':' + err)
 #        print image.id, image.path, name, note, full_path
 
 

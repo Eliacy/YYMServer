@@ -1,56 +1,106 @@
 # -*- coding: utf-8 -*-
 
-import sys
+import codecs
+import os, os.path
+import getpass
+import time
+import hashlib
+import json
 
-import qiniu.conf
+import requests
 
-qiniu.conf.ACCESS_KEY = 'WOc4A537RGp5nKavmURZqF1v86h9zjDBJN8R_gfW'
-qiniu.conf.SECRET_KEY = 'D9qkmHQ91RXRmD1tMz6AzyLNMMirsUEsNeKulJSZ'
+from flask.ext.hmacauth import hmac
 
-import qiniu.rs
+from YYMServer import util
 
-policy = qiniu.rs.PutPolicy('youyoumm')
-policy.callbackUrl = 'http://www.youyoumm.com/rpc/images/call'
-callback_dic = {
-  'type': '4',
-  'user': '321',
-  'note': u'中文备注',
-  'name': '$(fname)',   # 原始文件名这个不靠谱，最好自己存
-  'size': '$(fsize)',
-  'mime': '$(mimeType)',
-  'width': '$(imageInfo.width)',
-  'height': '$(imageInfo.height)',
-  'hash': '$(etag)',
-}
-policy.callbackBody = '&'.join(('='.join((key, value)) for key, value in callback_dic.items()))
-print policy.callbackBody
-#policy.returnBody = '''{
-#  "name": $(fname),
-#  "size": $(fsize),
-#  "mime": $(mimeType),
-#  "width": $(imageInfo.width),
-#  "height": $(imageInfo.height),
-#  "format": $(imageInfo.format),
-#  "hash": $(etag),
-#  "color": $(exif.ColorSpace.val)
-#}'''
-uptoken = policy.token()
+API_HOST = 'http://rpc.youyoumm.com'
+#API_HOST = 'http://127.0.0.1:5000'
+API_KEY = '9oF_9Y0a0e'
+API_SECRET = 'Nj4_iv_52Y'
 
-import qiniu.io
+LOG_NAME = 'uploader.log'
 
-ret, err = qiniu.io.put_file(uptoken, None, '/Users/elias/WorkNow/KeshaQ/server/YYMServer/YYMServer/files/a4ac1e20-b99d-4919-a3ea-2dbe165382db_thumb.jpg')
-if err is not None:
-    sys.stderr.write('error: %s ' % err)
-else:
-    print ret
+current_path = os.path.split(os.path.realpath(__file__))[0]
+print '=', u'尝试上传目录 %s 中未上传过的图片文件（jpg, png, gif）：' % current_path
 
-base_url = qiniu.rs.make_base_url('youyoumm.qiniudn.com', 'Fs3dPulKJHwQkXZTBT5LR97KhdDk')
-print base_url
-policy = qiniu.rs.GetPolicy()
-private_url = policy.make_request(base_url)
-print private_url
-private_url = policy.make_request(base_url + '?imageView2/1/w/20/h/20')
-print private_url
+# 准备日志：
+import logging
+logger = logging.getLogger('YYMUploader')
+hdlr = logging.FileHandler(os.path.join(current_path, LOG_NAME), encoding='utf-8')
+formatter = logging.Formatter(u'%(asctime)s | %(levelname)s | %(message)s')
+hdlr.setFormatter(formatter)
+logger.addHandler(hdlr) 
+logger.setLevel(logging.INFO)
+
+# 首先进行对时：
+ts = time.time()
+resp = requests.get(API_HOST + '/rpc/time')
+server_ts = json.loads(resp.text)['data']['timestamp']
+time_diff = ts - server_ts
+
+def rpc_post(path, param, payload):
+    timestamp = int(time.time() - time_diff)
+    params = {'timestamp': str(timestamp), 'key': API_KEY,}
+    params.update(param)
+    query = '&'.join(('='.join((key, value.encode('utf-8'))) for key, value in params.items()))
+    hasher = hmac.new(API_SECRET, digestmod=hashlib.sha1, msg=path + '?' + query)
+    body = json.dumps(payload, ensure_ascii=False).encode('utf8')
+    hasher.update(body)     # 如果是 POST 方法发送的，则 POST 的 body 也需要加入签名内容！
+    sig = hasher.hexdigest()
+    resp = requests.post(API_HOST + path, params=params, data=json.dumps(payload), headers={'X-Auth-Signature': sig, 'Content-Type':'application/json'})
+    resp_dic = json.loads(resp.text)
+    return resp_dic
+
+# 用户登陆
+user_id = None
+#user_id = 321
+while not user_id:
+    print '=', u'用户名：',
+    username = raw_input()
+    print '=', u'密码：',
+    password = getpass.getpass('')
+
+    path = '/rpc/tokens'
+    payload = {'username': username,
+               'password': password,
+               'device': 'YYMUploader',
+              }
+    resp = rpc_post(path, {}, payload)
+    status = resp['status']
+    if status == 201:
+        user_id = resp['data']['user_id']
+        print '=', u'成功以用户 id %d 登陆！' % user_id
+    else:
+        print '=', u'用户或密码不正确！'
+
+# 读取历史处理日志：
+history_dic = {}
+with codecs.open(os.path.join(current_path, LOG_NAME), 'r', 'utf-8') as f:
+    for line in f.readlines():
+        time_str, level, message = line.split('|')[:3]
+        filename, id_str, resp = message.strip().split(':')[:3]
+        level = level.strip()
+        filename = filename.strip()
+        if level.lower() == 'info':
+            history_dic[filename] = True
+
+# 列出图片文件：
+for filename in os.listdir(current_path):
+    endfix = filename.split('.')[-1].lower()
+    if endfix in ['jpg', 'jpeg', 'png', 'gif']:
+        if history_dic.has_key(filename):
+            continue
+        full_path = os.path.join(current_path, filename)
+        ret, err = util.upload_image(full_path, 0, 2, user_id, u'', filename)
+        if err is None:
+            image_id = json.loads(ret)['data']['id']
+            print '*', filename, u'上传成功。id 为：', image_id
+            logger.info(filename + u':' + unicode(image_id) + u':' + unicode(ret))
+        else:
+            print '*', filename, u'上传出错！', err
+            logger.error(filename + u': :' + err)
+
+print '=', u'找不到更多未上传的图片文件了！'
 
 
 

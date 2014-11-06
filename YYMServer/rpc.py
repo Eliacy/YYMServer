@@ -258,7 +258,7 @@ class TokenList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
-    @hmac_auth('api')
+    @hmac_auth('public')
     def post(self):
         ''' 用户登陆接口。'''
         args = login_parser.parse_args()
@@ -267,7 +267,7 @@ class TokenList(Resource):
             abort(403, message='Login Failed!')
         old_token = args['token']
         token = _generate_token(user, args['device'], old_token)
-        return {'token': token}, 201
+        return {'user_id': user.id, 'token': token}, 201
 
 api.add_resource(TokenList, '/rpc/tokens')
 

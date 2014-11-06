@@ -66,7 +66,7 @@ def url_for_thumb(path):
     else:
         return url_for(admin_form.thumbgen_filename(path))
 
-def upload_image(file_path, id, type, user, note, name, use_flash=True):
+def upload_image(file_path, id, type, user, note, name):
     ''' 辅助函数：上传文件到七牛云存储。'''
     policy = qiniu.rs.PutPolicy(qiniu_bucket)
     policy.callbackUrl = qiniu_callback
@@ -86,11 +86,7 @@ def upload_image(file_path, id, type, user, note, name, use_flash=True):
     uptoken = policy.token()
 
     ret, err = qiniu.io.put_file(uptoken, None, file_path)
-    if err is not None:
-        if use_flash:
-            flask.flash(u'QiNiu uploading failed! %s' % unicode(err))
-        return err
-    return ret
+    return (ret, err)
 
 def truncate_list(text, max_str_length, max_item_length):
     ''' 辅助函数：检查 text 参数是否超出 max_str_length 个字符，如果超出则截断为只包含 max_item_length 个元素。'''
