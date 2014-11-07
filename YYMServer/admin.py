@@ -139,7 +139,7 @@ def get_image_size(image_obj):
     full_path = os.path.join(file_path, path)
     size = util.get_image_size(full_path)
     if size:
-        return '%dx%d' % size
+        return u'【【＝未上传到云存储！＝】】%dx%d' % size
     else:
         return '[[==IMAGE DO NOT EXIST!!!==]]'
 

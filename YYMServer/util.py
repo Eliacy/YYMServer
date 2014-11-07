@@ -85,6 +85,7 @@ def get_image_size(file_path):
 
 def upload_image(file_path, id, type, user, note, name):
     ''' 辅助函数：上传文件到七牛云存储。'''
+    # 优先使用本地计算的图片宽、长。因为有时七牛无法计算出一些图片的长宽数值：
     width = '$(imageInfo.width)'
     height = '$(imageInfo.height)'
     size = get_image_size(file_path)
