@@ -137,9 +137,9 @@ def get_image_size(image_obj):
     if path.startswith('qiniu:'):
         return '%dx%d' % (image_obj.width or 0, image_obj.height or 0)
     full_path = os.path.join(file_path, path)
-    if path and os.path.exists(full_path):
-        im = PIL.Image.open(full_path)
-        return '%dx%d' % (im.size)
+    size = util.get_image_size(full_path)
+    if size:
+        return '%dx%d' % size
     else:
         return '[[==IMAGE DO NOT EXIST!!!==]]'
 

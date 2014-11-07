@@ -3,7 +3,9 @@
 import re
 from calendar import timegm
 from email.utils import formatdate
+import os.path
 
+import PIL
 import pytz
 
 import flask
@@ -73,8 +75,21 @@ def gen_upload_token(callback_dic):
     policy.callbackBody = '&'.join(('='.join((key, value)) for key, value in callback_dic.items()))
     return policy.token()
 
+def get_image_size(file_path):
+    ''' 辅助函数：获取指定图片文件的长、宽参数。'''
+    if os.path.exists(file_path):
+        im = PIL.Image.open(file_path)
+        return im.size
+    else:
+        return None
+
 def upload_image(file_path, id, type, user, note, name):
     ''' 辅助函数：上传文件到七牛云存储。'''
+    width = '$(imageInfo.width)'
+    height = '$(imageInfo.height)'
+    size = get_image_size(file_path)
+    if size:
+        width, height = map(str, size)
     callback_dic = {
       'id': str(id),
       'type': str(type),
@@ -83,8 +98,8 @@ def upload_image(file_path, id, type, user, note, name):
       'name': name or u'',   # 原始文件名这个不靠谱，最好自己存
       'size': '$(fsize)',
       'mime': '$(mimeType)',
-      'width': '$(imageInfo.width)',
-      'height': '$(imageInfo.height)',
+      'width': width,
+      'height': height,
       'hash': '$(etag)',
     }
     uptoken = gen_upload_token(callback_dic)
