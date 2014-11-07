@@ -91,6 +91,17 @@ def upload_image(file_path, id, type, user, note, name):
     else:
         return (resp, resp)
 
+def walk(root, path):
+    ''' 辅助函数：返回指定目录下所有文件及路径。'''
+    root_path = os.path.join(root, path)
+    entries = []
+    for entry in os.listdir(root_path):
+        if os.path.isfile(os.path.join(root_path, entry)):
+            entries.append((u'', entry))
+        if os.path.isdir(os.path.join(root_path, entry)):
+            entries.extend(map(lambda x: (os.path.join(entry, x[0]), x[1]), walk(root, os.path.join(path, entry))))
+    return entries
+
 # 用户登陆
 user_id = None
 while not user_id:
@@ -124,21 +135,23 @@ with codecs.open(os.path.join(current_path, LOG_NAME), 'r', default_encoding) as
             history_dic[filename] = True
 
 # 列出图片文件：
-for filename in os.listdir(current_path):
+current_path = current_path.decode(default_encoding)
+for dir, filename in walk(current_path, ''):
     endfix = filename.split('.')[-1].lower()
     if endfix in ['jpg', 'jpeg', 'png', 'gif']:
-        full_path = os.path.join(current_path, filename)
+        full_path = os.path.join(current_path, dir, filename)
         filename, note = extract(filename)
-        if history_dic.has_key(filename):
+        key_path = os.path.join(dir, filename)
+        if history_dic.has_key(key_path):
             continue
         ret, err = upload_image(full_path, 0, 2, user_id, note, filename)
         if err is None:
             image_id = ret['data']['id']
-            print '*', filename, u'上传成功。id 为：', image_id, u'注释为：', note
-            logger.info(filename + u':' + note + u':' + unicode(image_id) + u':' + unicode(ret))
+            print '*', key_path, u'上传成功。id 为：', image_id, u'注释为：', note
+            logger.info(key_path + u':' + note + u':' + unicode(image_id) + u':' + unicode(ret))
         else:
-            print '*', filename, u'上传出错！', err
-            logger.error(filename + u':' + note + u': :' + err)
+            print '*', key_path, u'上传出错！', err
+            logger.error(key_path + u':' + note + u': :' + err)
 
 print '=', u'找不到更多未上传的图片文件了！'
 print '=', u'按回车键结束程序运行。'
