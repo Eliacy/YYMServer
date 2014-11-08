@@ -24,27 +24,28 @@ from YYMServer import app, db, file_path, util
 from YYMServer.models import *
 
 
-# 完整代码参考：https://github.com/mrjoes/flask-admin/blob/master/examples/auth/auth.py
+# 完整代码参考：https://github.com/mrjoes/flask-admin/blob/master/examples/auth/app.py
 # Define login and registration forms (for flask-login)
 # ToDo: 可以考虑利用 Flask-Security 完善后台权限管理及功能！
 class LoginForm(form.Form):
-    username = fields.TextField(validators=[validators.required()])
-    password = fields.PasswordField(validators=[validators.required()])
 
     def validate_login(self, field):
         user = self.get_user()
 
         if user is None:
-            raise validators.ValidationError('Invalid user')
+            raise validators.ValidationError(u'用户名或密码不正确！')
 
         # we're comparing the plaintext pw with the the hash from the db
         if not check_password_hash(user.password, self.password.data):
         # to compare plain text passwords use
         # if user.password != self.password.data:
-            raise validators.ValidationError('Invalid password')
+            raise validators.ValidationError(u'用户名或密码不正确！')
 
     def get_user(self):
         return db.session.query(User).filter(User.valid == True).filter(User.username == self.username.data).first()
+
+    username = fields.TextField(validators=[validators.required()])
+    password = fields.PasswordField(validators=[validators.required(), validate_login])
 
 
 # Initialize flask-login
