@@ -17,6 +17,9 @@ logger.setLevel(logging.INFO)
 
 for image in db.session.query(Image).filter(~Image.path.ilike('qiniu:%')).all():
     full_path = os.path.join(file_path, image.path)
+    if image.path and not os.path.exists(full_path):
+        print image.id, 'error', "Can't find image file!"
+        logger.error(unicode(image.id) + u':' + u"Can't find image file!")
     if image.path and os.path.exists(full_path):
         note = image.note or u''
         if ('[' not in note) or (']' not in note):

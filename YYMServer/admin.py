@@ -5,7 +5,7 @@ import uuid
 
 import PIL
 
-from flask import url_for, redirect, request
+from flask import url_for, redirect, request, flash
 from jinja2 import Markup
 from sqlalchemy import or_
 from werkzeug import secure_filename
@@ -199,7 +199,7 @@ class ImageView(MyModelView):
             full_path = os.path.join(file_path, model.path)
             ret, err = util.upload_image(full_path, model.id, model.type, model.user_id, model.note, model.name)
             if err is not None:
-                flask.flash(u'QiNiu uploading failed! %s' % unicode(err))
+                flash(u'QiNiu uploading failed! %s' % unicode(err))
         else:
             pass
         return super(ImageView, self).after_model_change(form, model, is_created)
