@@ -28,8 +28,11 @@ from YYMServer.models import *
 # Define login and registration forms (for flask-login)
 # ToDo: 可以考虑利用 Flask-Security 完善后台权限管理及功能！
 class LoginForm(form.Form):
+    username = fields.TextField(validators=[validators.required()])
+    password = fields.PasswordField(validators=[validators.required()])
 
-    def validate_login(self, field):
+    def validate_password(self, field):
+        ''' 会根据 Form 类的约定参与校验 password 变量。'''
         user = self.get_user()
 
         if user is None:
@@ -43,9 +46,6 @@ class LoginForm(form.Form):
 
     def get_user(self):
         return db.session.query(User).filter(User.valid == True).filter(User.username == self.username.data).first()
-
-    username = fields.TextField(validators=[validators.required()])
-    password = fields.PasswordField(validators=[validators.required(), validate_login])
 
 
 # Initialize flask-login
