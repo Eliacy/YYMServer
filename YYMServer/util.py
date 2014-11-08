@@ -77,7 +77,8 @@ def gen_upload_token(callback_dic):
 
 def get_image_size(file_path):
     ''' 辅助函数：获取指定图片文件的长、宽参数。'''
-    if os.path.exists(file_path):
+    # 有时会丢无效的空路径进来：
+    if os.path.exists(file_path) and os.path.isfile(file_path):
         im = PIL.Image.open(file_path)
         return im.size
     else:
