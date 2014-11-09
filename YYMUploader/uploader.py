@@ -130,10 +130,10 @@ def process_file(dir, filename):
 
 class NewFileHandler(FileSystemEventHandler):
     def on_created(self, event):
-        time.sleep(1)   # 等一小会儿，避免文件未就位就试图上传。
         if event.is_directory == False:
             new_file_path = event.src_path if type(event.src_path == unicode) else unicode(event.src_path, default_encoding)
             relative_path = os.path.relpath(new_file_path, current_path)
+            relative_path = relative_path if type(relative_path) == unicode else unicode(relative_path, default_encoding)
             dir, filename = os.path.split(relative_path)
             process_file(dir, filename)
 
