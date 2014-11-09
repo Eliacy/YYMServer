@@ -93,6 +93,16 @@ class MyModelView(ModelView):
     def is_accessible(self):
         return login.current_user.is_authenticated() and (login.current_user.is_admin() or login.current_user.is_operator())
 
+    def update_model(self, form, model):
+        ''' 避免在表单中未显示的字段将数据库 Model 覆盖为空值。'''
+        # 不确定这是不是合适的实现方法。
+        if self.form_edit_rules:
+            for field in form:
+                field_name = field.name
+                if field_name not in self.form_edit_rules:
+                    form.__delitem__(field_name)
+        return super(MyModelView, self).update_model(form, model)
+
 
 # Create customized index view class that handles login & registration
 class MyAdminIndexView(AdminIndexView):
