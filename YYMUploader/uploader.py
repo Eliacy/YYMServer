@@ -117,19 +117,29 @@ def process_file(dir, filename):
         if history_dic.has_key(key_path):
             return False
         print '-', u'发现新图片：', key_path
-        ret, err = upload_image(full_path, 0, 2, user_id, note, filename)
-        if err is None:
-            image_id = ret['data']['id']
-            print '*', key_path, u'上传成功。id 为：', image_id, u'注释为：', note
-            logger.info(key_path + u':' + note + u':' + unicode(image_id) + u':' + unicode(ret))
-            history_dic[key_path] = True
-        else:
-            print '*', key_path, u'上传出错！', err
-            logger.error(key_path + u':' + note + u': :' + err)
+        i = 0
+        while i < 3:
+            try:
+                ret, err = upload_image(full_path, 0, 2, user_id, note, filename)
+                if err is None:
+                    image_id = ret['data']['id']
+                    print '*', key_path, u'上传成功。id 为：', image_id, u'注释为：', note
+                    logger.info(key_path + u':' + note + u':' + unicode(image_id) + u':' + unicode(ret))
+                    history_dic[key_path] = True
+                else:
+                    print '*', key_path, u'上传出错！', err
+                    logger.error(key_path + u':' + note + u': :' + err)
+                break
+            except Exception, e:
+                i += 1
+                if i >= 3:
+                    raise e
+            time.sleep(2)
 
 
 class NewFileHandler(FileSystemEventHandler):
     def on_created(self, event):
+        time.sleep(1)   # 等一小会儿，避免文件未就位就试图上传。
         if event.is_directory == False:
             new_file_path = event.src_path if type(event.src_path == unicode) else unicode(event.src_path, default_encoding)
             relative_path = os.path.relpath(new_file_path, current_path)
