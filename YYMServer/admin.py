@@ -464,8 +464,8 @@ class SiteView(MyModelView):
         code = field.data or ''
         if len(code) < 6:
             raise validators.ValidationError(u'编号至少需要填写前6位的类别、国家、城市代码！')
-        if not code[0] in 'SAREHU':
-            raise validators.ValidationError(u'编号首字母必须以"S A R E H U"其中一个之一！')
+        if not code[0] in 'SAREHUL':
+            raise validators.ValidationError(u'编号首字母必须以"S A R E H U L"其中一个之一！')
         if not code[1:3].isalpha():
             raise validators.ValidationError(u'编号第2、3位的国家标识必须都是字母！')
         if not code[3:6].isalpha():

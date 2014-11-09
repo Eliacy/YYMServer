@@ -20,3 +20,5 @@ pytz
 # redis
 qiniu 	# 七牛云存储 SDK
 
+# requests 	# 备份工具 YYMServer.downloader 需要用到。
+
