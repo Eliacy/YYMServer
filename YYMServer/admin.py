@@ -346,11 +346,12 @@ class SiteView(MyModelView):
                                    })
         return text
 
-    def _extend_code(self, code_orig):
+    def _extend_code(self, code_orig, model = None):
         ''' 辅助函数，自动补全 POI 编号。 '''
+        id = None if model == None else model.id
         if code_orig and len(code_orig) == 6:
             try:
-                site_largest_code = db.session.query(Site).filter(Site.code.ilike(u'{}%'.format(code_orig))).order_by(Site.id.desc()).first()
+                site_largest_code = db.session.query(Site).filter(Site.code.ilike(u'{}%'.format(code_orig))).filter(Site.id != id).order_by(Site.id.desc()).first()
                 if not site_largest_code:
                     largest_code = 0
                 else:
@@ -358,7 +359,7 @@ class SiteView(MyModelView):
                 # 有时，id 最大的 POI ，并不一定 code 也是最大的，比如有旧的 POI 在后来修改时重新生成过 code。
                 while True:
                     code = code_orig[:6] + '{:0>4d}'.format(largest_code + 1)
-                    if db.session.query(Site).filter(Site.code == code).first() == None:
+                    if db.session.query(Site).filter(Site.code == code).filter(Site.id != id).first() == None:
                         return code
                     else:
                         largest_code += 1
@@ -381,7 +382,7 @@ class SiteView(MyModelView):
         if not form.create_user.data:
             form.__delitem__('create_user')
         form.update_user.data = login.current_user
-        form.code.data = self._extend_code(form.code.data)
+        form.code.data = self._extend_code(form.code.data, model)
         form.business_hours.data = self._replace_full_width_chars(form.business_hours.data)
         form.phone.data = self._replace_full_width_chars(form.phone.data)
         if form.brand.data:
