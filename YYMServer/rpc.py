@@ -891,7 +891,7 @@ review_parser_detail.add_argument('stars', type=float, required=True)
 review_parser_detail.add_argument('content', type=unicode, required=True)
 review_parser_detail.add_argument('images', type=str, required=True)   # 最多允许绑定 10 张图片，更多的可能会被丢掉。
 review_parser_detail.add_argument('keywords', type=unicode, required=True)     # 最多允许键入 15 个关键词，更多的可能会被丢掉。
-review_parser_detail.add_argument('total', type=int, required=True)
+review_parser_detail.add_argument('total', type=float, required=True)
 review_parser_detail.add_argument('currency', type=unicode, required=True)
 review_parser_detail.add_argument('site', type=int, required=True)
 
@@ -907,7 +907,7 @@ review_fields_brief = {
     'user': fields.Nested(user_fields_mini, attribute='valid_user'),
     'publish_time': util.DateTime,    # RFC822-formatted datetime string in UTC
     'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
-    'total': fields.Integer,
+    'total': fields.Float,
     'currency': fields.String,
     'site': fields.Nested(site_fields_mini, attribute='valid_site'),
 }

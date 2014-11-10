@@ -419,7 +419,7 @@ class Review(db.Model):        # 用户晒单评论
     content = db.Column(db.UnicodeText)         # 晒单评论的文本正文，只需分自然段，无需支持特殊格式。
     images = db.Column(db.String(200), default='')  # 晒单评论的附属图片的 id 列表，空格分隔。
     keywords = db.Column(db.Unicode(200), default=u'')       # 晒单评论关键词，空格分隔
-    total = db.Column(db.Integer, default=0)       # 本次购物总价
+    total = db.Column(db.Float, default=0.0)       # 本次购物总价
     currency = db.Column(db.Unicode(10), default=u'')        # 购物总价所对应的币种，这里没有做强制类别限制，需要在接收前端数据前作检查、判断
     site_id = db.Column(db.Integer, db.ForeignKey('site.id'))   # 关联的 POI
     site = db.relationship('Site', backref=db.backref('reviews', lazy='dynamic'))
