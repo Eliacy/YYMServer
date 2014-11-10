@@ -99,7 +99,7 @@ class MyModelView(ModelView):
         if self.form_edit_rules:
             for field in form:
                 field_name = field.name
-                if field_name not in self.form_edit_rules:
+                if field_name not in self.form_edit_rules or field_name == 'update_time':       # 避免表单中显示的旧 update_time 覆盖数据库 on_update 触发生成的取值。
                     form.__delitem__(field_name)
         return super(MyModelView, self).update_model(form, model)
 
