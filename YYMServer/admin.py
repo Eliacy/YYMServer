@@ -355,8 +355,14 @@ class SiteView(MyModelView):
                     largest_code = 0
                 else:
                     largest_code = int(site_largest_code.code[6:])
-                return code_orig[:6] + '{:0>4d}'.format(largest_code + 1)
-            except:
+                # 有时，id 最大的 POI ，并不一定 code 也是最大的，比如有旧的 POI 在后来修改时重新生成过 code。
+                while True:
+                    code = code_orig[:6] + '{:0>4d}'.format(largest_code + 1)
+                    if db.session.query(Site).filter(Site.code == code).first() == None:
+                        return code
+                    else:
+                        largest_code += 1
+            except Exception, e:
                 pass
         return code_orig
 
