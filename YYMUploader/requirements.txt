@@ -2,6 +2,8 @@ watchdog
 requests
 qiniu 	# 七牛云存储 SDK
 
+# PIL
+
 pyinstaller
 # pywin32
 

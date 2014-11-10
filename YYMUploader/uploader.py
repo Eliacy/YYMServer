@@ -11,6 +11,7 @@ import hmac
 
 import requests
 import qiniu.io
+import PIL.Image
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -73,8 +74,22 @@ def rpc_post(path, param, payload):
     resp_dic = json.loads(resp.text)
     return resp_dic
 
+def get_image_size(file_path):
+    ''' 辅助函数：获取指定图片文件的长、宽参数。'''
+    # 有时会丢无效的空路径进来：
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        im = PIL.Image.open(file_path)
+        return im.size
+    else:
+        return None
+
 def upload_image(file_path, id, type, user, note, name):
     ''' 辅助函数：上传文件到七牛云存储。'''
+    width = '$(imageInfo.width)'
+    height = '$(imageInfo.height)'
+    size = get_image_size(file_path)
+    if size:
+        width, height = map(str, size)
     callback_dic = {
       'id': str(id),
       'type': str(type),
@@ -83,8 +98,8 @@ def upload_image(file_path, id, type, user, note, name):
       'name': name or u'',   # 原始文件名这个不靠谱，最好自己存
       'size': '$(fsize)',
       'mime': '$(mimeType)',
-      'width': '$(imageInfo.width)',
-      'height': '$(imageInfo.height)',
+      'width': width,
+      'height': height,
       'hash': '$(etag)',
     }
     resp = rpc_post('/rpc/uptokens', {}, {'params': json.dumps(callback_dic, ensure_ascii=False).encode('utf8')})
