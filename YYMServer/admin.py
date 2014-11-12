@@ -302,7 +302,7 @@ class SiteView(MyModelView):
                          )
     column_list = ('id', 
                    'valid', 'order', 'create_time', 'update_time', 'create_user', 'update_user', 'code', 'name', 'name_orig', 
-                   'brand', 'logo', 'level', 'stars', 'popular', 'review_num', 'categories',
+                   'brand', 'logo', 'level', 'stars', 'popular', 'review_num', 'category',
                    'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
                    'phone', 'transport', 'description', 'longitude', 'latitude', 
                    'country', 'city', 'area', 'address',
@@ -464,6 +464,14 @@ class SiteView(MyModelView):
     def _list_ticket(view, context, model, name):
         return Markup(u'''<table width="300" cellpadding="5"><tr> </tr></table>''') + util.replace_textlib(model.ticket)
 
+    def _list_categories(view, context, model, name):
+        category_names = []
+        try:
+            category_names = [cate.name for cate in model.categories]
+        except:
+            pass
+        return Markup(u'''<br/>'''.join(category_names))
+
     column_formatters = {
         'logo': _list_thumbnail_logo,
         'top_images':_list_thumbnail_top_images,
@@ -474,6 +482,7 @@ class SiteView(MyModelView):
         'data_source':_list_data_source,
         'business_hours':_list_business_hours,
         'ticket':_list_ticket,
+        'category':_list_categories,
     }
 
     def check_code(form, field):
