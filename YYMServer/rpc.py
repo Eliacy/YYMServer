@@ -486,6 +486,15 @@ class FollowList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
+    def _count_follow_fans(self, follow, fan):
+        ''' 辅助函数，对交互行为涉及的用户账号，重新计算其 follow_num 和 fans_num 。'''
+        # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
+        if follow:
+            follow.fans_num = follow.fans.count()
+        if fan:
+            fan.follow_num = fan.follows.count()
+        db.session.commit()
+
     @hmac_auth('api')
     def delete(self):
         ''' 取消关注关系的接口。'''
@@ -497,6 +506,7 @@ class FollowList(Resource):
         if fan != None:
             follow.fans.remove(fan)
             db.session.commit()
+        self._count_follow_fans(follow, fan)
         return '', 204
 
     @hmac_auth('api')
@@ -512,6 +522,7 @@ class FollowList(Resource):
         if follow.fans.filter(User.id == args['fan']).first() == None:  # 避免多次 follow 同一用户。
             follow.fans.append(fan)
             db.session.commit()
+        self._count_follow_fans(follow, fan)
         return '', 201
 
 api.add_resource(FollowList, '/rpc/follows')
