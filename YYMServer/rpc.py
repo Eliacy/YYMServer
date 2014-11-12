@@ -304,6 +304,7 @@ user_parser.add_argument('offset', type=int)    # offset 偏移量。
 user_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
 user_parser.add_argument('follow', type=int)      # 关注指定 id 所对应用户的账号列表
 user_parser.add_argument('fan', type=int)         # 有指定 id 所对应用户作为粉丝的账号列表
+user_parser.add_argument('token', type=str)     # 用户 token，用于获取是否关注的关系
 
 user_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 User 的信息的参数集合
 user_parser_detail.add_argument('id', type=int)
@@ -336,6 +337,7 @@ user_fields = {
     'review_num': fields.Integer,      # 该用户发表的晒单评论数量，是一个缓存值
     'favorite_num': fields.Integer,      # 该用户收藏的店铺的数量，是一个缓存值
     'badges': fields.String,    # 用户拥有的徽章名称列表
+    'followed': fields.Boolean,         # 当前 token 参数表示的用户是否关注了此用户（仅查询时指定了 id 参数时提供，否则都是 null）
 }
 user_fields.update(user_fields_mini)
 
@@ -379,7 +381,17 @@ class UserList(Resource):
     @marshal_with(user_fields)
     def get(self):
         args = user_parser.parse_args()
-        result = self._get(args['id'], args['follow'], args['fan'])
+        id = args['id']
+        result = self._get(id, args['follow'], args['fan'])
+        token = args['token']
+        if id and token:        # ToDo：这里查询关注关系使用的是数据库查询，存在性能风险！
+            for user in result:
+                Main_User = aliased(User)
+                query = db.session.query(User.id).filter(User.valid == True).join(fans, User.id == fans.columns.user_id).join(Main_User, fans.columns.fan_id == Main_User.id).join(Token, Main_User.id == Token.user_id).filter(Token.token == token)
+                if query.first() == None:
+                    user.followed = False
+                else:
+                    user.followed = True
         offset = args['offset']
         if offset:
             result = result[offset:]
@@ -458,6 +470,51 @@ class UserList(Resource):
         abort(404, message='Target User do not exists!')
 
 api.add_resource(UserList, '/rpc/users')
+
+
+# 用户关注接口：
+follow_parser = reqparse.RequestParser()
+follow_parser.add_argument('follow', type=int, required=True)  # 被关注的用户的 id
+follow_parser.add_argument('fan', type=int, required=True)    # 作为粉丝的用户 id
+
+
+class FollowList(Resource):
+    '''处理用户关注/取消关注行为的后台服务，其中关注关系的读取在 users 接口中内嵌。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    @hmac_auth('api')
+    def delete(self):
+        ''' 取消关注关系的接口。'''
+        args = follow_parser.parse_args()
+        follow = db.session.query(User).filter(User.valid == True).filter(User.id == args['follow']).first()
+        if follow == None:
+            abort(404, message='The user follow do not exists!')
+        fan = follow.fans.filter(User.id == args['fan']).first()
+        if fan != None:
+            follow.fans.remove(fan)
+            db.session.commit()
+        return '', 204
+
+    @hmac_auth('api')
+    def post(self):
+        ''' 创建新的用户关注关系的接口。'''
+        args = follow_parser.parse_args()
+        follow = db.session.query(User).filter(User.valid == True).filter(User.id == args['follow']).first()
+        if follow == None:
+            abort(404, message='The user follow do not exists!')
+        fan = db.session.query(User).filter(User.valid == True).filter(User.id == args['fan']).first()
+        if fan == None:
+            abort(404, message='The user fan do not exists!')
+        if follow.fans.filter(User.id == args['fan']).first() == None:  # 避免多次 follow 同一用户。
+            follow.fans.append(fan)
+            db.session.commit()
+        return '', 201
+
+api.add_resource(FollowList, '/rpc/follows')
 
 
 # 首页文章接口：
