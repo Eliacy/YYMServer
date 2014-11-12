@@ -182,4 +182,13 @@ class DateTime(fields.DateTime):
         except AttributeError as ae:
             raise fields.MarshallingException(ae)
 
+def count_follow_fans(follows, fans):
+    ''' 辅助函数，对交互行为涉及的用户账号，重新计算其 follow_num 和 fans_num 。'''
+    # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
+    for follow in follows:
+        follow.fans_num = follow.fans.count()
+    for fan in fans:
+        fan.follow_num = fan.follows.count()
+    db.session.commit()
+
 

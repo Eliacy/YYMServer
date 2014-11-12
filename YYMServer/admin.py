@@ -482,7 +482,7 @@ class SiteView(MyModelView):
         'data_source':_list_data_source,
         'business_hours':_list_business_hours,
         'ticket':_list_ticket,
-        'category':_list_categories,
+        'category':_list_categories,    # 不使用 model 默认的 categories 以避免 InvalidRequestError: 'Site.categories' does not support object population - eager loading cannot be applied. 错误。
     }
 
     def check_code(form, field):
@@ -750,6 +750,15 @@ class UserView(MyModelView):
 
     def is_accessible(self):
         return super(UserView, self).is_accessible() and login.current_user.is_admin()
+
+    def after_model_change(self, form, model, is_created):
+        '''监控 follow 和 fans 的修改，更新计数。'''
+        follows = [model]
+        fans = [model]
+        follows.extend(model.follows)
+        fans.extend(model.fans)
+        util.count_follow_fans(follows, fans)
+        return super(UserView, self).after_model_change(form, model, is_created)
 
     def get_one(self, id):
         ''' ToDo：一个脏补丁，用来显示各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
