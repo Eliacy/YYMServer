@@ -177,7 +177,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     stars = db.Column(db.Float, default=0.0)         # POI 的评论星级，由于是统计结果，因而存在半颗星等小数。
     popular = db.Column(db.Integer, default=0)    # 统计店铺人气指数，用于搜索排序，每天更新！
     review_num = db.Column(db.SmallInteger, default=0)    # 该店铺拥有的晒单评论数量，是一个缓存值
-    categories = db.relationship('Category', secondary=categories,
+    categories = db.relationship('Category', lazy='dynamic', secondary=categories,
                                  backref=db.backref('sites', lazy='dynamic'))
     environment = db.Column(db.Unicode(50), default=u'')      # 环境特点的文字描述
     flowrate = db.Column(db.Unicode(20), default=u'')        # 人流量情况
@@ -308,20 +308,20 @@ class User(db.Model):
     exp = db.Column(db.Integer, default=0)      # 与用户等级对应的用户经验，需要根据每天的行为日志做更新
     follow_num = db.Column(db.SmallInteger, default=0)  # 该用户已关注的账号的数量，是一个缓存值
     fans_num = db.Column(db.SmallInteger, default=0)    # 该用户拥有的粉丝数量，是一个缓存值
-    fans = db.relationship('User', secondary=fans,
+    fans = db.relationship('User', lazy='dynamic', secondary=fans,
                                    primaryjoin=id==fans.c.user_id,
                                    secondaryjoin=id==fans.c.fan_id,
                                    backref=db.backref('follows', lazy='dynamic'))
     like_num = db.Column(db.SmallInteger, default=0)    # 该用户喜欢的晒单评论数量，是一个缓存值
-    likes = db.relationship('Review', secondary=likes,
+    likes = db.relationship('Review', lazy='dynamic', secondary=likes,
                                       backref=db.backref('fans', lazy='dynamic'))
     share_num = db.Column(db.SmallInteger, default=0)   # 该用户的分享行为数量，是一个缓存值
     review_num = db.Column(db.SmallInteger, default=0)    # 该用户发表的晒单评论数量，是一个缓存值
     favorite_num = db.Column(db.SmallInteger, default=0)    # 该用户收藏的店铺的数量，是一个缓存值
-    favorites = db.relationship('Site', secondary=favorites,
+    favorites = db.relationship('Site', lazy='dynamic', secondary=favorites,
                                       backref=db.backref('fans', lazy='dynamic'))
     badges = db.Column(db.Unicode(500), default=u'')  # 用户拥有的徽章名称列表
-    roles = db.relationship('Role', secondary=roles_users,
+    roles = db.relationship('Role', lazy='dynamic', secondary=roles_users,
                             backref=db.backref('users', lazy='dynamic'))
     # ToDo: 勋章内容的更新机制暂未实现！
 
@@ -475,9 +475,9 @@ class Article(db.Model):        # 首页推荐文章
     update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 首页文章的作者
     user = db.relationship('User', backref=db.backref('articles', lazy='dynamic'))
-    cities = db.relationship('City', secondary=city_articles,
+    cities = db.relationship('City', lazy='dynamic', secondary=city_articles,
                                       backref=db.backref('articles', lazy='dynamic'))
-    countries = db.relationship('Country', secondary=country_articles,
+    countries = db.relationship('Country', lazy='dynamic', secondary=country_articles,
                                       backref=db.backref('articles', lazy='dynamic'))
     title = db.Column(db.Unicode(50), default=u'')   # 首页文章的标题
     caption_id = db.Column(db.Integer, db.ForeignKey('image.id'))     # 首页文章的标题首图的图片 id
@@ -541,7 +541,7 @@ class Message(db.Model):        # 用户私信， #ToDo: 当前的数据库结�
     sender_user = db.relationship('User', backref=db.backref('sent_messages', lazy='dynamic'))  # 反向是该用户发送的所有信息
     content = db.Column(db.UnicodeText)         # 私信消息的文本正文，应支持 App 内信息的链接
     group_key = db.Column(db.String(50), default='')        # 私信消息分组快捷键，将本消息相关 user_id 按从小到大排序，用“_”连接作为 Key
-    users = db.relationship('User', secondary=UserReadMessage.__table__,
+    users = db.relationship('User', lazy='dynamic', secondary=UserReadMessage.__table__,
                                       backref=db.backref('messages', lazy='dynamic'))   # 反向为该用户的全部信息
 
     def __unicode__(self):
