@@ -3,9 +3,7 @@
 import os.path
 import uuid
 
-import PIL
-
-from flask import url_for, redirect, request, flash
+from flask import url_for, redirect, request, flash, escape
 from jinja2 import Markup
 from sqlalchemy import or_
 from werkzeug import secure_filename
@@ -854,6 +852,28 @@ class ArticleView(MyModelView):
         self.form_edit_rules = columns
         self._refresh_cache()
         return article
+
+    def _list_content(view, context, model, name):
+        output = util.parse_textstyle(model.content)
+        markups = []
+        for entry in output:
+            type = entry['class']
+            content = entry['content']
+            if type == 'text':
+                markups.append(content)
+            elif type == 'title':
+                markups.append(u'<font color="#00FF00">%s</font>' % content)
+            elif type == 'hline':
+                markups.append(u'--------')
+            elif type == 'image':
+                markups.append(_get_images_code(util.get_images(str(content))))
+            elif type == 'site':
+                markups.append(escape(unicode(db.session.query(Site).filter(Site.valid == True).filter(Site.id == content).first())))
+        return Markup(u'''<br/>'''.join(markups))
+
+    column_formatters = {
+        'content': _list_content,
+    }
 
 
 class MessageView(MyModelView):

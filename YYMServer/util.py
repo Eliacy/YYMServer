@@ -42,6 +42,32 @@ def replace_textlib(text):
     ''' 辅助函数：检查输入的 text 数据是否匹配 TextLib 替换代码，如果是则替换后返回。'''
     return textlib_re.sub(_replace_textlib, text)
 
+def parse_textstyle(content):
+    ''' 辅助函数：解析富媒体长文本，由类 Wiki 标记转化为结构化的数据结构。'''
+    content = content or ''
+    output = []
+    for line in content.splitlines():
+        if line.strip() == '':
+            continue
+        entry = None
+        if line.startswith(u'#'):   # 小标题
+            title = line.lstrip('#').strip()
+            entry = {'class': 'title', 'content': title}
+        elif line.startswith(u'[[') and line.endswith(u']]') and line.find(u':') >= 0:
+            link = line.lstrip('[').rstrip(']')
+            type, id = link.split(u':', 1)
+            id = id.strip()
+            if type == 'image' and id.isdigit():   # 图片
+                entry = {'class': 'image', 'content': int(id)}
+            elif type == 'site' and id.isdigit():  # POI
+                entry = {'class': 'site', 'content': int(id)}
+        elif line.strip() == u'***':        # 水平分隔线
+            entry = {'class': 'hline', 'content': ''}
+        if entry == None:       # 普通文本
+            entry = {'class': 'text', 'content': line}
+        output.append(entry)
+    return output
+
 def extend_image_path(path):
     ''' 辅助函数：对给定的图片资源，扩展为外网可访问的完整路径（未处理云存储私有授权问题）。'''
     if path.startswith('qiniu:'):
