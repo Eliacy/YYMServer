@@ -524,59 +524,6 @@ class FollowList(Resource):
 api.add_resource(FollowList, '/rpc/follows')
 
 
-# 小贴士接口：
-tips_parser = reqparse.RequestParser()
-tips_parser.add_argument('id', type=int)
-tips_parser.add_argument('brief', type=int, default=1)     # 大于 0 表示只输出概要信息即可（默认只概要）。
-tips_parser.add_argument('city', type=int)      # 城市 id。
-
-tips_fields_brief = {
-    'id': fields.Integer,
-    'default': fields.Boolean,  # 是否是当前城市的默认贴士
-    'create_time': util.DateTime,    # RFC822-formatted datetime string in UTC
-    'title': fields.String,         # Tips 的标题，用于列表选单，不用于正文显示
-}
-tips_fields = {
-    'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
-    'content': fields.String,         # 小贴士的文本正文，需区分自然段、小标题、分隔符、排序列表等特殊格式！以及支持对其他 Tips 的引用（例如该国家通用的内容）
-    # ToDo: 这里需要和客户端统一一下图文混排的方案！
-}
-tips_fields.update(tips_fields_brief)
-
-
-class TipsList(Resource):
-    '''按城市获取相关小贴士文档的接口。'''
-
-    def __repr__(self):
-        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
-        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
-        '''
-        return '%s' % self.__class__.__name__
-
-    @cache.memoize()
-    def _get(self, brief=None, id=None, city=None):
-        query = db.session.query(Tips).filter(Tips.valid == True)
-        if id:
-            query = query.filter(Tips.id == id)
-        if city:
-            query= query.filter(Tips.city_id == city)
-        query = query.order_by(Tips.default.desc())
-        result = query.all()
-        return result
-
-    @hmac_auth('api')
-    def get(self):
-        args = tips_parser.parse_args()
-        brief = args['brief']
-        result = self._get(brief, args['id'], args['city'])
-        if brief:
-            return marshal(result, tips_fields_brief)
-        else:
-            return marshal(result, tips_fields)
-
-api.add_resource(TipsList, '/rpc/tips')
-
-
 # 分类及子分类接口：
 category_fields = {
     'id': fields.Integer,
@@ -860,7 +807,8 @@ article_content_fields_site = article_content_fields_entry.copy()
 article_content_fields_site['content'] = fields.Nested(site_fields_brief)
 
 
-class ArticleContentEntry(fields.Raw):
+class ContentEntry(fields.Raw):
+    ''' 输出富媒体每行内容的 fields 定制封装。'''
     def output(self, key, data):
         type = data['class']
         data['type'] = {'text': 1,
@@ -887,7 +835,7 @@ article_fields_brief = {
 }
 article_fields = {
     'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
-    'content': fields.List(ArticleContentEntry, attribute='formated_content'),         # 首页文章的文本正文，需区分自然段、小标题、图片、店铺链接、分隔符等特殊格式！
+    'content': fields.List(ContentEntry, attribute='formated_content'),         # 首页文章的文本正文，需区分自然段、小标题、图片、店铺链接、分隔符等特殊格式！
     # ToDo: 这里需要和客户端统一一下图文混排的方案！
     'comment_num': fields.Integer,
 }
@@ -941,6 +889,61 @@ class ArticleList(Resource):
             return marshal(result, article_fields)
 
 api.add_resource(ArticleList, '/rpc/articles')
+
+
+# 小贴士接口：
+tips_parser = reqparse.RequestParser()
+tips_parser.add_argument('id', type=int)
+tips_parser.add_argument('brief', type=int, default=1)     # 大于 0 表示只输出概要信息即可（默认只概要）。
+tips_parser.add_argument('city', type=int)      # 城市 id。
+
+tips_fields_brief = {
+    'id': fields.Integer,
+    'default': fields.Boolean,  # 是否是当前城市的默认贴士
+    'create_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'title': fields.String,         # Tips 的标题，用于列表选单，不用于正文显示
+}
+tips_fields = {
+    'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'content': fields.List(ContentEntry, attribute='formated_content'),         # 小贴士的文本正文，需区分自然段、小标题、分隔符、排序列表等特殊格式！以及支持对其他 Tips 的引用（例如该国家通用的内容）
+    # ToDo: 这里需要和客户端统一一下图文混排的方案！
+}
+tips_fields.update(tips_fields_brief)
+
+
+class TipsList(Resource):
+    '''按城市获取相关小贴士文档的接口。'''
+
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    @cache.memoize()
+    def _get(self, brief=None, id=None, city=None):
+        query = db.session.query(Tips).filter(Tips.valid == True)
+        if id:
+            query = query.filter(Tips.id == id)
+        if city:
+            query= query.filter(Tips.city_id == city)
+        query = query.order_by(Tips.default.desc())
+        result = query.all()
+        for tips in query:
+            tips.formated_content = util.parse_textstyle(tips.content)
+        return result
+
+#    @hmac_auth('api')
+    def get(self):
+        args = tips_parser.parse_args()
+        brief = args['brief']
+        result = self._get(brief, args['id'], args['city'])
+        if brief:
+            return marshal(result, tips_fields_brief)
+        else:
+            return marshal(result, tips_fields)
+
+api.add_resource(TipsList, '/rpc/tips')
 
 
 # 晒单评论接口：

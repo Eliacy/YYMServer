@@ -134,6 +134,25 @@ class MyAdminIndexView(AdminIndexView):
 init_login()
 
 
+def _list_content(view, context, model, name):
+    ''' 转换文本标签文章内容到富媒体列表格式，供后台人工检查确认。'''
+    output = util.parse_textstyle(model.content)
+    markups = []
+    for entry in output:
+        type = entry['class']
+        content = entry['content']
+        if type == 'text':
+            markups.append(content)
+        elif type == 'title':
+            markups.append(u'<font color="#00FF00">%s</font>' % content)
+        elif type == 'hline':
+            markups.append(u'--------')
+        elif type == 'image':
+            markups.append(_get_images_code([content]))
+        elif type == 'site':
+            markups.append(escape(unicode(content)))
+    return Markup(u'''<br/>'''.join(markups))
+
 def uuid_name(obj, file_data):
     parts = os.path.splitext(file_data.filename)
     extension = parts[1].lower()
@@ -803,6 +822,9 @@ class TipsView(MyModelView):
             'fields': (City.id, City.name,)
         },
     }
+    column_formatters = {
+        'content': _list_content,
+    }
 
     def create_model(self, form):
         if not form.user.data:
@@ -834,6 +856,9 @@ class ArticleView(MyModelView):
             'fields': (Comment.id,)
         },
     }
+    column_formatters = {
+        'content': _list_content,
+    }
 
     def create_model(self, form):
         if not form.user.data:
@@ -852,28 +877,6 @@ class ArticleView(MyModelView):
         self.form_edit_rules = columns
         self._refresh_cache()
         return article
-
-    def _list_content(view, context, model, name):
-        output = util.parse_textstyle(model.content)
-        markups = []
-        for entry in output:
-            type = entry['class']
-            content = entry['content']
-            if type == 'text':
-                markups.append(content)
-            elif type == 'title':
-                markups.append(u'<font color="#00FF00">%s</font>' % content)
-            elif type == 'hline':
-                markups.append(u'--------')
-            elif type == 'image':
-                markups.append(_get_images_code([content]))
-            elif type == 'site':
-                markups.append(escape(unicode(content)))
-        return Markup(u'''<br/>'''.join(markups))
-
-    column_formatters = {
-        'content': _list_content,
-    }
 
 
 class MessageView(MyModelView):
