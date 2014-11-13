@@ -866,9 +866,9 @@ class ArticleView(MyModelView):
             elif type == 'hline':
                 markups.append(u'--------')
             elif type == 'image':
-                markups.append(_get_images_code(util.get_images(str(content))))
+                markups.append(_get_images_code([content]))
             elif type == 'site':
-                markups.append(escape(unicode(db.session.query(Site).filter(Site.valid == True).filter(Site.id == content).first())))
+                markups.append(escape(unicode(content)))
         return Markup(u'''<br/>'''.join(markups))
 
     column_formatters = {

@@ -42,6 +42,35 @@ def replace_textlib(text):
     ''' 辅助函数：检查输入的 text 数据是否匹配 TextLib 替换代码，如果是则替换后返回。'''
     return textlib_re.sub(_replace_textlib, text)
 
+def format_site(site, brief=True):
+    ''' 为了 API 输出及缓存需要，对原始 Site object 的数据格式进行调整。'''
+    if site == None:
+        return None
+    site.stars = site.stars or 0.0      # POI 无星级时输出0，表示暂无评分。
+    site.environment = site.environment or u''
+    site.formated_payment_types = [] if not site.payment else [payment_types.get(code.lower(), code) for code in site.payment.split()]
+    site.menu = site.menu or u''
+    site.formated_ticket = u'' if not site.ticket else replace_textlib(site.ticket)
+    site.booking = site.booking or u''
+    site.formated_business_hours = u'' if not site.business_hours else replace_textlib(site.business_hours)
+    site.phone = site.phone or u''
+    site.transport = site.transport or u''
+    site.description = site.description or u''
+    site.logo_image = site.logo         # 为了缓存能工作
+    site.city_name = '' if not site.area else site.area.city.name
+    site.formated_keywords = [] if not site.keywords else site.keywords.translate({ord('{'):None, ord('}'):None}).split()
+    site.valid_top_images = []
+    if site.top_images:
+        site.valid_top_images = get_images(site.top_images)
+    site.valid_top_images = site.valid_top_images[:5]
+    if not brief:
+        site.valid_gate_images = []
+        if site.gate_images:
+            site.valid_gate_images = get_images(site.gate_images)
+        site.valid_gate_images = site.valid_gate_images[:1]
+        site.valid_categories = [category.name for category in site.categories if category.parent_id != None]
+    return site
+
 def parse_textstyle(content):
     ''' 辅助函数：解析富媒体长文本，由类 Wiki 标记转化为结构化的数据结构。'''
     content = content or ''
@@ -58,9 +87,9 @@ def parse_textstyle(content):
             type, id = link.split(u':', 1)
             id = id.strip()
             if type == 'image' and id.isdigit():   # 图片
-                entry = {'class': 'image', 'content': int(id)}
+                entry = {'class': 'image', 'content': db.session.query(Image).filter(Image.valid == True).filter(Image.id == int(id)).first()}
             elif type == 'site' and id.isdigit():  # POI
-                entry = {'class': 'site', 'content': int(id)}
+                entry = {'class': 'site', 'content': format_site(db.session.query(Site).filter(Site.valid == True).filter(Site.id == int(id)).first())}
         elif line.strip() == u'***':        # 水平分隔线
             entry = {'class': 'hline', 'content': ''}
         if entry == None:       # 普通文本
@@ -193,7 +222,6 @@ def strip_image_note(note):
     if ']' in note:
         ending = note.split(']')[-1]
     return leading + ending
-
 
 tz_cn = pytz.timezone('Asia/Shanghai')
 
