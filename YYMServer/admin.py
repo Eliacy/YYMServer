@@ -136,7 +136,7 @@ init_login()
 
 def _list_content(view, context, model, name):
     ''' 转换文本标签文章内容到富媒体列表格式，供后台人工检查确认。'''
-    output = util.parse_textstyle(model.content)
+    output = util.parse_textstyle(util.replace_textlib(model.content))
     markups = []
     for entry in output:
         type = entry['class']

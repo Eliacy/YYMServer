@@ -868,7 +868,7 @@ class ArticleList(Resource):
         for article in query:
             article.caption_image = article.caption
             article.formated_keywords = [] if not article.keywords else article.keywords.strip().split()
-            article.formated_content = util.parse_textstyle(article.content)
+            article.formated_content = util.parse_textstyle(util.replace_textlib(article.content))
             result.append(article)
         return result
 
@@ -930,10 +930,10 @@ class TipsList(Resource):
         query = query.order_by(Tips.default.desc())
         result = query.all()
         for tips in query:
-            tips.formated_content = util.parse_textstyle(tips.content)
+            tips.formated_content = util.parse_textstyle(util.replace_textlib(tips.content))
         return result
 
-#    @hmac_auth('api')
+    @hmac_auth('api')
     def get(self):
         args = tips_parser.parse_args()
         brief = args['brief']
