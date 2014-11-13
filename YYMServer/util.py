@@ -240,9 +240,17 @@ def count_follow_fans(follows, fans):
     ''' 辅助函数，对交互行为涉及的用户账号，重新计算其 follow_num 和 fans_num 。'''
     # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
     for follow in follows:
-        follow.fans_num = follow.fans.count()
+        follow.fans_num = follow.fans.filter(User.valid == True).count()
     for fan in fans:
-        fan.follow_num = fan.follows.count()
+        fan.follow_num = fan.follows.filter(User.valid == True).count()
     db.session.commit()
+
+def count_stars(site):
+    ''' 辅助函数，对晒单评论设计的用户账号，重新计算相关 POI 的星级。'''
+    # ToDo: 这样每次都重新计算不确定是否存在性能风险。
+    reviews = site.reviews.filter(Review.valid == True).all()
+    if reviews:
+        site.stars = sum([review.stars for review in reviews]) / len(reviews)
+        db.session.commit()
 
 

@@ -1002,6 +1002,11 @@ class ReviewList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
+    def _count_stars(self, model):
+        ''' 辅助函数，对晒单评论涉及的用户账号，重新计算其星级。'''
+        if model.stars:
+            util.count_stars(model.site)
+
     def _format_review(self, review, brief=None):
         ''' 辅助函数：用于格式化 Review 实例，用于接口输出。'''
         review.valid_user = review.user
@@ -1081,6 +1086,7 @@ class ReviewList(Resource):
         if review:
             review.valid = False
             db.session.commit()
+            self._count_stars(review)
             return '', 204
         abort(404, message='Target Review do not exists!')
 
@@ -1109,6 +1115,7 @@ class ReviewList(Resource):
             review.publish_time = datetime.datetime.now()
         db.session.add(review)
         db.session.commit()
+        self._count_stars(review)
         return {'id': review.id}, 201
 
     @hmac_auth('api')
@@ -1137,6 +1144,7 @@ class ReviewList(Resource):
                 review.publish_time = datetime.datetime.now()
             db.session.commit()
             self._format_review(review, brief=0)
+            self._count_stars(review)
             return marshal(review, review_fields), 201
         abort(404, message='Target Review do not exists!')
 

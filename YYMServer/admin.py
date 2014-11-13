@@ -560,6 +560,12 @@ class ReviewView(MyModelView):
         },
     }
 
+    def after_model_change(self, form, model, is_created):
+        '''监控 reviews 的修改，更新星级计数。'''
+        if model.stars:
+            util.count_stars(model.site)
+        return super(ReviewView, self).after_model_change(form, model, is_created)
+
     def create_model(self, form):
         if not form.user.data:
             form.user.data = login.current_user
