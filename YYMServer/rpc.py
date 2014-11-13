@@ -849,6 +849,7 @@ article_parser.add_argument('city', type=int)      # 城市 id。
 
 article_content_fields_entry = {
     'class': fields.String,
+    'type': fields.Integer,
     'content': fields.String,
 }
 
@@ -862,6 +863,12 @@ article_content_fields_site['content'] = fields.Nested(site_fields_brief)
 class ArticleContentEntry(fields.Raw):
     def output(self, key, data):
         type = data['class']
+        data['type'] = {'text': 1,
+                        'title': 2,
+                        'image': 3,
+                        'site': 4,
+                        'hline': 5,
+                        }.get(type, 0)
         if type == 'image':
             return marshal(data, article_content_fields_image)
         elif type == 'site':
