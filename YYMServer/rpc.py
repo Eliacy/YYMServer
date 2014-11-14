@@ -524,6 +524,58 @@ class FollowList(Resource):
 api.add_resource(FollowList, '/rpc/follows')
 
 
+# 用户喜欢接口：
+like_parser = reqparse.RequestParser()
+like_parser.add_argument('user', type=int, required=True)  # 表达喜欢的用户的 id
+like_parser.add_argument('review', type=int, required=True)    # 被表达喜欢的晒单评论 id
+
+
+class LikeList(Resource):
+    '''处理用户喜欢/取消喜欢行为的后台服务，其中喜欢关系的读取在 reviews 接口中内嵌。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    def _count_likes(self, user, review):
+        ''' 辅助函数，对交互行为涉及的用户账号，重新计算其 follow_num 和 fans_num 。'''
+        # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
+        util.count_likes([user] if user else [], [review] if review else [])
+
+    @hmac_auth('api')
+    def delete(self):
+        ''' 取消喜欢关系的接口。'''
+        args = like_parser.parse_args()
+        user = db.session.query(User).filter(User.valid == True).filter(User.id == args['user']).first()
+        if user == None:
+            abort(404, message='The user do not exists!')
+        review = user.likes.filter(Review.id == args['review']).first()
+        if review != None:
+            user.likes.remove(review)
+            db.session.commit()
+            self._count_likes(user, review)
+        return '', 204
+
+    @hmac_auth('api')
+    def post(self):
+        ''' 创建新的喜欢关系的接口。'''
+        args = like_parser.parse_args()
+        user = db.session.query(User).filter(User.valid == True).filter(User.id == args['user']).first()
+        if user == None:
+            abort(404, message='The user do not exists!')
+        review = db.session.query(Review).filter(Review.valid == True).filter(Review.id == args['review']).first()
+        if review == None:
+            abort(404, message='The review do not exists!')
+        if user.likes.filter(Review.id == args['review']).first() == None:  # 避免多次 like 同一 Review 。
+            user.likes.append(review)
+            db.session.commit()
+            self._count_likes(user, review)
+        return '', 201
+
+api.add_resource(LikeList, '/rpc/likes')
+
+
 # 分类及子分类接口：
 category_fields = {
     'id': fields.Integer,
@@ -957,6 +1009,7 @@ review_parser.add_argument('limit', type=int, default=10)     # limit 限制，�
 review_parser.add_argument('user', type=int)
 review_parser.add_argument('site', type=int)    # 相关联的 POI id
 review_parser.add_argument('city', type=int)    # 相关联的城市 id
+review_parser.add_argument('token', type=str)     # 用户 token，用于获取是否喜欢的关系
 
 review_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 Review 的信息的参数集合
 review_parser_detail.add_argument('id', type=int)
@@ -986,6 +1039,7 @@ review_fields_brief = {
     'total': fields.Float,
     'currency': fields.String,
     'site': fields.Nested(site_fields_mini, attribute='valid_site'),
+    'liked': fields.Boolean,         # 当前 token 参数表示的用户是否喜欢了此晒单评论
 }
 review_fields = {
     'at_list': fields.List(fields.Nested(user_fields_mini), attribute='valid_at_users'),
@@ -1002,10 +1056,9 @@ class ReviewList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
-    def _count_stars(self, model):
-        ''' 辅助函数，对晒单评论涉及的用户账号，重新计算其星级。'''
-        if model.stars:
-            util.count_stars(model.site)
+    def _count_reviews(self, model):
+        ''' 辅助函数，对晒单评论涉及的用户账号，重新计算其星级和评论数。'''
+        util.count_reviews(model.site)
 
     def _format_review(self, review, brief=None):
         ''' 辅助函数：用于格式化 Review 实例，用于接口输出。'''
@@ -1072,6 +1125,16 @@ class ReviewList(Resource):
             result = result[offset:]
         if limit:
             result = result[:limit]
+        # 提取 like 关系：
+        token = args['token']
+        if token:        # ToDo：这里查询喜欢关系使用的是数据库查询，存在性能风险！
+            query = db.session.query(Review.id).filter(Review.valid == True).join(Review.fans).join(Token, User.id == Token.user_id).filter(Token.token == token).filter(Review.id.in_([review.id for review in result]))
+            like_dic = {}
+            for review_id in query:
+                like_dic[review_id[0]] = True
+            for review in result:
+                review.liked = like_dic.get(review.id, False)
+        # 输出结果：
         if brief:
             return marshal(result, review_fields_brief)
         else:
@@ -1086,7 +1149,7 @@ class ReviewList(Resource):
         if review:
             review.valid = False
             db.session.commit()
-            self._count_stars(review)
+            self._count_reviews(review)
             return '', 204
         abort(404, message='Target Review do not exists!')
 
@@ -1115,7 +1178,7 @@ class ReviewList(Resource):
             review.publish_time = datetime.datetime.now()
         db.session.add(review)
         db.session.commit()
-        self._count_stars(review)
+        self._count_reviews(review)
         return {'id': review.id}, 201
 
     @hmac_auth('api')
@@ -1144,7 +1207,7 @@ class ReviewList(Resource):
                 review.publish_time = datetime.datetime.now()
             db.session.commit()
             self._format_review(review, brief=0)
-            self._count_stars(review)
+            self._count_reviews(review)
             return marshal(review, review_fields), 201
         abort(404, message='Target Review do not exists!')
 

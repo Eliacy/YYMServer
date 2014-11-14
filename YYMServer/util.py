@@ -245,12 +245,23 @@ def count_follow_fans(follows, fans):
         fan.follow_num = fan.follows.filter(User.valid == True).count()
     db.session.commit()
 
-def count_stars(site):
-    ''' 辅助函数，对晒单评论设计的用户账号，重新计算相关 POI 的星级。'''
+def count_likes(users, reviews):
+    ''' 辅助函数，对喜欢行为涉及的用户账号和晒单评论，重新计算其 like_num 。'''
+    # ToDo: 这个实现受读取 User 信息和 Review 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
+    for user in users:
+        user.like_num = user.likes.filter(Review.valid == True).count()
+    for review in reviews:
+        review.like_num = review.fans.filter(User.valid == True).count()
+    db.session.commit()
+
+def count_reviews(site):
+    ''' 辅助函数，对晒单评论设计的用户账号，重新计算相关 POI 的星级和评论数。'''
     # ToDo: 这样每次都重新计算不确定是否存在性能风险。
     reviews = site.reviews.filter(Review.valid == True).all()
     if reviews:
-        site.stars = sum([review.stars for review in reviews]) / len(reviews)
+        review_num = len(reviews)
+        site.stars = sum([review.stars for review in reviews]) / review_num   # 假定用户发晒单评论时，星级必须填！
+        site.review_num = review_num
         db.session.commit()
 
 
