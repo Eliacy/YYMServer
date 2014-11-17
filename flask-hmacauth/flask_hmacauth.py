@@ -14,16 +14,11 @@ import hmac
 import hashlib
 import datetime
 import urlparse
-import re
 
 #simple macros where x is a request object
 GET_TIMESTAMP = lambda x: x.values.get('TIMESTAMP')
 GET_ACCOUNT = lambda x: x.values.get('ACCOUNT_ID')
 GET_SIGNATURE = lambda x: x.headers.get('X-Auth-Signature')
-
-codepoint = re.compile(r'(\\u[0-9a-fA-F]{4})')
-def replace(match):
-    return unichr(int(match.group(1)[2:], 16))
 
 
 class HmacManager(object):
@@ -107,9 +102,7 @@ class HmacManager(object):
                 # TODO: DO NOT REALLY WORK! Because params order can be different in request.form comparing to original request.
                 body = '&'.join(('='.join((key, value.encode(charset))) for key, value in request.form.items()))
             if request.data: # For data type application/json
-                # Use codepoint.sub(replace, some_text) instead of unicode(some_text, 'unicode-escape') 
-                # to make sure '\r\n' chars as it is.
-                body = codepoint.sub(replace, request.data).encode(charset)
+                body = request.data
             hasher.update(body)
         calculated_hash = hasher.hexdigest()
 

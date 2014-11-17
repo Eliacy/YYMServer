@@ -56,7 +56,7 @@ sig = hasher.hexdigest()
 print 'sig:', sig
 
 #resp = requests.post(host+path, params=params, data=payload, headers={'X-Auth-Signature': sig})
-resp = requests.post(host+path, params=params, data=json.dumps(payload), headers={'X-Auth-Signature': sig, 'Content-Type':'application/json'})
+resp = requests.post(host+path, params=params, data=body, headers={'X-Auth-Signature': sig, 'Content-Type':'application/json'})
 #print resp.request.body
 print resp
 print resp.text
