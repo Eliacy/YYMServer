@@ -147,7 +147,7 @@ def _list_content(view, context, model, name):
             markups.append(u'<font color="#00FF00">%s</font>' % content)
         elif type == 'hline':
             markups.append(u'--------')
-        elif type == 'image':
+        elif type == 'image':   # 这里拿到的图片有可能是 None
             markups.append(_get_images_code([content]))
         elif type == 'site':
             markups.append(escape(unicode(content)))
@@ -161,15 +161,15 @@ def uuid_name(obj, file_data):
     return secure_filename('%s%s' % (uuid.uuid4(), extension))
 
 def get_image_size(image_obj):
-    path = image_obj.path
-    if path.startswith('qiniu:'):
-        return '%dx%d' % (image_obj.width or 0, image_obj.height or 0)
-    full_path = os.path.join(file_path, path)
-    size = util.get_image_size(full_path)
-    if size:
-        return u'【【＝未上传到云存储！＝】】%dx%d' % size
-    else:
-        return '[[==IMAGE DO NOT EXIST!!!==]]'
+    if image_obj:
+        path = image_obj.path
+        if path.startswith('qiniu:'):
+            return '%dx%d' % (image_obj.width or 0, image_obj.height or 0)
+        full_path = os.path.join(file_path, path)
+        size = util.get_image_size(full_path)
+        if size:
+            return u'【【＝未上传到云存储！＝】】%dx%d' % size
+    return '[[==IMAGE DO NOT EXIST!!!==]]'
 
 def check_image_exist(form, field):
     ''' 检查选择的图片是否在数据库记录中真正存在。 '''
@@ -273,12 +273,20 @@ class ImageView(MyModelView):
 def _get_images_code(images):
     image_code = u''
     for image in images:
-        image = (image.id, 
-                 get_image_size(image), 
-                 util.strip_image_note(image.note),
-                 util.url_for(image.path), 
-                 util.url_for_thumb(image.path),
-                 )
+        if image == None:
+            image = (0, 
+                     get_image_size(image), 
+                     u'【【指定图片不存在！】】',
+                     'http://', 
+                     'http://',
+                     )
+        else:
+            image = (image.id, 
+                     get_image_size(image), 
+                     util.strip_image_note(image.note),
+                     util.url_for(image.path), 
+                     util.url_for_thumb(image.path),
+                     )
         image_code += u'''<td  align="center" valign="top">[id: %d]<br/>(%s)<br/>～%s～<br/><a href="%s" target="_blank"><img src="%s"/></a></td>\n''' % image
     code = u'''
     <div>
