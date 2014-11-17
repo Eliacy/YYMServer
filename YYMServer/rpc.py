@@ -1233,7 +1233,7 @@ comment_parser_detail.add_argument('id', type=int)
 comment_parser_detail.add_argument('review', type=int, required=True)
 comment_parser_detail.add_argument('article', type=int, required=True)
 comment_parser_detail.add_argument('user', type=int, required=True)
-comment_parser_detail.add_argument('at_list', type=str, required=True)  # 最多允许@ 20 个用户，更多的可能会被丢掉。
+comment_parser_detail.add_argument('at_list', type=str)  # 最多允许@ 20 个用户，更多的可能会被丢掉。
 comment_parser_detail.add_argument('content', type=unicode, required=True)
 
 comment_fields = {
