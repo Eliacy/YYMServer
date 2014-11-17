@@ -653,6 +653,21 @@ class CommentView(MyModelView):
         util.count_comments([user] if user else [], [article] if article else [], [review] if review else [])
         return super(CommentView, self).on_model_delete(model)
 
+    def _list_site(view, context, model, name):
+        site_info = ''
+        try:
+            site_info = unicode(model.review.site)
+        except:
+            pass
+        return site_info
+
+    column_list = ('article','site', 'review', 'id', 'valid', 'user', 'at_list', 'content', 'publish_time', 'update_time',
+                  )
+
+    column_formatters = {
+        'site': _list_site,
+    }
+
 
 class TagAlikeView(MyModelView):
     column_searchable_list = ('name',)
