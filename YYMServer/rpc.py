@@ -1096,6 +1096,8 @@ class ReviewList(Resource):
         if city:
             # ToDo: 搜索 POI 的时候，会把某城市中心点一定范围内的 POI （尽管是别的城市的）也放进来，那么搜 Review 时候是否也应该支持这个？
             query = query.join(Review.site).join(Site.area).filter(Area.city_id == city)
+            # 在“动态”栏目显示晒单评论的时候，不显示无图片评论：
+            query = query.filter(Review.images != '')
         result = []
         if selected == None:
             # ToDo: 后台需要有个定时任务，将被关注多的 Review 设置成 selected 。

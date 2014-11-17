@@ -583,6 +583,11 @@ class ReviewView(MyModelView):
         return super(ReviewView, self).update_model(form, model)
 
     def after_model_change(self, form, model, is_created):
+        # 保证 images 字段不含有多余空格，以便 filter 时以是否是空字符串来判断是否指定了图片：
+        images_str = (model.images or '').strip()
+        if model.images != images_str:
+            model.images = images_str
+            db.session.commit()
         # 监控 comments 的修改，更新计数：
         after_update_comments_ids = [comment.id for comment in model.comments]
         comments_ids_diff = util.diff_list(self.before_update_comments_ids, after_update_comments_ids)
