@@ -612,6 +612,15 @@ class ReviewView(MyModelView):
             form.user.data = login.current_user
         return super(ReviewView, self).create_model(form)
 
+    def _list_thumbnail_images(view, context, model, name):
+        if not model.images:
+            return ''
+        return Markup(_get_images_code(util.get_images(model.images, valid_only=False)))
+    
+    column_formatters = {
+        'images': _list_thumbnail_images,
+    }
+
 
 class CommentView(MyModelView):
     column_default_sort = ('update_time', True)
