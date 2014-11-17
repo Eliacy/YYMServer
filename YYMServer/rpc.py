@@ -1071,6 +1071,7 @@ class ReviewList(Resource):
             review.valid_site.city_name = '' if not review.site.area else review.site.area.city.name
         review.images_num = 0 if not review.images else len(review.images.split())
         review.currency = review.currency or u'人民币'
+        review.content = (review.content or u'').strip()
         review.formated_keywords = [] if not review.keywords else review.keywords.split()
         review.valid_at_users = []
         if review.at_list:
@@ -1266,6 +1267,7 @@ class CommentList(Resource):
         ''' 辅助函数：用于格式化 Comment 实例，用于接口输出。'''
         comment.valid_user = comment.user
         comment.valid_at_users = util.get_users(comment.at_list or '')
+        comment.content = (comment.content or u'').strip()
     
     @cache.memoize()
     def _get(self, id=None, article=None, review=None):
@@ -1401,6 +1403,7 @@ class MessageThreadList(Resource):
         query = db.session.query().add_entity(Message, alias=query.subquery()).group_by('group_key')         # 让 order_by 比 group_by 更早生效！
         result = []
         for thread in query:
+            thread.content = (thread.content or u'').strip()
             thread.valid_sender = thread.sender_user
             thread.unread = unread_dic.get(thread.group_key, 0)         # 输出未读数
             result.append(thread)
@@ -1457,6 +1460,7 @@ class MessageList(Resource):
         query = query.order_by(Message.id)      # 从旧的消息开始显示，以便分组读取以及设置 stop
         result = []
         for message in query:
+            message.content = (message.content or u'').strip()
             message.sender_id = message.sender_user_id
             result.append(message)
         return result

@@ -33,7 +33,7 @@ def _replace_textlib(textlib_match):
         text_id = int(textlib_pattern.strip('{}').split(':')[1].split('#')[0])
         textlib_item = _get_textlib(text_id)
         if textlib_item:
-            return textlib_item.content
+            return textlib_item.content.strip()
     except Exception, e:
         pass
     return textlib_pattern
@@ -50,12 +50,14 @@ def format_site(site, brief=True):
     site.environment = site.environment or u''
     site.formated_payment_types = [] if not site.payment else [payment_types.get(code.lower(), code) for code in site.payment.split()]
     site.menu = site.menu or u''
-    site.formated_ticket = u'' if not site.ticket else replace_textlib(site.ticket)
-    site.booking = site.booking or u''
-    site.formated_business_hours = u'' if not site.business_hours else replace_textlib(site.business_hours)
-    site.phone = site.phone or u''
-    site.transport = site.transport or u''
-    site.description = site.description or u''
+    site.formated_ticket = u'' if not site.ticket else replace_textlib(site.ticket).strip()
+    site.booking = (site.booking or u'').strip()
+    site.formated_business_hours = u'' if not site.business_hours else replace_textlib(site.business_hours).strip()
+    site.phone = (site.phone or u'').strip()
+    site.transport = (site.transport or u'').strip()
+    site.description = (site.description or u'').strip()
+    site.address = (site.address or u'').strip()
+    site.address_orig = (site.address_orig or u'').strip()
     site.logo_image = site.logo         # 为了缓存能工作
     site.city_name = '' if not site.area else site.area.city.name
     site.formated_keywords = [] if not site.keywords else site.keywords.translate({ord('{'):None, ord('}'):None}).split()
@@ -73,10 +75,11 @@ def format_site(site, brief=True):
 
 def parse_textstyle(content):
     ''' 辅助函数：解析富媒体长文本，由类 Wiki 标记转化为结构化的数据结构。'''
-    content = content or ''
+    content = (content or '').strip()
     output = []
     for line in content.splitlines():
-        if line.strip() == '':
+        line = line.strip()
+        if line == '':
             continue
         entry = None
         if line.startswith(u'#'):   # 小标题
