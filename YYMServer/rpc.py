@@ -1057,8 +1057,10 @@ class ReviewList(Resource):
         return '%s' % self.__class__.__name__
 
     def _count_reviews(self, model):
-        ''' 辅助函数，对晒单评论涉及的用户账号，重新计算其星级和评论数。'''
-        util.count_reviews(model.site)
+        ''' 辅助函数，对晒单评论涉及的用户账号和 POI ，重新计算其星级和评论数。'''
+        user = model.user
+        site = model.site
+        util.count_reviews([user] if user else [], [site] if site else [])
 
     def _format_review(self, review, brief=None):
         ''' 辅助函数：用于格式化 Review 实例，用于接口输出。'''
@@ -1251,6 +1253,13 @@ class CommentList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
+    def _count_comments(self, model):
+        ''' 辅助函数，对子评论涉及的首页文章和晒单评论，重新计算其子评论计数。'''
+        user = model.user
+        article = model.article
+        review = model.review
+        util.count_comments([user] if user else [], [article] if article else [], [review] if review else [])
+
     def _format_comment(self, comment):
         ''' 辅助函数：用于格式化 Comment 实例，用于接口输出。'''
         comment.valid_user = comment.user
@@ -1290,10 +1299,11 @@ class CommentList(Resource):
         # 不会真正删除信息，只是设置 valid = False ，以便未来查询。
         args = id_parser.parse_args()
         id = args['id']
-        review = db.session.query(Comment).filter(Comment.id == id).filter(Comment.valid == True).first()
-        if review:
-            review.valid = False
+        comment = db.session.query(Comment).filter(Comment.id == id).filter(Comment.valid == True).first()
+        if comment:
+            comment.valid = False
             db.session.commit()
+            self._count_comments(comment)
             return '', 204
         abort(404, message='Target Comment do not exists!')
 
@@ -1313,6 +1323,7 @@ class CommentList(Resource):
                          )
         db.session.add(comment)
         db.session.commit()
+        self._count_comments(comment)
         return {'id': comment.id}, 201
 
     @hmac_auth('api')

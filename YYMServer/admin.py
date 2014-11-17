@@ -395,7 +395,12 @@ class SiteView(MyModelView):
             form.level.data = form.brand.data.level
         return super(SiteView, self).create_model(form)
 
+    before_update_reviews_ids = []
+
     def update_model(self, form, model):
+        # 记录 model 修改前的计数相关取值
+        self.before_update_reviews_ids = [review.id for review in model.reviews]
+        # 运营数据例行修正
         if not form.create_user.data:
             form.__delitem__('create_user')
         form.update_user.data = login.current_user
@@ -405,6 +410,14 @@ class SiteView(MyModelView):
         if form.brand.data:
             form.level.data = form.brand.data.level
         return super(SiteView, self).update_model(form, model)
+
+    def after_model_change(self, form, model, is_created):
+        # 监控 reviews 的修改，更新计数：
+        after_update_reviews_ids = [review.id for review in model.reviews]
+        reviews_ids_diff = util.diff_list(self.before_update_reviews_ids, after_update_reviews_ids)
+        if reviews_ids_diff:
+            util.count_reviews([], [model])
+        return super(SiteView, self).after_model_change(form, model, is_created)
 
     def get_one(self, id):
         ''' ToDo：一个脏补丁，用来显示店铺相关的各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
@@ -560,11 +573,39 @@ class ReviewView(MyModelView):
         },
     }
 
+    before_update_fans_ids = []
+    before_update_comments_ids = []
+
+    def update_model(self, form, model):
+        # 记录 model 修改前的计数相关取值
+        self.before_update_fans_ids = [fan.id for fan in model.fans]
+        self.before_update_comments_ids = [comment.id for comment in model.comments]
+        return super(ReviewView, self).update_model(form, model)
+
     def after_model_change(self, form, model, is_created):
-        '''监控 reviews 的修改，更新星级计数。'''
-        if model.stars:
-            util.count_reviews(model.site)
+        # 监控 comments 的修改，更新计数：
+        after_update_comments_ids = [comment.id for comment in model.comments]
+        comments_ids_diff = util.diff_list(self.before_update_comments_ids, after_update_comments_ids)
+        if comments_ids_diff:
+            util.count_comments([], [], [model])
+        # 监控 reviews 的修改，更新 POI 星级和计数，以及相关用户账号的计数：
+        user = model.user
+        site = model.site
+        util.count_reviews([user] if user else [], [site] if site else [])
+        # 监控 like reviews 的修改，更新计数：
+        after_update_fans_ids = [fan.id for fan in model.fans]
+        fans_ids_diff = util.diff_list(self.before_update_fans_ids, after_update_fans_ids)
+        util.count_likes(db.session.query(User).filter(User.id.in_(fans_ids_diff)).all(), [model])
         return super(ReviewView, self).after_model_change(form, model, is_created)
+
+    def on_model_delete(self, model):
+        '''监控 reviews 的删除，更新 POI 星级和计数，以及相关用户账号的计数。'''
+        model.valid = False
+        db.session.commit()
+        user = model.user
+        site = model.site
+        util.count_reviews([user] if user else [], [site] if site else [])
+        return super(ReviewView, self).on_model_delete(model)
 
     def create_model(self, form):
         if not form.user.data:
@@ -593,6 +634,24 @@ class CommentView(MyModelView):
         if not form.user.data:
             form.user.data = login.current_user
         return super(CommentView, self).create_model(form)
+
+    def after_model_change(self, form, model, is_created):
+        '''监控 comments 的修改，更新相关 首页文章、晒单评论（用户账号暂不需要）的子评论计数。'''
+        user = model.user
+        article = model.article
+        review = model.review
+        util.count_comments([user] if user else [], [article] if article else [], [review] if review else [])
+        return super(CommentView, self).after_model_change(form, model, is_created)
+
+    def on_model_delete(self, model):
+        '''监控 comments 的删除，更新相关 首页文章、晒单评论（用户账号暂不需要）的子评论计数。'''
+        model.valid = False     # 模拟删除后的效果，以支撑更新计数
+        db.session.commit()
+        user = model.user
+        article = model.article
+        review = model.review
+        util.count_comments([user] if user else [], [article] if article else [], [review] if review else [])
+        return super(CommentView, self).on_model_delete(model)
 
 
 class TagAlikeView(MyModelView):
@@ -774,13 +833,37 @@ class UserView(MyModelView):
     def is_accessible(self):
         return super(UserView, self).is_accessible() and login.current_user.is_admin()
 
+    before_update_fans_ids = []
+    before_update_follows_ids = []
+    before_update_likes_ids = []
+
+    def update_model(self, form, model):
+        # 记录 model 修改前的计数相关取值
+        self.before_update_follows_ids = [follow.id for follow in model.follows]
+        self.before_update_fans_ids = [fan.id for fan in model.fans]
+        self.before_update_likes_ids = [review.id for review in model.likes]
+        return super(UserView, self).update_model(form, model)
+
     def after_model_change(self, form, model, is_created):
-        '''监控 follow 和 fans 的修改，更新计数。'''
-        follows = [model]
-        fans = [model]
-        follows.extend(model.follows)
-        fans.extend(model.fans)
+        # 监控 follows 的修改，更新计数：
+        after_update_follows_ids = [follow.id for follow in model.follows]
+        follows_ids_diff = util.diff_list(self.before_update_follows_ids, after_update_follows_ids)
+        follows = []
+        if follows_ids_diff:
+            follows = [model]
+            follows.extend(db.session.query(User).filter(User.id.in_(follows_ids_diff)).all())
         util.count_follow_fans(follows, fans)
+        # 监控 fans 的修改，更新计数：
+        after_update_fans_ids = [fan.id for fan in model.fans]
+        fans_ids_diff = util.diff_list(self.before_update_fans_ids, after_update_fans_ids)
+        fans = []
+        if fans_ids_diff:
+            fans = [model]
+            fans.extend(db.session.query(User).filter(User.id.in_(fans_ids_diff)).all())
+        # 监控 like reviews 的修改，更新计数：
+        after_update_likes_ids = [review.id for review in model.likes]
+        likes_ids_diff = util.diff_list(self.before_update_likes_ids, after_update_likes_ids)
+        util.count_likes([model], db.session.query(Review).filter(Review.id.in_(likes_ids_diff)))
         return super(UserView, self).after_model_change(form, model, is_created)
 
     def get_one(self, id):
@@ -840,7 +923,7 @@ class TipsView(MyModelView):
 
 class ArticleView(MyModelView):
     form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'user', 'cities', 'countries', 
-                         'title', 'caption', 'content', 'keywords', 'comment_num',
+                         'title', 'caption', 'content', 'keywords', 'comment_num', 'comments',
                          )
     column_default_sort = ('update_time', True)
     column_searchable_list = ('title', 'keywords', 'content')
@@ -870,6 +953,21 @@ class ArticleView(MyModelView):
         if not form.user.data:
             form.user.data = login.current_user
         return super(ArticleView, self).create_model(form)
+
+    before_update_comments_ids = []
+
+    def update_model(self, form, model):
+        # 记录 model 修改前的计数相关取值
+        self.before_update_comments_ids = [comment.id for comment in model.comments]
+        return super(ArticleView, self).update_model(form, model)
+
+    def after_model_change(self, form, model, is_created):
+        # 监控 comments 的修改，更新计数：
+        after_update_comments_ids = [comment.id for comment in model.comments]
+        comments_ids_diff = util.diff_list(self.before_update_comments_ids, after_update_comments_ids)
+        if comments_ids_diff:
+            util.count_comments([], [model], [])
+        return super(ArticleView, self).after_model_change(form, model, is_created)
 
     def get_one(self, id):
         ''' ToDo：一个脏补丁，用来显示各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''

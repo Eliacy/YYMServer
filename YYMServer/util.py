@@ -236,6 +236,12 @@ class DateTime(fields.DateTime):
         except AttributeError as ae:
             raise fields.MarshallingException(ae)
 
+def diff_list(old, new):
+    ''' 辅助函数，给出两个列表内容不同的部分，通常用于比较数据库 Instance 具体字段更新前后的变化（不保证原始数据顺序）。'''
+    old_set = set(old)
+    new_set = set(new)
+    return list(old_set - new_set) + list(new_set - old_set)
+
 def count_follow_fans(follows, fans):
     ''' 辅助函数，对交互行为涉及的用户账号，重新计算其 follow_num 和 fans_num 。'''
     # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
@@ -254,14 +260,26 @@ def count_likes(users, reviews):
         review.like_num = review.fans.filter(User.valid == True).count()
     db.session.commit()
 
-def count_reviews(site):
-    ''' 辅助函数，对晒单评论设计的用户账号，重新计算相关 POI 的星级和评论数。'''
+def count_reviews(users, sites):
+    ''' 辅助函数，对晒单评论的更新，重新计算相关 POI 的星级、评论数，以及相关用户账号的评论数。'''
     # ToDo: 这样每次都重新计算不确定是否存在性能风险。
-    reviews = site.reviews.filter(Review.valid == True).all()
-    if reviews:
-        review_num = len(reviews)
-        site.stars = sum([review.stars for review in reviews]) / review_num   # 假定用户发晒单评论时，星级必须填！
-        site.review_num = review_num
-        db.session.commit()
+    for user in users:
+        user.review_num = user.reviews.filter(Review.valid == True).count()
+    for site in sites:
+        reviews = site.reviews.filter(Review.valid == True).all()
+        if reviews:
+            review_num = len(reviews)
+            site.stars = sum([review.stars for review in reviews]) / review_num   # 假定用户发晒单评论时，星级必须填！
+            site.review_num = review_num
+    db.session.commit()
+
+def count_comments(users, articles, reviews):
+    ''' 辅助函数，对子评论涉及的晒单评论、首页文章、用户账号（用户账号暂时不需要），重新计算其子评论数。'''
+    # ToDo: 这样每次都重新计算不确定是否存在性能风险。
+    for article in articles:
+        article.comment_num = article.comments.filter(Comment.valid == True).count()
+    for review in reviews:
+        review.comment_num = review.comments.filter(Comment.valid == True).count()
+    db.session.commit()
 
 
