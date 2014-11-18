@@ -764,6 +764,11 @@ site_fields = {
 }
 site_fields.update(site_fields_brief)
 
+@cache.memoize()
+def _get_category_subtree_ids(category_id):
+    ''' 辅助函数：对指定 category_id ，获取其自身及其所有层级子节点的 id。'''
+    return util.get_self_and_children(Category, category_id)
+
 # ToDo: 欠一个搜索关键字推荐接口！
 class SiteList(Resource):
     '''“附近”搜索功能对应的 POI 列表获取。'''
@@ -796,7 +801,8 @@ class SiteList(Resource):
             query = query.join(Site.area).filter(Area.city_id == city)
             # ToDo: 除了直接使用 city id 判断外，还应该把城市中心点距离一定范围内（即使是属于其他城市的）的 POI 纳入搜索结果！
         if category:
-            query = query.join(Site.categories).filter(Category.id == category)
+            category_ids = _get_category_subtree_ids(category)
+            query = query.join(Site.categories).filter(Category.id.in_(category_ids))
         if keywords:
             # 搜索关键词目前支持在 POI 名称、地址的中文、原文中进行模糊搜索。
             # ToDo: 搜索关键词还应考虑支持 description 和 keywords 两项！

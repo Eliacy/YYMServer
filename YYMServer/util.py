@@ -173,6 +173,15 @@ def truncate_list(text, max_str_length, max_item_length):
             text = ' '.join(text.split()[:max_item_length])
     return text
 
+def get_self_and_children(model_class, self_id):
+    ''' 辅助函数：对指定 id 的数据，获取其自身及所有层级的子节点的 id 。'''
+    entries = [self_id]
+    for entry in db.session.query(model_class.id).filter(model_class.parent_id == self_id).all():
+        entry_id = entry[0]
+        sub_entries = get_self_and_children(model_class, entry_id)
+        entries.extend(sub_entries)
+    return entries
+
 def get_users(user_ids_str):
     ''' 辅助函数：文本的用户 id 列表转为 User 对象的列表。'''
     user_ids = ()
