@@ -697,6 +697,9 @@ class TagAlikeView(MyModelView):
 
 
 class CountryView(TagAlikeView):
+    column_searchable_list = ('name',)
+    column_filters = ['id', 'valid', 'order', 'extend', 'default_city_id',
+                      ] + list(column_searchable_list)
     form_ajax_refs = {
         'default_city': {
             'fields': (City.id, City.name,)
@@ -711,6 +714,9 @@ class CountryView(TagAlikeView):
 
 
 class CityView(TagAlikeView):
+    column_searchable_list = ('name',)
+    column_filters = ['id', 'valid', 'order', 'country_id',
+                      ] + list(column_searchable_list)
     form_ajax_refs = {
         'country': {
             'fields': (Country.id, Country.name,)
@@ -728,6 +734,9 @@ class CityView(TagAlikeView):
 
 
 class AreaView(TagAlikeView):
+    column_searchable_list = ('name',)
+    column_filters = ['id', 'valid', 'order', 'city_id', 'parent_id',
+                      ] + list(column_searchable_list)
     form_create_rules = ('city', 'parent', 'valid', 'order', 'name', 'longitude', 'latitude', 'children', 
                         )
     form_edit_rules = form_create_rules
@@ -745,6 +754,9 @@ class AreaView(TagAlikeView):
 
 
 class CategoryView(TagAlikeView):
+    column_searchable_list = ('name',)
+    column_filters = ['id', 'valid', 'order', 'parent_id',
+                      ] + list(column_searchable_list)
     form_ajax_refs = {
         'parent': {
             'fields': (Category.id, Category.name)
