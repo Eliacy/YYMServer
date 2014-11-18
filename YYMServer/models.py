@@ -125,6 +125,8 @@ class Area(db.Model):   # 商区
     latitude = db.Column(Real, default=0.0)      # 商圈中心点，纬度
     city_id = db.Column(db.Integer, db.ForeignKey('city.id'))
     city = db.relationship('City', backref=db.backref('areas', lazy='dynamic'))
+    parent_id = db.Column(db.Integer, db.ForeignKey('area.id'))
+    parent = db.relationship('Area', remote_side=[id], backref=db.backref('children', lazy='dynamic'))
 
     def __unicode__(self):
         return u'<Area [%d] %s>' % (self.id, self.name)
@@ -250,6 +252,8 @@ class ShareRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 进行共享的人
     user = db.relationship('User', backref=db.backref('share_records', lazy='dynamic'), foreign_keys=[user_id])
+    article_id = db.Column(db.Integer, db.ForeignKey('article.id'))     # 如果被共享的是首页文章，则在这里做绑定
+    article = db.relationship('Article')
     site_id = db.Column(db.Integer, db.ForeignKey('site.id'))     # 如果被共享的是店铺，则在这里做绑定
     site = db.relationship('Site')
     review_id = db.Column(db.Integer, db.ForeignKey('review.id'))     # 如果被共享的是晒单评论，则在这里做绑定

@@ -728,6 +728,9 @@ class CityView(TagAlikeView):
 
 
 class AreaView(TagAlikeView):
+    form_create_rules = ('city', 'parent', 'valid', 'order', 'name', 'longitude', 'latitude', 'children', 
+                        )
+    form_edit_rules = form_create_rules
     form_ajax_refs = {
         'city': {
             'fields': (City.id, City.name,)
@@ -735,6 +738,9 @@ class AreaView(TagAlikeView):
         'site': IlikeQueryAjaxModelLoader('site', db.session, Site, 
             fields = [Site.id, Site.code, Site.name, Site.name_orig]
         ),
+        'parent': {
+            'fields': (Area.id, Area.name)
+        },
     }
 
 
@@ -889,7 +895,6 @@ class UserView(MyModelView):
         if follows_ids_diff:
             follows = [model]
             follows.extend(db.session.query(User).filter(User.id.in_(follows_ids_diff)).all())
-        util.count_follow_fans(follows, fans)
         # 监控 fans 的修改，更新计数：
         after_update_fans_ids = [fan.id for fan in model.fans]
         fans_ids_diff = util.diff_list(self.before_update_fans_ids, after_update_fans_ids)
@@ -897,6 +902,7 @@ class UserView(MyModelView):
         if fans_ids_diff:
             fans = [model]
             fans.extend(db.session.query(User).filter(User.id.in_(fans_ids_diff)).all())
+        util.count_follow_fans(follows, fans)
         # 监控 like reviews 的修改，更新计数：
         after_update_likes_ids = [review.id for review in model.likes]
         likes_ids_diff = util.diff_list(self.before_update_likes_ids, after_update_likes_ids)
@@ -929,6 +935,9 @@ class ShareRecordView(MyModelView):
         ),
         'review': {
             'fields': (Review.id,)
+        },
+        'article': {
+            'fields': (Article.id,)
         },
     }
 

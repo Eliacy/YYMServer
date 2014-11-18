@@ -627,6 +627,7 @@ area_fields = {
     'longitude': fields.Float,
     'latitude': fields.Float,
 }
+area_fields['children'] = fields.List(fields.Nested(area_fields), attribute='valid_areas')
 
 
 # 城市接口：
@@ -653,6 +654,18 @@ class CityList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
+    def _get_children_areas(self, parent):
+        ''' 辅助函数：按层级从父节点开始输出各级商区。'''
+        children = []
+        if not isinstance(parent, Area):
+            query = parent.areas.filter(Area.valid == True).order_by(Area.order.desc()).filter(Area.parent_id == None)
+        else:
+            query = parent.children.filter(Area.valid == True).order_by(Area.order.desc())
+        children = query.all()
+        for child in children:
+            self._get_children_areas(child)
+        parent.valid_areas = children
+
     @cache.memoize()
     def _get(self, id=None):
         query = db.session.query(City).filter(City.valid == True).order_by(City.order.desc())
@@ -660,7 +673,7 @@ class CityList(Resource):
             query = query.filter(City.id == id)
         result = []
         for city in query:
-            city.valid_areas = city.areas.filter(Area.valid == True).order_by(Area.order.desc()).all()
+            self._get_children_areas(city)
             result.append(city)
         return result
 
@@ -769,6 +782,11 @@ def _get_category_subtree_ids(category_id):
     ''' 辅助函数：对指定 category_id ，获取其自身及其所有层级子节点的 id。'''
     return util.get_self_and_children(Category, category_id)
 
+@cache.memoize()
+def _get_area_subtree_ids(area_id):
+    ''' 辅助函数：对指定 area_id ，获取其自身及其所有层级子节点的 id。'''
+    return util.get_self_and_children(Area, area_id)
+
 # ToDo: 欠一个搜索关键字推荐接口！
 class SiteList(Resource):
     '''“附近”搜索功能对应的 POI 列表获取。'''
@@ -796,7 +814,8 @@ class SiteList(Resource):
         if id:
             query = query.filter(Site.id == id)
         if area:
-            query = query.filter(Site.area_id == area)
+            area_ids = _get_area_subtree_ids(area)
+            query = query.filter(Site.area_id.in_(area_ids))
         if city:
             query = query.join(Site.area).filter(Area.city_id == city)
             # ToDo: 除了直接使用 city id 判断外，还应该把城市中心点距离一定范围内（即使是属于其他城市的）的 POI 纳入搜索结果！
