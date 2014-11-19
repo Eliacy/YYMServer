@@ -76,7 +76,7 @@ class TextLib(db.Model):   # 供替换用的文本库
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=True)   # 控制是否用户可见
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据最初创建时间，以服务器时间为准
-    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
     create_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 品牌信息上传人
     create_user = db.relationship('User', backref=db.backref('created_textlibs', lazy='dynamic'), foreign_keys=[create_user_id])
     update_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 品牌信息最后修改人
@@ -137,7 +137,7 @@ class Brand(db.Model):   # 品牌
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据最初创建时间，以服务器时间为准
-    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
     create_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 品牌信息上传人
     create_user = db.relationship('User', backref=db.backref('created_brands', lazy='dynamic'), foreign_keys=[create_user_id])
     update_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 品牌信息最后修改人
@@ -163,7 +163,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据最初创建时间，以服务器时间为准
-    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
     create_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # POI 信息上传人
     create_user = db.relationship('User', backref=db.backref('created_sites', lazy='dynamic'), foreign_keys=[create_user_id])
     update_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # POI 信息最后修改人
@@ -300,7 +300,7 @@ class User(db.Model):
     valid = db.Column(db.Boolean, default=True)   # 控制是否当作已删除处理（False 表示删除）
     anonymous = db.Column(db.Boolean, default=False)  # 表示是否是系统自动生成的非注册用户
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
-    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 用户属性信息修改时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 用户属性信息修改时间，以服务器时间为准
     name = db.Column(db.Unicode(100), unique=True)    # 可见用户昵称。注：由于设置了 unique ，所以未填本项的都保留为 null 。
     username = db.Column(db.String(80), unique=True, default='')    # 登陆用用户名，App 端会是设备 id（匿名用户）或手机号（已注册用户）
     mobile = db.Column(db.String(120), unique=True)     # 用户手机号。注：由于设置了 unique ，所以未填本项的都保留为 null 。
@@ -415,7 +415,7 @@ class Review(db.Model):        # 用户晒单评论
     selected = db.Column(db.Boolean, default=False)     # 控制本文是否强制加入精选推荐
     published = db.Column(db.Boolean, default=False)       # 控制是否对外发布
     publish_time = db.Column(db.DateTime, default=None)       # 首次发布时间，以服务器时间为准
-    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 晒单评论的作者
     user = db.relationship('User', backref=db.backref('reviews', lazy='dynamic'))
     at_list = db.Column(db.String(200), default='')         # 本评论将@的用户 id 列表，后端代码需要实现注意控制长度！多个 id 使用英文空格分隔。
@@ -445,7 +445,7 @@ class Comment(db.Model):        # 用户子评论
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
     publish_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次发布时间，以服务器时间为准
-    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
     review_id = db.Column(db.Integer, db.ForeignKey('review.id'))       # 子评论所关联的晒单评论
     review = db.relationship('Review', backref=db.backref('comments', lazy='dynamic'))
     article_id = db.Column(db.Integer, db.ForeignKey('article.id'))     # 子评论所关联的首页文章
@@ -476,7 +476,7 @@ class Article(db.Model):        # 首页推荐文章
     valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
-    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 首页文章的作者
     user = db.relationship('User', backref=db.backref('articles', lazy='dynamic'))
     cities = db.relationship('City', lazy='dynamic', secondary=city_articles,
@@ -506,7 +506,7 @@ class Tips(db.Model):        # 首页 Tips 文档
     valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
     default = db.Column(db.Boolean, default=False)      # 控制是否是该城市默认显示的 Tips
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
-    update_time = db.Column(db.DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 晒单评论的作者
     user = db.relationship('User', backref=db.backref('tips', lazy='dynamic'))
     city_id = db.Column(db.Integer, db.ForeignKey('city.id'))   # Tips 所对应的城市
