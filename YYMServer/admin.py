@@ -404,10 +404,14 @@ class SiteView(MyModelView):
         return super(SiteView, self).create_model(form)
 
     before_update_reviews_ids = []
+    before_update_gate_images = ''
+    before_update_top_images = ''
 
     def update_model(self, form, model):
         # 记录 model 修改前的计数相关取值
         self.before_update_reviews_ids = [review.id for review in model.reviews]
+        self.before_update_gate_images = model.gate_images
+        self.before_update_top_images = model.top_images
         # 运营数据例行修正
         if not form.create_user.data:
             form.__delitem__('create_user')
@@ -425,6 +429,11 @@ class SiteView(MyModelView):
         reviews_ids_diff = util.diff_list(self.before_update_reviews_ids, after_update_reviews_ids)
         if reviews_ids_diff:
             util.count_reviews([], [model])
+        # 监控 gate_image, top_images, reviews 的修改，更新图片计数：
+        after_update_gate_images = model.gate_images
+        after_update_top_images = model.top_images
+        if self.before_update_gate_images != after_update_gate_images or self.before_update_top_images != after_update_top_images or reviews_ids_diff:
+            util.count_images(model)
         return super(SiteView, self).after_model_change(form, model, is_created)
 
     def get_one(self, id):
@@ -605,6 +614,8 @@ class ReviewView(MyModelView):
         user = model.user
         site = model.site
         util.count_reviews([user] if user else [], [site] if site else [])
+        if site:
+            util.count_images(site)
         # 监控 like reviews 的修改，更新计数：
         after_update_fans_ids = [fan.id for fan in model.fans]
         fans_ids_diff = util.diff_list(self.before_update_fans_ids, after_update_fans_ids)
@@ -618,6 +629,8 @@ class ReviewView(MyModelView):
         user = model.user
         site = model.site
         util.count_reviews([user] if user else [], [site] if site else [])
+        if site:
+            util.count_images(site)
         return super(ReviewView, self).on_model_delete(model)
 
     def create_model(self, form):

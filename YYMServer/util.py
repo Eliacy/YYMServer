@@ -199,14 +199,30 @@ def get_users(user_ids_str):
                 users.append(user)
     return users
 
-def get_images(image_ids_str, valid_only=True):
-    ''' 辅助函数：文本的图片 id 列表转为 Image 对象的列表。'''
+def get_site_images(site_id):
+    '''辅助函数：提取指定 site 的所有图片（产品图及所有评论里的图）。'''
+    related_reviews = db.session.query(Review).filter(Review.valid == True).filter(Review.published == True).join(Review.site).filter(Site.id == site_id).order_by(Review.selected.desc()).order_by(Review.publish_time.desc()).all()
+    # ToDo: 这里完全没有控制图片的排列顺序！
+    image_ids_str = ' '.join((review.images or '' for review in related_reviews))
+    related_site = db.session.query(Site).filter(Site.valid == True).filter(Site.id == site_id).first()
+    if related_site:
+        image_ids_str = (related_site.gate_images or '') + ' ' + (related_site.top_images or '') + ' ' + image_ids_str
     image_ids = ()
-    image_ids_str = image_ids_str.strip()
     try:
-        image_ids = map(int, image_ids_str.split())
+        image_ids = map(int, set(image_ids_str.strip().split()))
     except:
         pass
+    return list(image_ids)
+
+def get_images(image_ids, valid_only=True):
+    ''' 辅助函数：文本的图片 id 列表转为 Image 对象的列表。'''
+    if type(image_ids) != list:
+        image_ids_str = image_ids
+        image_ids = ()
+        try:
+            image_ids = map(int, image_ids_str.strip().split())
+        except:
+            pass
     images = []
     if image_ids:
         valid_images = db.session.query(Image).filter(Image.valid == True).filter(Image.id.in_(image_ids)).all()
@@ -270,6 +286,12 @@ def count_likes(users, reviews):
         user.like_num = user.likes.filter(Review.valid == True).count()
     for review in reviews:
         review.like_num = review.fans.filter(User.valid == True).count()
+    db.session.commit()
+
+def count_images(site):
+    ''' 辅助函数，重新计算指定 POI 的 image_num 。'''
+    # ToDo: 这个实现受读取 site 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
+    site.images_num = len(get_site_images(site.id))
     db.session.commit()
 
 def count_reviews(users, sites):

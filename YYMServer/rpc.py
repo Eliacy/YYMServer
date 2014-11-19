@@ -119,14 +119,7 @@ class ImageList(Resource):
                 if related_review:
                     return util.get_images(related_review.images or '')
             if site:
-                related_reviews = db.session.query(Review).filter(Review.valid == True).filter(Review.published == True).join(Review.site).filter(Site.id == site).order_by(Review.selected.desc()).order_by(Review.publish_time.desc()).all()
-                # ToDo: 这里没有充分控制图片的排列顺序！
-                image_ids = ' '.join((review.images or '' for review in related_reviews))
-                image_ids = ' '.join(set(image_ids.strip().split()))
-                related_site = db.session.query(Site).filter(Site.valid == True).filter(Site.id == site).first()
-                if related_site:
-                    image_ids = (related_site.gate_images or '') + ' ' + image_ids
-                return util.get_images(image_ids)
+                return util.get_images(util.get_site_images(site))
         return []
 
     @hmac_auth('api')
@@ -1086,6 +1079,8 @@ class ReviewList(Resource):
         user = model.user
         site = model.site
         util.count_reviews([user] if user else [], [site] if site else [])
+        if site:
+            util.count_images(site)
 
     def _format_review(self, review, brief=None):
         ''' 辅助函数：用于格式化 Review 实例，用于接口输出。'''
