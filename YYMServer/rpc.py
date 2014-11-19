@@ -761,6 +761,7 @@ site_fields = {
     'payment': fields.List(fields.String, attribute='formated_payment_types'),
     'menu': fields.String,      # 空字符串表示没有
     'ticket': fields.String(attribute='formated_ticket'),    # 空字符串表示没有
+    'tour': fields.String,    # 空字符串表示没有
     'booking': fields.String,   # 空字符串表示没有
     'business_hours': fields.String(attribute='formated_business_hours'),    # 空字符串表示没有
     'phone': fields.String,     # 空字符串表示没有

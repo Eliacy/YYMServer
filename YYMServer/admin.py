@@ -318,19 +318,19 @@ class SiteView(MyModelView):
     column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig')
     column_filters = ['id', 'valid', 'order', 'create_time', 'update_time', 'create_user_id', 'update_user_id', 'brand_id', 
                       'logo_id', 'level', 'stars', 'popular',
-                      'review_num', 'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
+                      'review_num', 'environment', 'flowrate', 'payment', 'menu', 'ticket', 'tour', 'booking', 'business_hours',
                       'phone', 'transport', 'description', 'area_id', 'keywords', 'images_num',
                       ] + list(column_searchable_list)
     form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'create_user', 'update_user', 'code', 'name', 'name_orig', 
                          'brand', 'logo', 'level', 'stars', 'popular', 'review_num', 'reviews', 'categories',
-                         'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
+                         'environment', 'flowrate', 'payment', 'menu', 'ticket', 'tour', 'booking', 'business_hours',
                          'phone', 'transport', 'description', 'longitude', 'latitude', 'area', 'address',
                          'address_orig', 'keywords', 'top_images', 'images_num', 'gate_images', 'data_source',
                          )
     column_list = ('id', 
                    'valid', 'order', 'create_time', 'update_time', 'create_user', 'update_user', 'code', 'name', 'name_orig', 
                    'brand', 'logo', 'level', 'stars', 'popular', 'review_num', 'category',
-                   'environment', 'flowrate', 'payment', 'menu', 'ticket', 'booking', 'business_hours',
+                   'environment', 'flowrate', 'payment', 'menu', 'ticket', 'tour', 'booking', 'business_hours',
                    'phone', 'transport', 'description', 'longitude', 'latitude', 
                    'country', 'city', 'area', 'address',
                    'address_orig', 'keywords', 'top_images', 'images_num', 'gate_images', 'data_source',

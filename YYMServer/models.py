@@ -186,6 +186,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     payment = db.Column(db.Unicode(50), default=u'')         # 支持的支付方式
     menu = db.Column(db.Unicode(20), default=u'')    # 是否提供中文菜单
     ticket = db.Column(db.UnicodeText)         # 门票票价及购买方式，应支持换行
+    tour = db.Column(db.UnicodeText)         # 导游等景点内组队的游览方式及参加价格，应支持换行     # ToDo: 这个字段在 app 前端可能暂未显示。
     booking = db.Column(db.UnicodeText)        # 预定方式，应支持换行
     business_hours = db.Column(db.UnicodeText)         # 营业时间描述，应支持换行，支持 {{text:id#注释}} 样式的标准文本替换
     phone = db.Column(db.UnicodeText)    # 联系电话
