@@ -70,7 +70,7 @@ def rpc_post(path, param, payload):
     body = json.dumps(payload, ensure_ascii=False)
     hasher.update(body)     # 如果是 POST 方法发送的，则 POST 的 body 也需要加入签名内容！
     sig = hasher.hexdigest()
-    resp = requests.post(API_HOST + path, params=params, data=json.dumps(payload), headers={'X-Auth-Signature': sig, 'Content-Type':'application/json'})
+    resp = requests.post(API_HOST + path, params=params, data=body, headers={'X-Auth-Signature': sig, 'Content-Type':'application/json'})
     resp_dic = json.loads(resp.text)
     return resp_dic
 
