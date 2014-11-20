@@ -61,7 +61,7 @@ api.add_resource(CacheTime, '/rpc/cache_time')
 
 # 常用公共辅助：
 id_parser = reqparse.RequestParser()
-id_parser.add_argument('id', type=int)
+id_parser.add_argument('id', type=long)
 
 
 class ImageUrl(fields.Raw):
@@ -71,16 +71,16 @@ class ImageUrl(fields.Raw):
 
 # 图片信息查询接口：
 image_parser = reqparse.RequestParser()
-image_parser.add_argument('id', type=int)
+image_parser.add_argument('id', type=long)       # ToDo: 这里的 type 参数指明的 类型，需要保证与 model 中的对应字段一致！model 中的 Integer 这里对应 long； model 中的 SmallInteger 这里对应 int。
 image_parser.add_argument('offset', type=int)    # offset 偏移量。
 image_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
-image_parser.add_argument('site', type=int)      # 指定 POI id，获取所有相关图片
-image_parser.add_argument('review', type=int)   # 指定晒单评论 id，获取所有相关图片
+image_parser.add_argument('site', type=long)      # 指定 POI id，获取所有相关图片
+image_parser.add_argument('review', type=long)   # 指定晒单评论 id，获取所有相关图片
 
 image_parser_detail = reqparse.RequestParser()         # 用于创建一个图片上传信息的参数集合
 image_parser_detail.add_argument('type', type=int, default=4, required=True)      # 图片分类：1 表示店铺 logo；2 表示店铺门脸图；3 表示用户头像；4 表示评论图片。
 image_parser_detail.add_argument('path', type=unicode, required=True)  # 图片保存地址的完整 url （通常应该是云存储地址）
-image_parser_detail.add_argument('user', type=int, required=True)      # 图片上传人的账号 id 
+image_parser_detail.add_argument('user', type=long, required=True)      # 图片上传人的账号 id 
 
 image_fields_mini = {
     'id': fields.Integer,
@@ -108,6 +108,7 @@ class ImageList(Resource):
         return '%s' % self.__class__.__name__
 
     @cache.memoize()
+    # 貌似不需要处理动态缓存更新，site 可以接受图片更新延迟，review 则通常不会单独从这个接口取图片。
     def _get(self, id=None, site=None, review=None):
         query = db.session.query(Image).filter(Image.valid == True)
         if id:
@@ -167,12 +168,12 @@ api.add_resource(ImageList, '/rpc/images')
 
 # 图片上传的回调接口：
 image_call_parser= reqparse.RequestParser()         # 用于创建七牛云存储 callback 接口的参数集合
-image_call_parser.add_argument('id', type=int)      # 图片在数据库中的 id ，如果是覆盖数据库中已存在的图片，则应提供这个参数指定图片的原始 id 。
+image_call_parser.add_argument('id', type=long)      # 图片在数据库中的 id ，如果是覆盖数据库中已存在的图片，则应提供这个参数指定图片的原始 id 。
 image_call_parser.add_argument('type', type=int, default=4, required=True)      # 图片分类：1 表示店铺 logo；2 表示店铺门脸图；3 表示用户头像；4 表示评论图片。
-image_call_parser.add_argument('user', type=int, required=True)      # 图片上传人的账号 id 
+image_call_parser.add_argument('user', type=long, required=True)      # 图片上传人的账号 id 
 image_call_parser.add_argument('note', type=unicode, required=True)  # 图片备注信息
 image_call_parser.add_argument('name', type=unicode, required=True)  # 图片原始文件名
-image_call_parser.add_argument('size', type=int, required=True)  # 图片大小
+image_call_parser.add_argument('size', type=long, required=True)  # 图片大小
 image_call_parser.add_argument('mime', type=str, required=True)  # 图片 MIME TYPE
 image_call_parser.add_argument('width', type=int, required=True)  # 图片宽
 image_call_parser.add_argument('height', type=int, required=True)  # 图片高
@@ -292,16 +293,16 @@ api.add_resource(TokenList, '/rpc/tokens')
 
 # 用户信息查询接口：
 user_parser = reqparse.RequestParser()
-user_parser.add_argument('id', type=int)
+user_parser.add_argument('id', type=long)
 user_parser.add_argument('offset', type=int)    # offset 偏移量。
 user_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
-user_parser.add_argument('follow', type=int)      # 关注指定 id 所对应用户的账号列表
-user_parser.add_argument('fan', type=int)         # 有指定 id 所对应用户作为粉丝的账号列表
+user_parser.add_argument('follow', type=long)      # 关注指定 id 所对应用户的账号列表
+user_parser.add_argument('fan', type=long)         # 有指定 id 所对应用户作为粉丝的账号列表
 user_parser.add_argument('token', type=str)     # 用户 token，用于获取是否关注的关系
 
 user_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 User 的信息的参数集合
-user_parser_detail.add_argument('id', type=int)
-user_parser_detail.add_argument('icon', type=int)        # 用户头像对应图片的 id
+user_parser_detail.add_argument('id', type=long)
+user_parser_detail.add_argument('icon', type=long)        # 用户头像对应图片的 id
 user_parser_detail.add_argument('name', type=unicode)    # 用户昵称，不能与已有的昵称重复，否则报错。
 user_parser_detail.add_argument('mobile', type=str)  # 预留手机号接口，但 App 前端在初期版本不应该允许用户修改！不能与其他用户的手机号重复，否则报错。
 user_parser_detail.add_argument('password', type=str)  # 账号密码的明文，至少6个字符。
@@ -342,6 +343,20 @@ class UserList(Resource):
         于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
         '''
         return '%s' % self.__class__.__name__
+
+    def _delete_cache(self, model):
+        ''' 辅助函数：清除指定 user 的缓存数据。'''
+        # ToDo: 其实这里是有问题的。Review 和 Comment 会内嵌显示 user 的概要信息，user 属性改了之后这里没有要求清空 Review 和 Comment 的缓存。
+        cache.delete_memoized(self._get, self, model.id, None, None)
+
+    def _delete_follow_cache(self, follow, fan):
+        ''' 辅助函数：清除指定 follow 和 fan 的缓存数据。'''
+        follow_id = 0 if not follow else follow.id
+        fan_id = 0 if not fan else fan.id
+        if follow_id:
+            cache.delete_memoized(self._get, self, None, follow_id, None)
+        if fan_id:
+            cache.delete_memoized(self._get, self, None, None, fan_id)
 
     def _format_user(self, user):
         ''' 辅助函数：用于格式化 User 实例，用于接口输出。'''
@@ -429,6 +444,7 @@ class UserList(Resource):
                        )
             db.session.add(user)
             db.session.commit()
+        self._delete_cache(user)
         # 注册后要调用登陆逻辑，返回用户 token 等。
         token = _generate_token(user, device, args['token'], )
         return {'id': user.id, 'token': token}, 201
@@ -458,6 +474,7 @@ class UserList(Resource):
             if gender:
                 user.gender = gender
             db.session.commit()
+            self._delete_cache(user)
             self._format_user(user)
             return marshal(user, user_fields), 201
         abort(404, message='Target User do not exists!')
@@ -467,8 +484,8 @@ api.add_resource(UserList, '/rpc/users')
 
 # 用户关注接口：
 follow_parser = reqparse.RequestParser()
-follow_parser.add_argument('follow', type=int, required=True)  # 被关注的用户的 id
-follow_parser.add_argument('fan', type=int, required=True)    # 作为粉丝的用户 id
+follow_parser.add_argument('follow', type=long, required=True)  # 被关注的用户的 id
+follow_parser.add_argument('fan', type=long, required=True)    # 作为粉丝的用户 id
 
 
 class FollowList(Resource):
@@ -483,6 +500,8 @@ class FollowList(Resource):
         ''' 辅助函数，对交互行为涉及的用户账号，重新计算其 follow_num 和 fans_num 。'''
         # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
         util.count_follow_fans([follow] if follow else [], [fan] if fan else [])
+        # 顺便清除相关缓存：
+        UserList()._delete_follow_cache(follow, fan)
 
     @hmac_auth('api')
     def delete(self):
@@ -519,8 +538,8 @@ api.add_resource(FollowList, '/rpc/follows')
 
 # 用户喜欢接口：
 like_parser = reqparse.RequestParser()
-like_parser.add_argument('user', type=int, required=True)  # 表达喜欢的用户的 id
-like_parser.add_argument('review', type=int, required=True)    # 被表达喜欢的晒单评论 id
+like_parser.add_argument('user', type=long, required=True)  # 表达喜欢的用户的 id
+like_parser.add_argument('review', type=long, required=True)    # 被表达喜欢的晒单评论 id
 
 
 class LikeList(Resource):
@@ -721,15 +740,15 @@ api.add_resource(CountryList, '/rpc/countries')
 
 # POI 接口：
 site_parser = reqparse.RequestParser()
-site_parser.add_argument('id', type=int)
+site_parser.add_argument('id', type=long)
 site_parser.add_argument('brief', type=int, default=1)     # 大于 0 表示只输出概要信息即可（默认只概要）。
 site_parser.add_argument('offset', type=int)    # offset 偏移量。
 site_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
 site_parser.add_argument('keywords', type=unicode)  # 搜索关键词，空格或英文加号分隔，默认的关系是“且”。搜索时大小写不敏感。
-site_parser.add_argument('area', type=int)      # 商圈 id。
-site_parser.add_argument('city', type=int)      # 城市 id。
+site_parser.add_argument('area', type=long)      # 商圈 id。
+site_parser.add_argument('city', type=long)      # 城市 id。
 site_parser.add_argument('range', type=int)     # 范围公里数。如果是 -1，则表示“全城”。如果商圈、范围都是空，则表示默认的“智能范围”。
-site_parser.add_argument('category', type=int)  # 分类 id。为空则表示“全部分类”。
+site_parser.add_argument('category', type=long)  # 分类 id。为空则表示“全部分类”。
 site_parser.add_argument('order', type=int)     # 0 表示默认的“智能排序”，1 表示“距离最近”（约近约靠前），2 表示“人气最高”（点击量由高到低），3 表示“评价最好”（评分由高到低）。
 site_parser.add_argument('longitude', type=float)       # 用户当前位置的经度
 site_parser.add_argument('latitude', type=float)        # 用户当前位置的维度
@@ -859,11 +878,11 @@ api.add_resource(SiteList, '/rpc/sites')
 
 # 首页文章接口：
 article_parser = reqparse.RequestParser()
-article_parser.add_argument('id', type=int)
+article_parser.add_argument('id', type=long)
 article_parser.add_argument('brief', type=int, default=1)     # 大于 0 表示只输出概要信息即可（默认只概要）。
 article_parser.add_argument('offset', type=int)    # offset 偏移量。
 article_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
-article_parser.add_argument('city', type=int)      # 城市 id。
+article_parser.add_argument('city', type=long)      # 城市 id。
 
 article_content_fields_entry = {
     'class': fields.String,
@@ -964,9 +983,9 @@ api.add_resource(ArticleList, '/rpc/articles')
 
 # 小贴士接口：
 tips_parser = reqparse.RequestParser()
-tips_parser.add_argument('id', type=int)
+tips_parser.add_argument('id', type=long)
 tips_parser.add_argument('brief', type=int, default=1)     # 大于 0 表示只输出概要信息即可（默认只概要）。
-tips_parser.add_argument('city', type=int)      # 城市 id。
+tips_parser.add_argument('city', type=long)      # 城市 id。
 
 tips_fields_brief = {
     'id': fields.Integer,
@@ -1019,21 +1038,21 @@ api.add_resource(TipsList, '/rpc/tips')
 
 # 晒单评论接口：
 review_parser = reqparse.RequestParser()
-review_parser.add_argument('id', type=int)
+review_parser.add_argument('id', type=long)
 review_parser.add_argument('brief', type=int, default=1)     # 大于 0 表示只输出概要信息即可（默认只概要）。
 review_parser.add_argument('selected', type=int)     # 大于 0 表示只输出置顶信息即可（例如 POI 详情页面中的晒单评论），不够 limit 的要求时，会用非置顶信息补足。
 review_parser.add_argument('published', type=int, default=1)     # 大于 0 表示只输出已发表的（默认只已发表的），否则也可输出草稿。
 review_parser.add_argument('offset', type=int)    # offset 偏移量。
 review_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
-review_parser.add_argument('user', type=int)
-review_parser.add_argument('site', type=int)    # 相关联的 POI id
-review_parser.add_argument('city', type=int)    # 相关联的城市 id
+review_parser.add_argument('user', type=long)
+review_parser.add_argument('site', type=long)    # 相关联的 POI id
+review_parser.add_argument('city', type=long)    # 相关联的城市 id
 review_parser.add_argument('token', type=str)     # 用户 token，用于获取是否喜欢的关系
 
 review_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 Review 的信息的参数集合
-review_parser_detail.add_argument('id', type=int)
+review_parser_detail.add_argument('id', type=long)
 review_parser_detail.add_argument('published', type=bool, required=True)
-review_parser_detail.add_argument('user', type=int, required=True)
+review_parser_detail.add_argument('user', type=long, required=True)
 review_parser_detail.add_argument('at_list', type=str, required=True)  # 最多允许@ 20 个用户，更多的可能会被丢掉。
 review_parser_detail.add_argument('stars', type=float, required=True)
 review_parser_detail.add_argument('content', type=unicode, required=True)
@@ -1041,7 +1060,7 @@ review_parser_detail.add_argument('images', type=str, required=True)   # 最多�
 review_parser_detail.add_argument('keywords', type=unicode, required=True)     # 最多允许键入 15 个关键词，更多的可能会被丢掉。
 review_parser_detail.add_argument('total', type=float, required=True)
 review_parser_detail.add_argument('currency', type=unicode, required=True)
-review_parser_detail.add_argument('site', type=int, required=True)
+review_parser_detail.add_argument('site', type=long, required=True)
 
 review_fields_brief = {
     'id': fields.Integer,
@@ -1075,6 +1094,24 @@ class ReviewList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
+    def _delete_cache(self, model, site, user):
+        ''' 辅助函数：尝试覆盖组合参数的主要可能性，清空对应缓存。'''
+        # ToDo: 我有点儿怀疑这个搞法的效率，太多次 cache 访问了。感觉至少应该用 delete_many 处理。
+        params = [(brief, selected, published) for brief in (0, 1) for selected in (None, 0, 1) for published in (0, 1)]
+        id = 0 if not model else model.id
+        site_id = 0 if not site else site.id
+        city_id = 0 if not site else model.site.area.city.id
+        user_id = 0 if not user else user.id
+        for brief, selected, published in params:
+            if id:
+                cache.delete_memoized(self._get, self, brief, selected, published, id, None, None, None)
+            if site_id:
+                cache.delete_memoized(self._get, self, brief, selected, published, None, site_id, None, None)
+            if city_id:
+                cache.delete_memoized(self._get, self, brief, selected, published, None, None, city_id, None)
+            if user_id:
+                cache.delete_memoized(self._get, self, brief, selected, published, None, None, None, user_id)
+
     def _count_reviews(self, model):
         ''' 辅助函数，对晒单评论涉及的用户账号和 POI ，重新计算其星级和评论数。'''
         user = model.user
@@ -1082,6 +1119,8 @@ class ReviewList(Resource):
         util.count_reviews([user] if user else [], [site] if site else [])
         if site:
             util.count_images(site)
+        # 清除 Review 详情缓存：
+        self._delete_cache(model, site, user)
 
     def _format_review(self, review, brief=None):
         ''' 辅助函数：用于格式化 Review 实例，用于接口输出。'''
@@ -1243,17 +1282,17 @@ api.add_resource(ReviewList, '/rpc/reviews')
 
 # 二级子评论接口：
 comment_parser = reqparse.RequestParser()
-comment_parser.add_argument('id', type=int)
+comment_parser.add_argument('id', type=long)
 comment_parser.add_argument('offset', type=int)    # offset 偏移量。
 comment_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
-comment_parser.add_argument('article', type=int)      # 指定推荐文章的 id，获取所有相关子评论
-comment_parser.add_argument('review', type=int)         # 指定晒单评论 id，获取所有相关子评论
+comment_parser.add_argument('article', type=long)      # 指定推荐文章的 id，获取所有相关子评论
+comment_parser.add_argument('review', type=long)         # 指定晒单评论 id，获取所有相关子评论
 
 comment_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 Comment 的信息的参数集合
-comment_parser_detail.add_argument('id', type=int)
-comment_parser_detail.add_argument('review', type=int, required=True)
-comment_parser_detail.add_argument('article', type=int, required=True)
-comment_parser_detail.add_argument('user', type=int, required=True)
+comment_parser_detail.add_argument('id', type=long)
+comment_parser_detail.add_argument('review', type=long, required=True)
+comment_parser_detail.add_argument('article', type=long, required=True)
+comment_parser_detail.add_argument('user', type=long, required=True)
 comment_parser_detail.add_argument('at_list', type=str)  # 最多允许@ 20 个用户，更多的可能会被丢掉。
 comment_parser_detail.add_argument('content', type=unicode, required=True)
 
@@ -1277,12 +1316,26 @@ class CommentList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
+    def _delete_cache(self, model, article, review):
+        ''' 辅助函数：尝试覆盖组合参数的主要可能性，清空对应缓存。'''
+        id = 0 if not model else model.id
+        article_id = 0 if not article else article.id
+        review_id = 0 if not review else review.id
+        if id:
+            cache.delete_memoized(self._get, self, id, None, None)
+        if article_id:
+            cache.delete_memoized(self._get, self, None, article_id, None)
+        if review_id:
+            cache.delete_memoized(self._get, self, None, None, review_id)
+    
     def _count_comments(self, model):
         ''' 辅助函数，对子评论涉及的首页文章和晒单评论，重新计算其子评论计数。'''
         user = model.user
         article = model.article
         review = model.review
         util.count_comments([user] if user else [], [article] if article else [], [review] if review else [])
+        # 清除相关数据缓存：
+        self._delete_cache(model, article, review)
 
     def _format_comment(self, comment):
         ''' 辅助函数：用于格式化 Comment 实例，用于接口输出。'''
@@ -1353,7 +1406,7 @@ class CommentList(Resource):
 
     @hmac_auth('api')
     def put(self):
-        ''' 修改晒单评论内容的接口。'''
+        ''' 修改子评论内容的接口。'''
         args = comment_parser_detail.parse_args()
         id = args['id']
         comment = db.session.query(Comment).filter(Comment.id == id).filter(Comment.valid == True).first()
@@ -1377,10 +1430,10 @@ api.add_resource(CommentList, '/rpc/comments')
 
 # 用户消息对话线索接口
 message_parser = reqparse.RequestParser()
-message_parser.add_argument('stop', type=int, default=0)   # 截止 message id，也即返回数据只考虑 id 大于这一指定值的 message 消息。（注意：分批读取时每次请求的截止 message id 不能轻易变化，否则会使缓存失效！而应该使用 offset 来控制！）
+message_parser.add_argument('stop', type=long, default=0)   # 截止 message id，也即返回数据只考虑 id 大于这一指定值的 message 消息。（注意：分批读取时每次请求的截止 message id 不能轻易变化，否则会使缓存失效！而应该使用 offset 来控制！）
 message_parser.add_argument('offset', type=int)    # offset 偏移量。
 message_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
-message_parser.add_argument('user', type=int, required=True)      # 仅获取这一指定用户的消息
+message_parser.add_argument('user', type=long, required=True)      # 仅获取这一指定用户的消息
 message_parser.add_argument('thread', type=str)         # 仅获取这一指定对话线索的消息
 
 message_fields_thread = {
@@ -1449,8 +1502,8 @@ api.add_resource(MessageThreadList, '/rpc/messages/threads')
 
 # 用户消息接口
 message_parser_detail = reqparse.RequestParser()         # 用于创建新 message 信息的参数集合
-message_parser_detail.add_argument('sender', type=int, required=True)     # 消息发送人
-message_parser_detail.add_argument('receiver', type=int, required=True)     # 消息接收人
+message_parser_detail.add_argument('sender', type=long, required=True)     # 消息发送人
+message_parser_detail.add_argument('receiver', type=long, required=True)     # 消息接收人
 message_parser_detail.add_argument('content', type=unicode, required=True)      # 消息文本正文，如果是系统发送的消息，则可能存在应用内资源的跳转链接。
 
 message_fields = {
@@ -1543,7 +1596,7 @@ api.add_resource(MessageList, '/rpc/messages')
 
 # 用户消息未读数接口
 message_parser_unread = reqparse.RequestParser()         
-message_parser_unread.add_argument('user', type=int, required=True)     # 仅获取此指定用户的消息
+message_parser_unread.add_argument('user', type=long, required=True)     # 仅获取此指定用户的消息
 message_parser_unread.add_argument('thread', type=str)   # 对话线索标识，也即后台数据库中的 group_key （私信消息分组快捷键，将本消息相关 user_id 按从小到大排序，用“_”连接作为 Key）
 
 message_fields_unread = {
