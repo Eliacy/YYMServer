@@ -247,50 +247,6 @@ class UpTokenList(Resource):
 api.add_resource(UpTokenList, '/rpc/uptokens')
 
 
-# 用户登陆接口：
-login_parser = reqparse.RequestParser()
-login_parser.add_argument('username', type=str, required=True)         # 用户名，只支持 ASCii 字符。
-login_parser.add_argument('password', type=str, required=True)    # 密码，只支持 ASCii 字符。
-login_parser.add_argument('token', type=str)     # 旧 token，用于迁移登录前发生的匿名行为。
-login_parser.add_argument('device', type=str, required=True)      # 设备 id 。
-
-def _generate_token(new_user, device, old_token=None):
-    '''辅助函数：根据新登陆的 user 实例创建对应 token。如果提供了旧 token ，相应做旧 token 的历史行为记录迁移。'''
-    if old_token:
-        old_user = db.session.query(User).join(User.tokens).filter(Token.token == old_token).first()
-        if old_user:
-            pass        # ToDo: 生成一个后台任务，合并旧 token 的行为数据到当前登陆的新账号！
-    # 永远生成新 token，而不复用之前产生的 token。
-    token = Token(user_id = new_user.id,
-                  device = device,
-                  )
-    db.session.add(token)
-    db.session.commit()
-    return token.token
-
-
-class TokenList(Resource):
-    '''用户登陆，并返回账号 token 的接口。'''
-    def __repr__(self):
-        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
-        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
-        '''
-        return '%s' % self.__class__.__name__
-
-    @hmac_auth('public')
-    def post(self):
-        ''' 用户登陆接口。'''
-        args = login_parser.parse_args()
-        user = db.session.query(User).filter(User.valid == True).filter(User.anonymous == False).filter(User.username == args['username']).first()
-        if not user or not check_password_hash(user.password, args['password']):
-            abort(403, message='Login Failed!')
-        old_token = args['token']
-        token = _generate_token(user, args['device'], old_token)
-        return {'user_id': user.id, 'token': token}, 201
-
-api.add_resource(TokenList, '/rpc/tokens')
-
-
 # 用户信息查询接口：
 user_parser = reqparse.RequestParser()
 user_parser.add_argument('id', type=long)
@@ -335,6 +291,11 @@ user_fields = {
 }
 user_fields.update(user_fields_mini)
 
+def _format_user(user):
+    ''' 辅助函数：用于格式化 User 实例，用于接口输出。'''
+    # 也会被 /rpc/tokens 接口使用
+    user.icon_image = user.icon
+
 
 class UserList(Resource):
     '''对用户账号信息进行查询、注册、修改的服务接口。不提供删除接口。'''
@@ -358,10 +319,6 @@ class UserList(Resource):
         if fan_id:
             cache.delete_memoized(self._get, self, None, None, fan_id)
 
-    def _format_user(self, user):
-        ''' 辅助函数：用于格式化 User 实例，用于接口输出。'''
-        user.icon_image = user.icon
-
     def _check_password(self, password):
         ''' 辅助函数：用于检查用户提交的新密码的合规性。'''
         if len(password) < 6:
@@ -382,7 +339,7 @@ class UserList(Resource):
             Main_User = aliased(User)
             query = db.session.query(User).filter(User.valid == True).join(fans, User.id == fans.columns.user_id).join(Main_User, fans.columns.fan_id == Main_User.id).filter(Main_User.id == fan).order_by(fans.columns.action_time.desc())
             result = query.all()
-        [self._format_user(user) for user in result]
+        [_format_user(user) for user in result]
         return result
 
     @hmac_auth('api')
@@ -475,11 +432,62 @@ class UserList(Resource):
                 user.gender = gender
             db.session.commit()
             self._delete_cache(user)
-            self._format_user(user)
+            _format_user(user)
             return marshal(user, user_fields), 201
         abort(404, message='Target User do not exists!')
 
 api.add_resource(UserList, '/rpc/users')
+
+
+# 用户登陆接口：
+login_parser = reqparse.RequestParser()
+login_parser.add_argument('username', type=str, required=True)         # 用户名，只支持 ASCii 字符。
+login_parser.add_argument('password', type=str, required=True)    # 密码，只支持 ASCii 字符。
+login_parser.add_argument('token', type=str)     # 旧 token，用于迁移登录前发生的匿名行为。
+login_parser.add_argument('device', type=str, required=True)      # 设备 id 。
+
+token_fields = {
+    'user': fields.Nested(user_fields),     # 登陆成功时，返回该用户的全部详情
+    'token': fields.String,      # 用户本次登陆对应的 token
+}
+
+def _generate_token(new_user, device, old_token=None):
+    '''辅助函数：根据新登陆的 user 实例创建对应 token。如果提供了旧 token ，相应做旧 token 的历史行为记录迁移。'''
+    if old_token:
+        old_user = db.session.query(User).join(User.tokens).filter(Token.token == old_token).first()
+        if old_user:
+            pass        # ToDo: 生成一个后台任务，合并旧 token 的行为数据到当前登陆的新账号！
+    # 永远生成新 token，而不复用之前产生的 token。
+    token = Token(user_id = new_user.id,
+                  device = device,
+                  )
+    db.session.add(token)
+    db.session.commit()
+    return token.token
+
+
+class TokenList(Resource):
+    '''用户登陆，并返回账号 token 的接口。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    @hmac_auth('public')
+    @marshal_with(token_fields)
+    def post(self):
+        ''' 用户登陆接口。'''
+        args = login_parser.parse_args()
+        user = db.session.query(User).filter(User.valid == True).filter(User.anonymous == False).filter(User.username == args['username']).first()
+        if not user or not check_password_hash(user.password, args['password']):
+            abort(403, message='Login Failed!')
+        old_token = args['token']
+        token = _generate_token(user, args['device'], old_token)
+        _format_user(user)
+        return {'user': user, 'token': token}, 201
+
+api.add_resource(TokenList, '/rpc/tokens')
 
 
 # 用户关注接口：
