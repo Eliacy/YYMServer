@@ -179,7 +179,7 @@ if __name__ == "__main__":
         resp = rpc_post(path, {}, payload)
         status = resp['status']
         if status == 201:
-            user_id = resp['data']['user_id']
+            user_id = resp['data']['user']['id']
             print '=', u'成功以用户 id %d 登陆！' % user_id
         else:
             print '=', u'用户或密码不正确！'
