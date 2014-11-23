@@ -559,7 +559,7 @@ class LikeList(Resource):
         return '%s' % self.__class__.__name__
 
     def _count_likes(self, user, review):
-        ''' 辅助函数，对交互行为涉及的用户账号，重新计算其 follow_num 和 fans_num 。'''
+        ''' 辅助函数，对交互行为涉及的用户账号和晒单评论，重新计算其 like_num 。'''
         # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
         util.count_likes([user] if user else [], [review] if review else [])
 
@@ -594,6 +594,58 @@ class LikeList(Resource):
         return '', 201
 
 api.add_resource(LikeList, '/rpc/likes')
+
+
+# 收藏 POI 接口：
+favorite_parser = reqparse.RequestParser()
+favorite_parser.add_argument('user', type=long, required=True)    # 进行收藏的用户的 id
+favorite_parser.add_argument('site', type=long, required=True)    # 被收藏的POI id
+
+
+class FavoriteList(Resource):
+    '''处理用户收藏/取消收藏行为的后台服务，其中收藏关系的读取在 sites 接口中内嵌。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    def _count_favorites(self, user, site):
+        ''' 辅助函数，对交互行为涉及的用户账号和 POI ，重新计算其 favorite_num 。'''
+        # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
+        util.count_favorites([user] if user else [], [site] if site else [])
+
+    @hmac_auth('api')
+    def delete(self):
+        ''' 取消收藏关系的接口。'''
+        args = favorite_parser.parse_args()
+        user = db.session.query(User).filter(User.valid == True).filter(User.id == args['user']).first()
+        if user == None:
+            abort(404, message='The user do not exists!')
+        site = user.favorites.filter(Site.id == args['site']).first()
+        if site != None:
+            user.favorites.remove(site)
+            db.session.commit()
+            self._count_favorites(user, site)
+        return '', 204
+
+    @hmac_auth('api')
+    def post(self):
+        ''' 创建新的收藏关系的接口。'''
+        args = favorite_parser.parse_args()
+        user = db.session.query(User).filter(User.valid == True).filter(User.id == args['user']).first()
+        if user == None:
+            abort(404, message='The user do not exists!')
+        site = db.session.query(Site).filter(Site.valid == True).filter(Site.id == args['site']).first()
+        if site == None:
+            abort(404, message='The site do not exists!')
+        if user.favorites.filter(Site.id == args['site']).first() == None:  # 避免多次 favorite 同一 Site 。
+            user.favorites.append(site)
+            db.session.commit()
+            self._count_favorites(user, site)
+        return '', 201
+
+api.add_resource(FavoriteList, '/rpc/favorites')
 
 
 # 分类及子分类接口：

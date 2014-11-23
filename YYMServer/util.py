@@ -288,6 +288,14 @@ def count_likes(users, reviews):
         review.like_num = review.fans.filter(User.valid == True).count()
     db.session.commit()
 
+def count_favorites(users, sites):
+    ''' 辅助函数，对收藏行为涉及的用户账号和 POI ，重新计算其 favorite_num 。'''
+    # ToDo: 这个实现受读取 User 信息和 Site 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
+    for user in users:
+        user.favorite_num = user.favorites.filter(Site.valid == True).count()
+    # Site 暂时没有与 favorite 相关的计数
+    db.session.commit()
+
 def count_images(site):
     ''' 辅助函数，重新计算指定 POI 的 image_num 。'''
     # ToDo: 这个实现受读取 site 信息的接口的缓存影响，还不能保证把有效的值传递给前端。

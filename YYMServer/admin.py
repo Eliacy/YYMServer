@@ -906,12 +906,14 @@ class UserView(MyModelView):
     before_update_fans_ids = []
     before_update_follows_ids = []
     before_update_likes_ids = []
+    before_update_favorites_ids = []
 
     def update_model(self, form, model):
         # 记录 model 修改前的计数相关取值
         self.before_update_follows_ids = [follow.id for follow in model.follows]
         self.before_update_fans_ids = [fan.id for fan in model.fans]
         self.before_update_likes_ids = [review.id for review in model.likes]
+        self.before_update_favorites_ids = [site.id for site in model.favorites]
         return super(UserView, self).update_model(form, model)
 
     def after_model_change(self, form, model, is_created):
@@ -934,6 +936,10 @@ class UserView(MyModelView):
         after_update_likes_ids = [review.id for review in model.likes]
         likes_ids_diff = util.diff_list(self.before_update_likes_ids, after_update_likes_ids)
         util.count_likes([model], db.session.query(Review).filter(Review.id.in_(likes_ids_diff)))
+        # 监控 favorite sites 的修改，更新计数：
+        after_update_favorites_ids = [site.id for site in model.favorites]
+        favorites_ids_diff = util.diff_list(self.before_update_favorites_ids, after_update_favorites_ids)
+        util.count_favorites([model], db.session.query(Site).filter(Site.id.in_(favorites_ids_diff)))
         return super(UserView, self).after_model_change(form, model, is_created)
 
     def get_one(self, id):
