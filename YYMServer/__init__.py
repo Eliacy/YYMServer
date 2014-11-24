@@ -28,6 +28,9 @@ try:
 except Exception:
     pass
 
+# 准备共享数据的基本 url 路径：
+baseurl_share = app.config['BASEURL_SHARE']
+
 # 准备七牛 API：
 qiniu.conf.ACCESS_KEY = app.config['QINIU_ACCESS_KEY']
 qiniu.conf.SECRET_KEY = app.config['QINIU_SECRET_KEY']

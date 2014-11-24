@@ -8,6 +8,7 @@ from YYMServer import app, db, cache
 
 import YYMServer.admin
 import YYMServer.rpc
+import YYMServer.share
 
 # 主页，负责提供后台管理界面的链接
 @app.route('/')

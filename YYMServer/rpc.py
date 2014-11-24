@@ -14,7 +14,7 @@ from flask.ext.hmacauth import hmac_auth
 
 from qiniu.auth import digest
 
-from YYMServer import app, db, cache, api, util
+from YYMServer import app, db, cache, api, util, baseurl_share
 from YYMServer.models import *
 
 from flask.ext.restful.representations.json import output_json
@@ -1569,7 +1569,7 @@ class ShareList(Resource):
         if share.article:
             article = share.article
             share.valid_article = _format_article(article)
-            share.url = 'http://h5.youyoumm.com/share/articles/' + share.token
+            share.url = baseurl_share + '/articles/' + share.token
             share.image = article.caption
             share.title = article.title
             content_list = util.parse_textstyle(util.replace_textlib(article.content))
@@ -1578,14 +1578,14 @@ class ShareList(Resource):
         elif share.site:
             site = share.site
             share.valid_site = util.format_site(site)
-            share.url = 'http://h5.youyoumm.com/share/sites/' + share.token
+            share.url = baseurl_share + '/sites/' + share.token
             share.image = site.logo
             share.title = site.name
             share.description = site.description
         elif share.review:
             review = share.review
             share.valid_review = _format_review(review, brief = True)
-            share.url = 'http://h5.youyoumm.com/share/reviews/' + share.token
+            share.url = baseurl_share + '/reviews/' + share.token
             images = review.valid_images
             share.image = None if len(images) == 0 else images[0]
             share.title = review.user.name

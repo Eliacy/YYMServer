@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 DEBUG = False
+# 显示共享数据的 html5 页面链接基础路径：
+BASEURL_SHARE = 'http://h5.youyoumm.com/share'
 # 设置时区：
 """ 服务器时区应设置为 'Asia/Shanghai' ，否则可能数据出错！"""
 # 强制 json 输出采用 utf-8 ：
