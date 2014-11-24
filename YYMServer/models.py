@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import datetime, random, time, uuid
+import datetime, random, time
+import shortuuid
 
 from sqlalchemy import event
 from sqlalchemy import DDL
@@ -251,7 +252,7 @@ favorites = db.Table('favorites',
 
 class ShareRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 进行共享的人
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))     # 进行共享的人
     user = db.relationship('User', backref=db.backref('share_records', lazy='dynamic'), foreign_keys=[user_id])
     article_id = db.Column(db.Integer, db.ForeignKey('article.id'))     # 如果被共享的是首页文章，则在这里做绑定
     article = db.relationship('Article')
@@ -261,6 +262,7 @@ class ShareRecord(db.Model):
     review = db.relationship('Review')
     target = db.Column(db.Unicode(20), default=u'')  # 用户分享的目的地，比如微信或短信，中文文字描述
     action_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 用户分享文章或店铺的时间点
+    token = db.Column(db.String(50), default=shortuuid.uuid)          # 从外网访问被分享内容的唯一访问标识
 
     def __unicode__(self):
         return u'<ShareRecord [%d] %s: site %d, review %d>' % (self.id, None if not self.user else self.user.name, self.site_id or -1, self.review_id or -1)
@@ -292,7 +294,7 @@ class Token(db.Model):
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))     # 用户 id
     user = db.relationship('User', backref=db.backref('tokens', lazy='dynamic'), foreign_keys=[user_id])
-    token = db.Column(db.String(50), default=uuid.uuid4)         # 用户登陆后的临时唯一标识
+    token = db.Column(db.String(50), default=shortuuid.uuid)         # 用户登陆后的临时唯一标识
     device = db.Column(db.String(50))    # 设备 id
 
 

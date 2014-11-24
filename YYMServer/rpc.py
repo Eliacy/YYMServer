@@ -295,6 +295,7 @@ def _format_user(user):
     ''' 辅助函数：用于格式化 User 实例，用于接口输出。'''
     # 也会被 /rpc/tokens 接口使用
     user.icon_image = user.icon
+    return user
 
 
 class UserList(Resource):
@@ -991,6 +992,12 @@ article_fields = {
 }
 article_fields.update(article_fields_brief)
 
+def _format_article(article):
+    article.caption_image = article.caption
+    article.formated_keywords = [] if not article.keywords else article.keywords.strip().split()
+    article.formated_content = util.parse_textstyle(util.replace_textlib(article.content))
+    return article
+
 
 class ArticleList(Resource):
     '''按城市获取相关首页推荐文章的接口。'''
@@ -1016,9 +1023,7 @@ class ArticleList(Resource):
         query = query.order_by(Article.order.desc()).order_by(Article.create_time.desc())
         result = []
         for article in query:
-            article.caption_image = article.caption
-            article.formated_keywords = [] if not article.keywords else article.keywords.strip().split()
-            article.formated_content = util.parse_textstyle(util.replace_textlib(article.content))
+            _format_article(article)
             result.append(article)
         return result
 
@@ -1146,6 +1151,29 @@ review_fields = {
 review_fields.update(review_fields_brief)
 review_fields['content'] = fields.String        # 非 brief 模式下，提供完整的文字内容
 
+def _format_review(review, brief=None):
+    ''' 辅助函数：用于格式化 Review 实例，用于接口输出。'''
+    review.valid_user = review.user
+    review.valid_user.icon_image = review.user.icon
+    review.valid_site = review.site
+    if review.site:
+        review.valid_site.city_name = '' if not review.site.area else review.site.area.city.name
+    review.images_num = 0 if not review.images else len(review.images.split())
+    review.currency = review.currency or u'人民币'
+    review.content = (review.content or u'').strip()
+    review.formated_keywords = [] if not review.keywords else review.keywords.split()
+    review.valid_at_users = []
+    if review.at_list:
+        review.valid_at_users = util.get_users(review.at_list)
+    review.valid_images = []
+    if review.images:
+        review.valid_images = util.get_images(review.images)
+    if brief:
+        review.brief_content = review.content[:80]
+        review.valid_images = review.valid_images[:1]
+    return review
+
+
 class ReviewList(Resource):
     '''获取某 POI 的晒单评论列表，以及对单独一条晒单评论详情进行查、增、删、改的服务。'''
     def __repr__(self):
@@ -1182,27 +1210,6 @@ class ReviewList(Resource):
         # 清除 Review 详情缓存：
         self._delete_cache(model, site, user)
 
-    def _format_review(self, review, brief=None):
-        ''' 辅助函数：用于格式化 Review 实例，用于接口输出。'''
-        review.valid_user = review.user
-        review.valid_user.icon_image = review.user.icon
-        review.valid_site = review.site
-        if review.site:
-            review.valid_site.city_name = '' if not review.site.area else review.site.area.city.name
-        review.images_num = 0 if not review.images else len(review.images.split())
-        review.currency = review.currency or u'人民币'
-        review.content = (review.content or u'').strip()
-        review.formated_keywords = [] if not review.keywords else review.keywords.split()
-        review.valid_at_users = []
-        if review.at_list:
-            review.valid_at_users = util.get_users(review.at_list)
-        review.valid_images = []
-        if review.images:
-            review.valid_images = util.get_images(review.images)
-        if brief:
-            review.brief_content = review.content[:80]
-            review.valid_images = review.valid_images[:1]
-
     @cache.memoize()
     def _get(self, brief=None, selected = None, published = None, id=None, site=None, city=None, user=None):
         # ToDo: Review 表中各计数缓存值的数据没有做动态更新，例如“赞”数！
@@ -1228,7 +1235,7 @@ class ReviewList(Resource):
         if published:
             query = query.filter(Review.published == True)
         for review in query:
-            self._format_review(review, brief)
+            _format_review(review, brief)
             result.append(review)
         return result
 
@@ -1331,7 +1338,7 @@ class ReviewList(Resource):
             if args['published'] and not review.publish_time:   # 只有首次发布才记录 publish_time 
                 review.publish_time = datetime.datetime.now()
             db.session.commit()
-            self._format_review(review, brief=0)
+            _format_review(review, brief=0)
             self._count_reviews(review)
             return marshal(review, review_fields), 201
         abort(404, message='Target Review do not exists!')
@@ -1402,6 +1409,7 @@ class CommentList(Resource):
         comment.valid_user = comment.user
         comment.valid_at_users = util.get_users(comment.at_list or '')
         comment.content = (comment.content or u'').strip()
+        return comment
     
     @cache.memoize()
     def _get(self, id=None, article=None, review=None):
@@ -1484,6 +1492,145 @@ class CommentList(Resource):
         abort(404, message='Target Comment do not exists!')
 
 api.add_resource(CommentList, '/rpc/comments')
+
+
+# 分享 POI，晒单评论，首页文章 接口：
+share_parser = reqparse.RequestParser()
+share_parser.add_argument('user', type=long, required=True)    # 进行分享的用户的 id
+share_parser.add_argument('site', type=long, required=True)    # 被分享的POI id
+share_parser.add_argument('review', type=long, required=True)    # 被分享的晒单评论 id
+share_parser.add_argument('article', type=long, required=True)    # 被分享的首页文章 id
+share_parser.add_argument('target', type=unicode, required=True)    # 分享的目标应用，如微信、QQ 等
+
+share_fields = {
+    'id': fields.Integer,
+    'action_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'user_id': fields.Integer,        # 进行共享的用户 id （仅用于辅助复查确认，前端展现应该不需要）
+    'target': fields.String,        # 分享的目标应用，辅助复查确认用
+    'token': fields.String,         # 分享的唯一编码，用于访问被分享的内容
+    'url': fields.String,       # 资源在第三方应用中显示详情的网页地址
+    'image': fields.Nested(image_fields_mini),   # 资源共享时配合简介的图片，没有时会变成 id 为 0 的图片
+    'title': fields.String,     # 资源共享时配合简介的标题
+    'description': fields.String,   # 资源共享时配合简介的描述文字
+}
+share_fields_article = {
+    'article': fields.Nested(article_fields_brief, attribute='valid_article'),        # 首页文章的概要信息
+    'site': fields.String,
+    'review': fields.String,
+}
+share_fields_article.update(share_fields)
+share_fields_site = {
+    'article': fields.String,
+    'site': fields.Nested(site_fields_brief, attribute='valid_site'),        # POI 的概要信息
+    'review': fields.String,
+}
+share_fields_site.update(share_fields)
+share_fields_review = {
+    'article': fields.String,
+    'site': fields.String,
+    'review': fields.Nested(review_fields_brief, attribute='valid_review'),        # 晒单评论的概要信息
+}
+share_fields_review.update(share_fields)
+
+
+def marshal_share(data):
+    if isinstance(data, (list, tuple)):
+        return [marshal_share(d) for d in data]
+
+    if data.article:
+        return marshal(data, share_fields_article)
+    elif data.site:
+        return marshal(data, share_fields_site)
+    elif data.review:
+        return marshal(data, share_fields_review)
+    else:
+        abort(404, message='The user shared nothing!')
+
+
+class ShareList(Resource):
+    '''处理用户收藏/取消收藏行为的后台服务，其中收藏关系的读取在 sites 接口中内嵌。'''
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    def _count_shares(self, user, site, review, article):
+        ''' 辅助函数，对交互行为涉及的用户账号、 POI 、晒单评论、首页文章，重新计算其 share_num 。'''
+        # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
+        util.count_shares([user] if user else [], [site] if site else [], [review] if review else [], [article] if article else [])
+
+    def _format_share(self, share):
+        ''' 辅助函数：用于格式化 ShareRecord 实例，用于接口输出。'''
+        if share.article:
+            article = share.article
+            share.valid_article = _format_article(article)
+            share.url = 'http://h5.youyoumm.com/share/articles/' + share.token
+            share.image = article.caption
+            share.title = article.title
+            content_list = util.parse_textstyle(util.replace_textlib(article.content))
+            text_list = filter(lambda x: x['class'] == 'text', content_list)
+            share.description = u'' if len(text_list) == 0 else text_list[0]['content']
+        elif share.site:
+            site = share.site
+            share.valid_site = util.format_site(site)
+            share.url = 'http://h5.youyoumm.com/share/sites/' + share.token
+            share.image = site.logo
+            share.title = site.name
+            share.description = site.description
+        elif share.review:
+            review = share.review
+            share.valid_review = _format_review(review, brief = True)
+            share.url = 'http://h5.youyoumm.com/share/reviews/' + share.token
+            images = review.valid_images
+            share.image = None if len(images) == 0 else images[0]
+            share.title = review.user.name
+            share.description = review.content
+        else:
+            share.url = ''
+            share.image = None
+            share.title = u''
+            share.description = u''
+        return share
+
+    # 共享行为类似一个行为记录，一旦发生就无法取消记录。
+    @hmac_auth('api')
+    def post(self):
+        ''' 创建新的共享行为记录的接口。'''
+        args = share_parser.parse_args()
+        user_id = args['user']
+        site_id = args['site']
+        review_id = args['review']
+        article_id = args['article']
+        user = db.session.query(User).filter(User.valid == True).filter(User.id == user_id).first()
+        if user == None:
+            abort(404, message='The user do not exists!')
+        article = db.session.query(Article).filter(Article.valid == True).filter(Article.id == article_id).first()
+        if article_id and article == None:
+            abort(404, message='The shared article do not exists!')
+        site = db.session.query(Site).filter(Site.valid == True).filter(Site.id == site_id).first()
+        if site_id and site == None:
+            abort(404, message='The shared site do not exists!')
+        review = db.session.query(Review).filter(Review.valid == True).filter(Review.published == True).filter(Review.id == review_id).first()
+        if review_id and review == None:
+            abort(404, message='The shared review do not exists!')
+        share_record = ShareRecord(user_id = user_id,
+                                   article_id = article_id or None,
+                                   site_id = site_id or None,
+                                   review_id = review_id or None,
+                                   target = args['target'],
+                                   )
+        db.session.add(share_record)
+        db.session.commit()
+        self._count_shares(user, 
+                           share_record.site,
+                           share_record.review,
+                           share_record.article,
+                           )
+        self._format_share(share_record)
+        return marshal_share(share_record), 201
+
+api.add_resource(ShareList, '/rpc/shares')
 
 
 # ToDo: 应该做一个发全局通知的接口，避免很多不登陆的用户创建大量的用户消息记录（由于每个消息需要保存每个用户的已读、未读记录）。

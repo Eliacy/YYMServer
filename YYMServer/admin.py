@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os.path
-import uuid
+import shortuuid
 
 from flask import url_for, redirect, request, flash, escape
 from jinja2 import Markup
@@ -160,7 +160,7 @@ def uuid_name(obj, file_data):
     extension = parts[1].lower()
     extension = '.jpg' if extension == '.jpeg' else extension
     # flask-admin 的文件上传组件似乎总是在实际存储时把文件名弄成小写：
-    return secure_filename('%s%s' % (uuid.uuid4(), extension))
+    return secure_filename('%s%s' % (shortuuid.uuid(), extension))
 
 def get_image_size(image_obj):
     if image_obj:
