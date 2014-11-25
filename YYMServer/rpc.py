@@ -3,7 +3,7 @@
 import json
 import time
 
-from sqlalchemy import func
+from sqlalchemy import func, desc
 from sqlalchemy.orm import aliased
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -1429,6 +1429,7 @@ class LikeList(Resource):
         query = db.session.query(Review).filter(Review.valid == True)
         query = query.join(likes, Review.id == likes.columns.review_id)
         query = query.join(User).filter(User.id == likes.columns.user_id)
+        query = query.filter(User.id == user)
         query = query.order_by(likes.columns.action_time.desc())
         query = query.filter(Review.published == True)
         result = []
@@ -1521,6 +1522,7 @@ class FavoriteList(Resource):
         query = db.session.query(Site).filter(Site.valid == True)
         query = query.join(favorites, Site.id == favorites.columns.site_id)
         query = query.join(User).filter(User.id == favorites.columns.user_id)
+        query = query.filter(User.id == user)
         query = query.order_by(favorites.columns.action_time.desc())
         result = []
         for site in query:
@@ -1574,11 +1576,16 @@ api.add_resource(FavoriteList, '/rpc/favorites')
 
 # 分享 POI，晒单评论，首页文章 接口：
 share_parser = reqparse.RequestParser()
-share_parser.add_argument('user', type=long, required=True)    # 进行分享的用户的 id
-share_parser.add_argument('site', type=long, required=True)    # 被分享的POI id
-share_parser.add_argument('review', type=long, required=True)    # 被分享的晒单评论 id
-share_parser.add_argument('article', type=long, required=True)    # 被分享的首页文章 id
-share_parser.add_argument('target', type=unicode, required=True)    # 分享的目标应用，如微信、QQ 等
+share_parser.add_argument('offset', type=int)    # offset 偏移量。
+share_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
+share_parser.add_argument('user', type=long)      # 用户 id。
+
+share_parser_detail = reqparse.RequestParser()
+share_parser_detail.add_argument('user', type=long, required=True)    # 进行分享的用户的 id
+share_parser_detail.add_argument('site', type=long, required=True)    # 被分享的POI id
+share_parser_detail.add_argument('review', type=long, required=True)    # 被分享的晒单评论 id
+share_parser_detail.add_argument('article', type=long, required=True)    # 被分享的首页文章 id
+share_parser_detail.add_argument('target', type=unicode, required=True)    # 分享的目标应用，如微信、QQ 等
 
 share_fields = {
     'id': fields.Integer,
@@ -1593,33 +1600,32 @@ share_fields = {
 }
 share_fields_article = {
     'article': fields.Nested(article_fields_brief, attribute='valid_article'),        # 首页文章的概要信息
-    'site': fields.String,
-    'review': fields.String,
+    'site': fields.String(attribute='valid_site'),
+    'review': fields.String(attribute='valid_review'),
 }
 share_fields_article.update(share_fields)
 share_fields_site = {
-    'article': fields.String,
+    'article': fields.String(attribute='valid_article'),
     'site': fields.Nested(site_fields_brief, attribute='valid_site'),        # POI 的概要信息
-    'review': fields.String,
+    'review': fields.String(attribute='valid_review'),
 }
 share_fields_site.update(share_fields)
 share_fields_review = {
-    'article': fields.String,
-    'site': fields.String,
+    'article': fields.String(attribute='valid_article'),
+    'site': fields.String(attribute='valid_site'),
     'review': fields.Nested(review_fields_brief, attribute='valid_review'),        # 晒单评论的概要信息
 }
 share_fields_review.update(share_fields)
-
 
 def marshal_share(data):
     if isinstance(data, (list, tuple)):
         return [marshal_share(d) for d in data]
 
-    if data.article:
+    if hasattr(data, 'valid_article') and data.valid_article:
         return marshal(data, share_fields_article)
-    elif data.site:
+    elif hasattr(data, 'valid_site') and data.valid_site:
         return marshal(data, share_fields_site)
-    elif data.review:
+    elif hasattr(data, 'valid_review') and data.valid_review:
         return marshal(data, share_fields_review)
     else:
         abort(404, message='The user shared nothing!')
@@ -1633,10 +1639,15 @@ class ShareList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
+    def _delete_cache(self, user):
+        if user:
+            cache.delete_memoized(self._get, self, user.id)
+
     def _count_shares(self, user, site, review, article):
         ''' 辅助函数，对交互行为涉及的用户账号、 POI 、晒单评论、首页文章，重新计算其 share_num 。'''
         # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
         util.count_shares([user] if user else [], [site] if site else [], [review] if review else [], [article] if article else [])
+        self._delete_cache(user)
 
     def _format_share(self, share):
         ''' 辅助函数：用于格式化 ShareRecord 实例，用于接口输出。'''
@@ -1671,11 +1682,34 @@ class ShareList(Resource):
             share.description = u''
         return share
 
+    @cache.memoize()
+    def _get(self, user=None):
+        query = db.session.query(ShareRecord).filter(ShareRecord.user_id == user)
+        query = query.order_by(ShareRecord.action_time.desc())  # 对同一个 Article，Site，Review，显示其最新的一次共享
+        query = db.session.query().add_entity(ShareRecord, alias=query.subquery()).group_by('article_id', 'site_id', 'review_id')         # 让 order_by 比 group_by 更早生效！
+        query = query.order_by(desc('action_time'))      # 保证 group 后输出结果的顺序
+        result = []
+        for share_record in query:
+            result.append(self._format_share(share_record))
+        return result
+
+    @hmac_auth('api')
+    def get(self):
+        args = share_parser.parse_args()
+        result = self._get(args['user'])
+        offset = args['offset']
+        if offset:
+            result = result[offset:]
+        limit = args['limit']
+        if limit:
+            result = result[:limit]
+        return marshal_share(result)
+
     # 共享行为类似一个行为记录，一旦发生就无法取消记录。
     @hmac_auth('api')
     def post(self):
         ''' 创建新的共享行为记录的接口。'''
-        args = share_parser.parse_args()
+        args = share_parser_detail.parse_args()
         user_id = args['user']
         site_id = args['site']
         review_id = args['review']
@@ -1760,6 +1794,7 @@ class MessageThreadList(Resource):
             query = query.filter(Message.group_key == thread)
         query = query.order_by(Message.create_time.desc())      # 每个对话组显示最新一条的详情
         query = db.session.query().add_entity(Message, alias=query.subquery()).group_by('group_key')         # 让 order_by 比 group_by 更早生效！
+        query = query.order_by(desc('create_time'))     # 保证 group 后输出结果的顺序
         result = []
         for thread in query:
             thread.content = (thread.content or u'').strip()
