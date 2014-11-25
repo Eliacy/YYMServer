@@ -551,8 +551,13 @@ api.add_resource(FollowList, '/rpc/follows')
 
 # 用户喜欢接口：
 like_parser = reqparse.RequestParser()
-like_parser.add_argument('user', type=long, required=True)  # 表达喜欢的用户的 id
-like_parser.add_argument('review', type=long, required=True)    # 被表达喜欢的晒单评论 id
+like_parser.add_argument('offset', type=int)    # offset 偏移量。
+like_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
+like_parser.add_argument('user', type=long, required=True)
+
+like_parser_detail = reqparse.RequestParser()
+like_parser_detail.add_argument('user', type=long, required=True)  # 表达喜欢的用户的 id
+like_parser_detail.add_argument('review', type=long, required=True)    # 被表达喜欢的晒单评论 id
 
 
 class LikeList(Resource):
@@ -563,15 +568,50 @@ class LikeList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
+    def _delete_cache(self, user):
+        if user:
+            cache.delete_memoized(self._get, self, user.id)
+
     def _count_likes(self, user, review):
         ''' 辅助函数，对交互行为涉及的用户账号和晒单评论，重新计算其 like_num 。'''
         # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
         util.count_likes([user] if user else [], [review] if review else [])
+        self._delete_cache(user)
+
+    @cache.memoize()
+    def _get(self, user=None):
+        brief = 1
+        query = db.session.query(Review).filter(Review.valid == True)
+        query = query.join(likes, Review.id == likes.columns.review_id)
+        query = query.join(User).filter(User.id == likes.columns.user_id)
+        query = query.order_by(likes.columns.action_time.desc())
+        query = query.filter(Review.published == True)
+        result = []
+        for review in query:
+            _format_review(review, brief)
+            result.append(review)
+        return result
+
+    @hmac_auth('api')
+    def get(self):
+        args = like_parser.parse_args()
+        result = self._get(args['user'])
+        limit = args['limit']
+        offset = args['offset']
+        if offset:
+            result = result[offset:]
+        if limit:
+            result = result[:limit]
+        # 提取 like 关系：
+        for review in result:
+            review.liked = True
+        # 输出结果：
+        return marshal(result, review_fields_brief)
 
     @hmac_auth('api')
     def delete(self):
         ''' 取消喜欢关系的接口。'''
-        args = like_parser.parse_args()
+        args = like_parser_detail.parse_args()
         user = db.session.query(User).filter(User.valid == True).filter(User.id == args['user']).first()
         if user == None:
             abort(404, message='The user do not exists!')
@@ -585,7 +625,7 @@ class LikeList(Resource):
     @hmac_auth('api')
     def post(self):
         ''' 创建新的喜欢关系的接口。'''
-        args = like_parser.parse_args()
+        args = like_parser_detail.parse_args()
         user = db.session.query(User).filter(User.valid == True).filter(User.id == args['user']).first()
         if user == None:
             abort(404, message='The user do not exists!')
