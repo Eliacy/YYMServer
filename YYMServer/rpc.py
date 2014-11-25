@@ -1488,8 +1488,13 @@ api.add_resource(LikeList, '/rpc/likes')
 
 # 收藏 POI 接口：
 favorite_parser = reqparse.RequestParser()
-favorite_parser.add_argument('user', type=long, required=True)    # 进行收藏的用户的 id
-favorite_parser.add_argument('site', type=long, required=True)    # 被收藏的POI id
+favorite_parser.add_argument('offset', type=int)    # offset 偏移量。
+favorite_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
+favorite_parser.add_argument('user', type=long)      # 用户 id。
+
+favorite_parser_detail = reqparse.RequestParser()
+favorite_parser_detail.add_argument('user', type=long, required=True)    # 进行收藏的用户的 id
+favorite_parser_detail.add_argument('site', type=long, required=True)    # 被收藏的POI id
 
 
 class FavoriteList(Resource):
@@ -1500,15 +1505,44 @@ class FavoriteList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
+    def _delete_cache(self, user):
+        if user:
+            cache.delete_memoized(self._get, self, user.id)
+
     def _count_favorites(self, user, site):
         ''' 辅助函数，对交互行为涉及的用户账号和 POI ，重新计算其 favorite_num 。'''
         # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
         util.count_favorites([user] if user else [], [site] if site else [])
+        self._delete_cache(user)
+
+    @cache.memoize()
+    def _get(self, user=None):
+        brief = 1
+        query = db.session.query(Site).filter(Site.valid == True)
+        query = query.join(favorites, Site.id == favorites.columns.site_id)
+        query = query.join(User).filter(User.id == favorites.columns.user_id)
+        query = query.order_by(favorites.columns.action_time.desc())
+        result = []
+        for site in query:
+            result.append(util.format_site(site, brief))
+        return result
+
+    @hmac_auth('api')
+    def get(self):
+        args = favorite_parser.parse_args()
+        result = self._get(args['user'])
+        offset = args['offset']
+        if offset:
+            result = result[offset:]
+        limit = args['limit']
+        if limit:
+            result = result[:limit]
+        return marshal(result, site_fields_brief)
 
     @hmac_auth('api')
     def delete(self):
         ''' 取消收藏关系的接口。'''
-        args = favorite_parser.parse_args()
+        args = favorite_parser_detail.parse_args()
         user = db.session.query(User).filter(User.valid == True).filter(User.id == args['user']).first()
         if user == None:
             abort(404, message='The user do not exists!')
@@ -1522,7 +1556,7 @@ class FavoriteList(Resource):
     @hmac_auth('api')
     def post(self):
         ''' 创建新的收藏关系的接口。'''
-        args = favorite_parser.parse_args()
+        args = favorite_parser_detail.parse_args()
         user = db.session.query(User).filter(User.valid == True).filter(User.id == args['user']).first()
         if user == None:
             abort(404, message='The user do not exists!')
