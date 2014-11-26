@@ -659,6 +659,7 @@ site_parser.add_argument('category', type=long)  # 分类 id。为空则表示�
 site_parser.add_argument('order', type=int)     # 0 表示默认的“智能排序”，1 表示“距离最近”（约近约靠前），2 表示“人气最高”（点击量由高到低），3 表示“评价最好”（评分由高到低）。
 site_parser.add_argument('longitude', type=float)       # 用户当前位置的经度
 site_parser.add_argument('latitude', type=float)        # 用户当前位置的维度
+site_parser.add_argument('token', type=str)     # 用户 token，用于获取是否收藏的关系
 
 site_fields_mini = {
     'id': fields.Integer,
@@ -694,6 +695,7 @@ site_fields = {
     'transport': fields.String,         # 空字符串表示没有
     'description': fields.String,       # 空字符串表示没有
     'images_num': fields.Integer,
+    'favorited': fields.Boolean,         # 当前 token 参数表示的用户是否收藏了此 POI
 }
 site_fields.update(site_fields_brief)
 
@@ -775,6 +777,17 @@ class SiteList(Resource):
         limit = args['limit']
         if limit:
             result = result[:limit]
+        # 提取 favorite 关系：
+        if not brief:
+            token = args['token']
+            if token:        # ToDo：这里查询收藏关系使用的是数据库查询，存在性能风险！
+                query = db.session.query(Site.id).filter(Site.valid == True).join(Site.fans).join(Token, User.id == Token.user_id).filter(Token.token == token).filter(Site.id.in_([site.id for site in result]))
+                favorite_dic = {}
+                for site_id in query:
+                    favorite_dic[site_id[0]] = True
+                for site in result:
+                    site.favorited = favorite_dic.get(site.id, False)
+        # 输出数据：
         if brief:
             return marshal(result, site_fields_brief)
         else:
@@ -1740,7 +1753,7 @@ class ShareList(Resource):
                            share_record.article,
                            )
         self._format_share(share_record)
-        return marshal_share(share_record), 201
+        return marshal(share_record, share_fields), 201
 
 api.add_resource(ShareList, '/rpc/shares')
 
