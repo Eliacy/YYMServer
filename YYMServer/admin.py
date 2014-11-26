@@ -277,6 +277,7 @@ def _get_images_code(images):
     for image in images:
         if image == None:
             image = (0, 
+                     u'',
                      get_image_size(image), 
                      u'【【指定图片不存在！】】',
                      'http://', 
@@ -284,12 +285,13 @@ def _get_images_code(images):
                      )
         else:
             image = (image.id, 
+                     u'自有' if image.name.find('youyoumm') >= 0 else u'',  # 图片文件名带有 youyoumm 字样的，是自己拍摄的有版权图片。
                      get_image_size(image), 
                      util.strip_image_note(image.note),
                      util.url_for(image.path), 
                      util.url_for_thumb(image.path),
                      )
-        image_code += u'''<td  align="center" valign="top">[id: %d]<br/>(%s)<br/>～%s～<br/><a href="%s" target="_blank"><img src="%s"/></a></td>\n''' % image
+        image_code += u'''<td  align="center" valign="top">[id: %d]，%s<br/>(%s)<br/>～%s～<br/><a href="%s" target="_blank"><img src="%s"/></a></td>\n''' % image
     code = u'''
     <div>
       <table width="%d" cellpadding="5"><tr>
@@ -315,7 +317,7 @@ def _get_image_rule(label, images):
 
 class SiteView(MyModelView):
     column_default_sort = ('update_time', True)
-    column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig')
+    column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig', 'gate_images', 'top_images')
     column_filters = ['id', 'valid', 'order', 'create_time', 'update_time', 'create_user_id', 'update_user_id', 'brand_id', 
                       'logo_id', 'level', 'stars', 'popular',
                       'review_num', 'environment', 'flowrate', 'payment', 'menu', 'ticket', 'tour', 'booking', 'business_hours',
