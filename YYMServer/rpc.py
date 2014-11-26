@@ -1032,6 +1032,17 @@ def _format_review(review, brief=None):
         review.valid_images = review.valid_images[:1]
     return review
 
+def _format_review_like(reviews, token):
+    ''' 辅助函数：用于在 Review 实例中，插入当前 token 对应用户是否喜欢它的信息。'''
+    if token:        # ToDo：这里查询喜欢关系使用的是数据库查询，存在性能风险！
+        query = db.session.query(Review.id).filter(Review.valid == True).join(Review.fans).join(Token, User.id == Token.user_id).filter(Token.token == token).filter(Review.id.in_([review.id for review in reviews]))
+        like_dic = {}
+        for review_id in query:
+            like_dic[review_id[0]] = True
+        for review in reviews:
+            review.liked = like_dic.get(review.id, False)
+    return review
+
 
 class ReviewList(Resource):
     '''获取某 POI 的晒单评论列表，以及对单独一条晒单评论详情进行查、增、删、改的服务。'''
@@ -1117,14 +1128,7 @@ class ReviewList(Resource):
         if limit:
             result = result[:limit]
         # 提取 like 关系：
-        token = args['token']
-        if token:        # ToDo：这里查询喜欢关系使用的是数据库查询，存在性能风险！
-            query = db.session.query(Review.id).filter(Review.valid == True).join(Review.fans).join(Token, User.id == Token.user_id).filter(Token.token == token).filter(Review.id.in_([review.id for review in result]))
-            like_dic = {}
-            for review_id in query:
-                like_dic[review_id[0]] = True
-            for review in result:
-                review.liked = like_dic.get(review.id, False)
+        _format_review_like(result, args['token'])
         # 输出结果：
         if brief:
             return marshal(result, review_fields_brief)
@@ -1709,13 +1713,21 @@ class ShareList(Resource):
     @hmac_auth('api')
     def get(self):
         args = share_parser.parse_args()
-        result = self._get(args['user'])
+        user_id = args['user']
+        result = self._get(user_id)
         offset = args['offset']
         if offset:
             result = result[offset:]
         limit = args['limit']
         if limit:
             result = result[:limit]
+        # 处理 review 的 like 关系：
+        if user_id:
+            token = db.session.query(Token).filter(Token.user_id == user_id).first()
+            token = '' if not token else token.token
+            for share in result:
+                if hasattr(share, 'valid_review') and share.valid_review:
+                    _format_review_like([share.valid_review], token)
         return marshal_share(result)
 
     # 共享行为类似一个行为记录，一旦发生就无法取消记录。
