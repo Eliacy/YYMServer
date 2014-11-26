@@ -201,7 +201,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     address = db.Column(db.UnicodeText)        # POI 地址，应支持换行
     address_orig = db.Column(db.UnicodeText)   # POI 地址的当地文字版本，应支持换行
     keywords = db.Column(db.Unicode(200), default=u'')       # POI 关键词，可以认为是一个缓存，被 {} 括起来的是系统自动统计得到的，其他是运营人工设置。正常情况是使用空格分隔
-    top_images = db.Column(db.String(100), default='')      # 热门图片的 id 列表，英文空格分隔
+    top_images = db.Column(db.String(500), default='')      # 热门图片的 id 列表，英文空格分隔
     images_num = db.Column(db.SmallInteger, default=0)    # 该店铺拥有的晒单评论相关图片数量，是一个缓存值
     gate_images = db.Column(db.String(100), default='')     # 店铺门脸展示图片的 id 列表，英文空格分隔
     data_source = db.Column(db.Unicode(500), default=u'')    # 本 POI 数据采集的原始网址
