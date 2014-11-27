@@ -285,7 +285,7 @@ def _get_images_code(images):
                      )
         else:
             image = (image.id, 
-                     u'自有' if image.name.find('youyoumm') >= 0 else u'',  # 图片文件名带有 youyoumm 字样的，是自己拍摄的有版权图片。
+                     u'自有' if image.name and image.name.find('youyoumm') >= 0 else u'',  # 图片文件名带有 youyoumm 字样的，是自己拍摄的有版权图片。
                      get_image_size(image), 
                      util.strip_image_note(image.note),
                      util.url_for(image.path), 
