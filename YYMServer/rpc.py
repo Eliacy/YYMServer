@@ -373,25 +373,23 @@ class UserList(Resource):
     @hmac_auth('api')
     def post(self):
         ''' 用户注册或创建新的匿名用户的接口。'''
-        user = None
         args = user_parser_detail.parse_args()
         mobile = args['mobile']
         password = args['password']
         device = args['device']
-        if mobile and password:
+        token = args['token']
+        # 以匿名用户作为默认选择：
+        anonymous = True
+        username = unicode(device)
+        # 根据输入数据中的 token 参数查询匿名用户
+        user = db.session.query(User).filter(User.valid == True).filter(User.anonymous == True).join(User.tokens).filter(Token.token == token).order_by(Token.id.desc()).first()
+        if mobile and password:     # 用户正在尝试注册非匿名用户
             has_same_mobile = db.session.query(User).filter(User.mobile == mobile).first()
             if has_same_mobile:
                 abort(409, message='This mobile number has been used by another user!')
             self._check_password(password)
             anonymous = False
             username = mobile
-        else:   # 匿名用户
-            anonymous = True
-            mobile = None
-            password = None
-            # 如果已经存在相同设备 id 的匿名账号，则直接用这个匿名账号登陆并返回 token ！
-            user = db.session.query(User).filter(User.valid == True).filter(User.anonymous == True).join(User.tokens).filter(Token.device == device).order_by(Token.id.desc()).first()
-            username = unicode(device)
         if user is None:
             user = User(valid = True,
                         anonymous = anonymous,
@@ -405,6 +403,17 @@ class UserList(Resource):
                         gender = args['gender'],
                        )
             db.session.add(user)
+            db.session.commit()
+        else:   # 将已有匿名用户账号重置为新注册的信息（匿名用户改为非匿名用户）
+            user.valid = True
+            user.anonymous = anonymous
+            user.update_time = datetime.datetime.now()
+            user.icon_id = args['icon']
+            user.name = args['name']    # name 为空时，Model 会自动生成默认的 name 和 icon
+            user.username = username
+            user.mobile = mobile
+            user.password = password
+            user.gender = args['gender']
             db.session.commit()
         self._delete_cache(user)
         # 注册后要调用登陆逻辑，返回用户 token 等。
@@ -483,6 +492,7 @@ class TokenList(Resource):
     @marshal_with(token_fields)
     def post(self):
         ''' 用户登陆接口。'''
+        # ToDo: 用户登录时，应当把登录前匿名用户的历史行为尽可能地迁移过来！
         args = login_parser.parse_args()
         user = db.session.query(User).filter(User.valid == True).filter(User.anonymous == False).filter(User.username == args['username']).first()
         if not user or not check_password_hash(user.password, args['password']):
