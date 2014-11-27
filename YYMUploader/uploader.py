@@ -148,7 +148,8 @@ def process_file(dir, filename):
             except Exception, e:
                 i += 1
                 if i >= 3:
-                    raise e
+                    logger.error(key_path + u':' + note + u': :' + unicode(e))
+                    print '#', e
             time.sleep(2)
 
 
