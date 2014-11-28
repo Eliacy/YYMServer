@@ -308,6 +308,8 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, default='')    # 登陆用用户名，App 端会是设备 id（匿名用户）或手机号（已注册用户）
     mobile = db.Column(db.String(120), unique=True)     # 用户手机号。注：由于设置了 unique ，所以未填本项的都保留为 null 。
     password = db.Column(db.String(80), default='')         # Hash 处理之后的登陆密码
+    em_username = db.Column(db.String(80), unique=True, default=None)    # 环信用户账号，通常是随机生成的 UUID 
+    em_password = db.Column(db.String(80), default=None)         # 环信用户密码的明文，通常也是随机生成的 UUID
     icon_id = db.Column(db.Integer, db.ForeignKey('image.id', use_alter=True, name='fk_icon'))     # 用户头像的图片 id
     icon = db.relationship('Image', foreign_keys=[icon_id], post_update=True)
     gender = db.Column(db.Unicode(10), default=u'未知')  # 用户填写的性别参数：男、女、未知

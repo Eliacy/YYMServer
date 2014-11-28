@@ -14,7 +14,7 @@ from flask.ext.hmacauth import hmac_auth
 
 from qiniu.auth import digest
 
-from YYMServer import app, db, cache, api, util, baseurl_share
+from YYMServer import app, db, cache, api, util, message, baseurl_share
 from YYMServer.models import *
 
 from flask.ext.restful.representations.json import output_json
@@ -292,6 +292,8 @@ user_fields = {
     'favorite_num': fields.Integer,      # 该用户收藏的店铺的数量，是一个缓存值
     'badges': fields.String,    # 用户拥有的徽章名称列表
     'followed': fields.Boolean,         # 当前 token 参数表示的用户是否关注了此用户（仅查询时指定了 id 参数时提供，否则都是 null）
+    'em_username': fields.String,   # 用户对应的环信账号用户名
+    'em_password': fields.String,   # 用户对应的环信账号密码
 }
 user_fields.update(user_fields_mini)
 
@@ -299,6 +301,17 @@ def _format_user(user):
     ''' 辅助函数：用于格式化 User 实例，用于接口输出。'''
     # 也会被 /rpc/tokens 接口使用
     user.icon_image = user.icon
+    return user
+
+def _prepare_msg_account(user):
+    ''' 辅助函数：检查 user 拥有的环信账号，如果没有则创建一个。'''
+    if not user.em_username or not user.em_password:
+        success, result, username, password = message.prepare_msg_account()
+        if not success:
+            abort(403, message='EaseMob account registration failed!')
+        else:
+            user.em_username = username
+            user.em_password = password
     return user
 
 
@@ -381,8 +394,8 @@ class UserList(Resource):
         # 以匿名用户作为默认选择：
         anonymous = True
         username = unicode(device)
-        # 根据输入数据中的 token 参数查询匿名用户
-        user = db.session.query(User).filter(User.valid == True).filter(User.anonymous == True).join(User.tokens).filter(Token.token == token).order_by(Token.id.desc()).first()
+        # 优先返回同一个设备上曾经注册过的匿名用户
+        user = db.session.query(User).filter(User.valid == True).filter(User.anonymous == True).join(User.tokens).filter(Token.device == device).order_by(Token.id.desc()).first()
         if mobile and password:     # 用户正在尝试注册非匿名用户
             has_same_mobile = db.session.query(User).filter(User.mobile == mobile).first()
             if has_same_mobile:
@@ -391,6 +404,9 @@ class UserList(Resource):
             anonymous = False
             username = mobile
         if user is None:
+            has_same_username = db.session.query(User).filter(User.username == username).first()
+            if has_same_username:
+                abort(409, message='The username has been used by another user! Please check mobile number & device id.')
             user = User(valid = True,
                         anonymous = anonymous,
                         create_time = datetime.datetime.now(),
@@ -402,6 +418,7 @@ class UserList(Resource):
                         password = password,        # 明文 password 会被 Model 自动加密保存
                         gender = args['gender'],
                        )
+            _prepare_msg_account(user)
             db.session.add(user)
             db.session.commit()
         else:   # 将已有匿名用户账号重置为新注册的信息（匿名用户改为非匿名用户）
@@ -414,11 +431,13 @@ class UserList(Resource):
             user.mobile = mobile
             user.password = password
             user.gender = args['gender']
+            _prepare_msg_account(user)
             db.session.commit()
         self._delete_cache(user)
+        _format_user(user)
         # 注册后要调用登陆逻辑，返回用户 token 等。
         token = _generate_token(user, device, args['token'], )
-        return {'id': user.id, 'token': token}, 201
+        return marshal({'user': user, 'token': token}, token_fields), 201
 
     @hmac_auth('api')
     def put(self):

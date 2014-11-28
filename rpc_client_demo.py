@@ -28,6 +28,7 @@ hasher = hmac.new("demo_secret", digestmod=hashlib.sha1, msg=path_and_query)
 sig = hasher.hexdigest()
 print 'sig:', sig
 resp = requests.get(host+path_and_query, headers={'X-Auth-Signature': sig})
+resp.encoding = 'utf-8'
 print resp
 print resp.text
 

@@ -18,7 +18,7 @@ from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
 from flask.ext.admin.model.ajax import DEFAULT_PAGE_SIZE
 from flask.ext import login
 
-from YYMServer import app, db, file_path, util
+from YYMServer import app, db, file_path, util, message
 from YYMServer.models import *
 
 
@@ -909,6 +909,21 @@ class UserView(MyModelView):
     before_update_follows_ids = []
     before_update_likes_ids = []
     before_update_favorites_ids = []
+
+    def on_model_change(self, form, model, is_created):
+        '''
+            创建新用户时建立对应的环信账号。
+        '''
+        if not model.em_username or not model.em_password:
+            success, result, username, password = message.prepare_msg_account()
+            if not success:
+                # ToDo: 这不是一个好的界面设计，最好还是能通过 flash 函数提示用户出错信息，并将用户跳转到信息提交前的界面。
+                raise validators.ValidationError(u'环信即时通讯账号创建失败！ %s' % unicode(result))
+                return False
+            else:
+                model.em_username = username
+                model.em_password = password
+        return super(UserView, self).on_model_change(form, model, is_created)
 
     def update_model(self, form, model):
         # 记录 model 修改前的计数相关取值

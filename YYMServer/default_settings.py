@@ -14,6 +14,11 @@ QINIU_ACCESS_KEY = 'SHOULD_REPLACE_TO_REAL_QINIU_ACCESS_KEY'
 QINIU_SECRET_KEY = 'SHOULD_REPLACE_TO_REAL_QINIU_SECRET_KEY'
 QINIU_BUCKET = 'youyoumm'
 QINIU_CALLBACK = 'http://rpc.youyoumm.com/rpc/images/call'
+# 环信 key：
+EASEMOB_ORG = 'easemob-playground'
+EASEMOB_APP = 'test1'
+EASEMOB_CLIENT_ID = 'YXA6wDs-MARqEeSO0VcBzaqg5A'
+EASEMOB_CLIENT_SECRET = 'YXA6JOMWlLap_YbI_ucz77j-4-mI0JA'
 # 设置静态文件（主要是图片）存储路径
 STATIC_FOLDER = 'files'
 # 数据库连接设置：

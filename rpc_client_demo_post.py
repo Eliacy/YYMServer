@@ -57,6 +57,7 @@ print 'sig:', sig
 
 #resp = requests.post(host+path, params=params, data=payload, headers={'X-Auth-Signature': sig})
 resp = requests.post(host+path, params=params, data=body, headers={'X-Auth-Signature': sig, 'Content-Type':'application/json'})
+resp.encoding = 'utf-8'
 #print resp.request.body
 print resp
 print resp.text
