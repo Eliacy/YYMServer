@@ -146,7 +146,7 @@ class ImageList(Resource):
         if image:
             image.valid = False
             db.session.commit()
-            return '', 204
+            return '', 200
         abort(404, message='Target Image do not exists!')
 
     @hmac_auth('api')
@@ -466,7 +466,7 @@ class UserList(Resource):
             db.session.commit()
             self._delete_cache(user)
             _format_user(user)
-            return marshal(user, user_fields), 201
+            return marshal(user, user_fields), 200
         abort(404, message='Target User do not exists!')
 
 api.add_resource(UserList, '/rpc/users')
@@ -1174,7 +1174,7 @@ class ReviewList(Resource):
             review.valid = False
             db.session.commit()
             self._count_reviews(review)
-            return '', 204
+            return '', 200
         abort(404, message='Target Review do not exists!')
 
     @hmac_auth('api')
@@ -1232,7 +1232,7 @@ class ReviewList(Resource):
             db.session.commit()
             _format_review(review, brief=0)
             self._count_reviews(review)
-            return marshal(review, review_fields), 201
+            return marshal(review, review_fields), 200
         abort(404, message='Target Review do not exists!')
 
 
@@ -1342,7 +1342,7 @@ class CommentList(Resource):
             comment.valid = False
             db.session.commit()
             self._count_comments(comment)
-            return '', 204
+            return '', 200
         abort(404, message='Target Comment do not exists!')
 
     @hmac_auth('api')
@@ -1380,7 +1380,7 @@ class CommentList(Resource):
             comment.content = args['content']
             db.session.commit()
             self._format_comment(comment)
-            return marshal(comment, comment_fields), 201
+            return marshal(comment, comment_fields), 200
         abort(404, message='Target Comment do not exists!')
 
 api.add_resource(CommentList, '/rpc/comments')
@@ -1419,7 +1419,7 @@ class FollowList(Resource):
             follow.fans.remove(fan)
             db.session.commit()
             self._count_follow_fans(follow, fan)
-        return '', 204
+        return '', 200
 
     @hmac_auth('api')
     def post(self):
@@ -1512,7 +1512,7 @@ class LikeList(Resource):
             user.likes.remove(review)
             db.session.commit()
             self._count_likes(user, review)
-        return '', 204
+        return '', 200
 
     @hmac_auth('api')
     def post(self):
@@ -1599,7 +1599,7 @@ class FavoriteList(Resource):
             user.favorites.remove(site)
             db.session.commit()
             self._count_favorites(user, site)
-        return '', 204
+        return '', 200
 
     @hmac_auth('api')
     def post(self):
