@@ -918,7 +918,7 @@ class UserView(MyModelView):
             success, result, username, password = message.prepare_msg_account()
             if not success:
                 # ToDo: 这不是一个好的界面设计，最好还是能通过 flash 函数提示用户出错信息，并将用户跳转到信息提交前的界面。
-                raise validators.ValidationError(u'环信即时通讯账号创建失败！ %s' % unicode(result))
+                raise validators.ValidationError(U'Registration on EaseMob failed! %s' % unicode(result))
                 return False
             else:
                 model.em_username = username

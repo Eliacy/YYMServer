@@ -1063,14 +1063,14 @@ def _format_review(review, brief=None):
 
 def _format_review_like(reviews, token):
     ''' 辅助函数：用于在 Review 实例中，插入当前 token 对应用户是否喜欢它的信息。'''
+    like_dic = {}
     if token:        # ToDo：这里查询喜欢关系使用的是数据库查询，存在性能风险！
         query = db.session.query(Review.id).filter(Review.valid == True).join(Review.fans).join(Token, User.id == Token.user_id).filter(Token.token == token).filter(Review.id.in_([review.id for review in reviews]))
-        like_dic = {}
         for review_id in query:
             like_dic[review_id[0]] = True
-        for review in reviews:
-            review.liked = like_dic.get(review.id, False)
-    return review
+    for review in reviews:
+        review.liked = like_dic.get(review.id, False)
+    return reviews
 
 
 class ReviewList(Resource):
