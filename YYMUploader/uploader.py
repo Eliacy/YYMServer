@@ -131,7 +131,10 @@ def process_file(dir, filename):
         key_path = os.path.join(dir, filename)
         if history_dic.has_key(key_path):
             return False
-        print '-', u'发现新图片：', key_path
+        print '-', u'发现新图片：', key_path.encode(default_encoding, 'ignore')
+        if key_path != key_path.encode(default_encoding, 'ignore').decode(default_encoding):
+        	print '*', u'该文件名中存在无法处理的特殊字符，请修改其文件名后重新执行本工具上传！'
+        	return False
         i = 0
         while i < 3:
             try:
