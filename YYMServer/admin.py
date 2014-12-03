@@ -754,14 +754,14 @@ class AreaView(TagAlikeView):
     column_searchable_list = ('name',)
     column_filters = ['id', 'valid', 'order', 'city_id', 'parent_id',
                       ] + list(column_searchable_list)
-    form_create_rules = ('city', 'parent', 'valid', 'order', 'name', 'longitude', 'latitude', 'children', 
+    form_create_rules = ('city', 'parent', 'children', 'valid', 'order', 'name', 'longitude', 'latitude', 
                         )
     form_edit_rules = form_create_rules
     form_ajax_refs = {
         'city': {
             'fields': (City.id, City.name,)
         },
-        'site': IlikeQueryAjaxModelLoader('site', db.session, Site, 
+        'sites': IlikeQueryAjaxModelLoader('sites', db.session, Site, 
             fields = [Site.id, Site.code, Site.name, Site.name_orig]
         ),
         'parent': {
@@ -774,11 +774,14 @@ class CategoryView(TagAlikeView):
     column_searchable_list = ('name',)
     column_filters = ['id', 'valid', 'order', 'parent_id',
                       ] + list(column_searchable_list)
+    form_create_rules = ('parent', 'children', 'valid', 'order', 'name', 
+                        )
+    form_edit_rules = form_create_rules
     form_ajax_refs = {
         'parent': {
             'fields': (Category.id, Category.name)
         },
-        'site': IlikeQueryAjaxModelLoader('site', db.session, Site, 
+        'sites': IlikeQueryAjaxModelLoader('sites', db.session, Site, 
             fields = [Site.id, Site.code, Site.name, Site.name_orig]
         ),
     }
@@ -794,7 +797,7 @@ class BrandView(MyModelView):
         'update_user': {
             'fields': (User.id,)
         },
-        'site': IlikeQueryAjaxModelLoader('site', db.session, Site, 
+        'sites': IlikeQueryAjaxModelLoader('sites', db.session, Site, 
             fields = [Site.id, Site.code, Site.name, Site.name_orig]
         ),
     }
