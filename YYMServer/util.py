@@ -130,7 +130,7 @@ def gen_upload_token(callback_dic):
     ''' 辅助函数：面向 callback 上传图片场景生成七牛 token。'''
     policy = qiniu.rs.PutPolicy(qiniu_bucket)
     policy.callbackUrl = qiniu_callback
-    policy.callbackBody = '&'.join(('='.join((key, value)) for key, value in callback_dic.items()))
+    policy.callbackBody = '&'.join(('='.join((key, value if type(value) in (unicode, str) else unicode(value))) for key, value in callback_dic.items()))
     return policy.token()
 
 def get_image_size(file_path):
