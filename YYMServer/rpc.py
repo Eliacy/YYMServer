@@ -585,6 +585,7 @@ city_fields = {
     'order': fields.Integer,
     'longitude': fields.Float,
     'latitude': fields.Float,
+    'timezone': fields.String,  # 城市对应的时区，例如 America/New_York 。
 }
 
 nested_city_fields = {
@@ -2008,6 +2009,49 @@ class MessageUnreadList(Resource):
         return self._get(args['user'], args['thread'])
 
 api.add_resource(MessageUnreadList, '/rpc/messages/unread')
+
+
+# 天气预报接口：
+forecast_parser = reqparse.RequestParser()         
+forecast_parser.add_argument('city', type=long, required=True)     # 获取此城市的天气预报信息
+
+datapoint_fields = {
+    'time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'weekday': fields.String,   # 对应日期的星期中文缩写
+    'low': fields.Integer,  # 最低温度（摄氏）
+    'high': fields.Integer,     # 最高温度（摄氏）
+    'conditions': fields.String,    # 天气情况的中文说明
+    'type_name': fields.String,     # 天气类别的英文名称
+    'type_id': fields.Integer,  # 天气类别的 id
+}
+
+forecast_fields = {
+    'city': fields.Nested(city_fields),
+    'forecast': fields.List(fields.Nested(datapoint_fields)),
+}
+
+
+class ForecastList(Resource):
+    '''获取指定城市的天气预报信息，含每小时数据和10天的每日数据。'''
+
+    def __repr__(self):
+        '''由于 cache.memoize 读取函数参数时，也读取了 self ，因此本类的实例也会被放入 key 的生成过程。
+        于是为了函数缓存能够生效，就需要保证 __repr__ 每次提供一个不变的 key。
+        '''
+        return '%s' % self.__class__.__name__
+
+    @cache.memoize()
+    def _get(self, id=None):
+        return
+
+    @hmac_auth('api')
+    @marshal_with(forecast_fields)
+    def get(self):
+        args = id_parser.parse_args()
+        id = args['id']
+        return self._get(id)
+
+api.add_resource(ForecastList, '/rpc/forecasts')
 
 
 # ==== json 网络服务样例 ====

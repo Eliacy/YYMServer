@@ -109,7 +109,7 @@ class City(db.Model):   # 城市
     name = db.Column(db.Unicode(20), default=u'')    # 城市名称
     longitude = db.Column(Real, default=0.0)     # 城市中心点，经度
     latitude = db.Column(Real, default=0.0)      # 城市中心点，纬度
-    # ToDo: 这里需要一个用于查询天气的唯一代码的字段！
+    timezone = db.Column(db.String(20), default='')     # 城市对应的时区，用于决定天气预报数据更新时间
     country_id = db.Column(db.Integer, db.ForeignKey('country.id'))
     country = db.relationship('Country', backref=db.backref('cities', lazy='dynamic'), foreign_keys=[country_id])
 
@@ -131,6 +131,17 @@ class Area(db.Model):   # 商区
 
     def __unicode__(self):
         return u'<Area [%d] %s>' % (self.id, self.name)
+
+
+class Forecast(db.Model):   # 天气预报
+    id = db.Column(db.Integer, primary_key=True)
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'))
+    city = db.relationship('City', backref=db.backref('forecasts', lazy='dynamic'), foreign_keys=[city_id])
+    update_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
+    data = db.Column(db.UnicodeText)     # 天气预报信息的具体 json 数据
+
+    def __unicode__(self):
+        return u'<Forecast [%d] %s>' % (self.id, '' if not self.city else self.city.name)
 
 
 class Brand(db.Model):   # 品牌

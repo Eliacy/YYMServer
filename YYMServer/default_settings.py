@@ -19,6 +19,8 @@ EASEMOB_ORG = 'easemob-playground'
 EASEMOB_APP = 'test1'
 EASEMOB_CLIENT_ID = 'YXA6wDs-MARqEeSO0VcBzaqg5A'
 EASEMOB_CLIENT_SECRET = 'YXA6JOMWlLap_YbI_ucz77j-4-mI0JA'
+# 天气 key：
+WEATHER_KEY_WU = 'SHOULD_REPLACE_TO_REAL_WUNDERGROUND_WEATHER_KEY'
 # 设置静态文件（主要是图片）存储路径
 STATIC_FOLDER = 'files'
 # 数据库连接设置：

@@ -10,11 +10,11 @@ sys.path.insert(0, '/var/www/youyoumm/lib/python2.7/site-packages')
 sys.path.insert(0, '/var/www/youyoumm/YYMServer/flask-hmacauth')
 sys.path.insert(0, '/var/www/youyoumm/YYMServer')
 
-from flup.server.fcgi import WSGIServer
-from YYMServer import app
+from YYMServer import forecast
 
-# 注意：需要给这个 fcgi 文件用 chmod +x 指令赋予可执行权限！
+# 建议设定的 cron 执行时间为每小时的第 7 分钟左右：
+# 7 * * * *
 if __name__ == '__main__':
-    WSGIServer(app).run()
+    forecast.check_update()
 
 
