@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import json
-import time
+import time, datetime
 
+import pytz
 from sqlalchemy import func, desc
 from sqlalchemy.orm import aliased
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -14,7 +15,7 @@ from flask.ext.hmacauth import hmac_auth
 
 from qiniu.auth import digest
 
-from YYMServer import app, db, cache, api, util, message, baseurl_share
+from YYMServer import app, db, cache, api, util, message, baseurl_share, tz_server
 from YYMServer.models import *
 
 from flask.ext.restful.representations.json import output_json
@@ -2018,8 +2019,9 @@ forecast_parser.add_argument('city', type=long, required=True)     # 获取此�
 datapoint_fields = {
     'time': util.DateTime,    # RFC822-formatted datetime string in UTC
     'weekday': fields.String,   # 对应日期的星期中文缩写
-    'low': fields.Integer,  # 最低温度（摄氏）
-    'high': fields.Integer,     # 最高温度（摄氏）
+    'temp': fields.Integer,  # 当前温度（摄氏），每日天气数据中没有这一项
+    'low': fields.Integer,  # 最低温度（摄氏），当前时刻天气数据中没有这一项
+    'high': fields.Integer,     # 最高温度（摄氏），当前时刻天气数据中没有这一项
     'conditions': fields.String,    # 天气情况的中文说明
     'type_name': fields.String,     # 天气类别的英文名称
     'type_id': fields.Integer,  # 天气类别的 id
@@ -2027,7 +2029,8 @@ datapoint_fields = {
 
 forecast_fields = {
     'city': fields.Nested(city_fields),
-    'forecast': fields.List(fields.Nested(datapoint_fields)),
+    'current': fields.Nested(datapoint_fields),     # 当前的实时（其实是每小时）天气情况
+    'forecasts': fields.List(fields.Nested(datapoint_fields)),   # 7天的每天天气情况
 }
 
 
@@ -2040,16 +2043,79 @@ class ForecastList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
+    def _format_datapoint(self, datapoint, timezone):
+        '''将天气信息解析为接口需要输出的格式。'''
+        result = {}
+        if datapoint.has_key('FCTTIME'):    # hourly
+            fcttime = datapoint['FCTTIME'] 
+            result['time'] = datetime.datetime(year=int(fcttime['year']),
+                                               month=int(fcttime['mon']),
+                                               day=int(fcttime['mday']),
+                                               hour=int(fcttime['hour']),
+                                               minute=int(fcttime['min']),
+                                               second=int(fcttime['sec']),
+                                              )
+            result['weekday'] = fcttime['weekday_name_abbrev']
+            result['conditions'] = datapoint['condition']
+        elif datapoint.has_key('date'):     # daily
+            fcttime = datapoint['date'] 
+            result['time'] = datetime.datetime(year=int(fcttime['year']),
+                                               month=int(fcttime['month']),
+                                               day=int(fcttime['day']),
+                                               hour=int(fcttime['hour']),
+                                               minute=int(fcttime['min']),
+                                               second=int(fcttime['sec']),
+                                              )
+            result['weekday'] = fcttime['weekday_short']
+            result['conditions'] = datapoint['conditions']
+        result['time'] = timezone.localize(result['time'])
+        result['temp'] = None if not datapoint.has_key('temp') else datapoint['temp']['metric']
+        result['low'] = None if not datapoint.has_key('low') else datapoint['low']['celsius']
+        result['high'] = None if not datapoint.has_key('high') else datapoint['high']['celsius']
+        result['type_name'] = datapoint['icon']
+        result['type_id'] = conditions_dic.get(result['type_name'], 0)
+        return result
+
     @cache.memoize()
-    def _get(self, id=None):
-        return
+    def _get(self, city_id=None):
+        now = tz_server.localize(datetime.datetime.now())
+        city = db.session.query(City).filter(City.valid == True).filter(City.id == city_id).first()
+        if city is None:
+            abort(404, message='This is not a valid city id!')
+        local_tz = '' if not city else city.timezone
+        timezone = pytz.timezone(local_tz)
+        dt = timezone.normalize(now)
+        print dt
+        result = {'city': city}
+        forecast = db.session.query(Forecast).filter(Forecast.city_id == city_id).order_by(Forecast.id.desc()).first()
+        if forecast:
+            data = forecast.data
+            dic = json.loads(data)
+            hourly_list = dic['hourly_forecast']
+            result['current'] = self._format_datapoint(hourly_list[0], timezone)
+            for hourly in hourly_list:
+                datapoint = self._format_datapoint(hourly, timezone)
+                begin_time = datapoint['time']
+                if begin_time <= dt and dt <= begin_time + datetime.timedelta(hours=1):
+                    result['current'] = datapoint
+                    break
+            forecasts = []
+            for daily in dic['forecast']['simpleforecast']['forecastday']:
+                datapoint = self._format_datapoint(daily, timezone)
+                begin_time = datapoint['time']
+                if begin_time.date() >= dt.date():
+                    forecasts.append(datapoint)
+                if len(forecasts) >= 7:
+                    break
+            result['forecasts'] = forecasts
+        return result
 
     @hmac_auth('api')
     @marshal_with(forecast_fields)
     def get(self):
-        args = id_parser.parse_args()
-        id = args['id']
-        return self._get(id)
+        args = forecast_parser.parse_args()
+        city_id = args['city']
+        return self._get(city_id)
 
 api.add_resource(ForecastList, '/rpc/forecasts')
 

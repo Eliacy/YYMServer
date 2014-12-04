@@ -71,6 +71,48 @@ CHINESE_MONTHS = {1: u'一月',
                   11: u'十一月',
                   12: u'十二月',
                   }
+# 天气情况的全集参考：http://www.wunderground.com/weather/api/d/docs?d=resources/icon-sets
+CONDITIONS = {
+              1:'chanceflurries',   # 可能小雪
+              2:'chancerain',   # 可能有雨
+              3:'chancesleet',  # 可能雨夹雪
+              4:'chancesnow',   # 可能下雪
+              5:'chancetstorms',    # 可能暴雨
+              6:'clear',    # 晴天
+              7:'cloudy',   # 阴天
+              8:'flurries',     # 小雪
+              9:'fog',      # 雾
+              10:'hazy',     # 雾霾
+              11:'mostlycloudy',     # 多云
+              12:'mostlysunny',      # 大部晴朗
+              13:'partlycloudy',     # 晴间多云
+              14:'partlysunny',      # 部分晴朗
+              15:'rain',     # 中雨
+              16:'sleet',    # 雨夹雪
+              17:'snow',     # 中雪
+              18:'sunny',    # 晴朗
+              19:'tstorms',  # 暴风雨
+              101:'nt_chanceflurries',    # 夜间可能小雪
+              102:'nt_chancerain',    # 夜间可能有雨
+              103:'nt_chancesleet',   # 夜间雨夹雪
+              104:'nt_chancesnow',    # 夜间可能下雪
+              105:'nt_chancetstorms',     # 夜间可能暴雨
+              106:'nt_clear',     # 夜间晴天
+              107:'nt_cloudy',    # 夜间阴天
+              108:'nt_flurries',  # 夜间小雪
+              109:'nt_fog',       # 夜间有雾
+              110:'nt_hazy',      # 夜间雾霾
+              111:'nt_mostlycloudy',  # 夜间多云
+              112:'nt_mostlysunny',   # 夜间大部晴朗
+              113:'nt_partlycloudy',  # 夜间晴间多云
+              114:'nt_partlysunny',   # 夜间部分晴朗
+              115:'nt_rain',      # 夜间中雨
+              116:'nt_sleet',     # 夜间雨夹雪
+              117:'nt_snow',      # 夜间中雪
+              118:'nt_sunny',     # 夜间晴朗
+              119:'nt_tstorms',   # 夜间暴风雨
+              }
+conditions_dic = dict([(value, key) for key, value in CONDITIONS.items()])
 
 
 class TextLib(db.Model):   # 供替换用的文本库
@@ -138,7 +180,7 @@ class Forecast(db.Model):   # 天气预报
     city_id = db.Column(db.Integer, db.ForeignKey('city.id'))
     city = db.relationship('City', backref=db.backref('forecasts', lazy='dynamic'), foreign_keys=[city_id])
     update_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
-    data = db.Column(db.UnicodeText)     # 天气预报信息的具体 json 数据
+    data = db.Column(db.UnicodeText(262144))     # 天气预报信息的具体 json 数据 （允许 256k 数据，以支持 hourly 和 forecast10days 数据同时存储）
 
     def __unicode__(self):
         return u'<Forecast [%d] %s>' % (self.id, '' if not self.city else self.city.name)

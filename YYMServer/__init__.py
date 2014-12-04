@@ -3,6 +3,8 @@
 import os, os.path
 from cStringIO import StringIO
 
+import pytz
+
 from flask import Flask
 from flask.ext.cache import Cache
 from flask.ext.sqlalchemy import SQLAlchemy
@@ -11,6 +13,9 @@ from flask.ext.hmacauth import DictAccountBroker, HmacManager
 
 import qiniu.conf
 
+
+# 服务器时区应全部设置为中国时区：
+tz_server = pytz.timezone('Asia/Shanghai')
 
 # 准备配置文件
 app = Flask(__name__)

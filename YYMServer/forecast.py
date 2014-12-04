@@ -7,15 +7,14 @@ import time
 import pytz
 import requests
 
-from YYMServer import app, db
+from YYMServer import app, db, tz_server
 from YYMServer.models import City, Forecast
 
 wu_key = app.config['WEATHER_KEY_WU']
 
 def check_update():
     ''' 本脚本需要每小时定时执行，以便保证数据库中的天气数据能够得到及时更新。'''
-    tz_cn = pytz.timezone('Asia/Shanghai')
-    now = tz_cn.localize(datetime.datetime.now())
+    now = tz_server.localize(datetime.datetime.now())
     today = now.date()
     for city in db.session.query(City).all():
         if city.timezone:
@@ -26,13 +25,13 @@ def check_update():
             # 检查是否已经抓取过“今天”的数据：
             forecast = db.session.query(Forecast).filter(Forecast.city_id == city.id).order_by(Forecast.id.desc()).first()
             if forecast:
-                previous_fetch = timezone.normalize(tz_cn.localize(forecast.update_time))
+                previous_fetch = timezone.normalize(tz_server.localize(forecast.update_time))
                 if previous_fetch.date() == dt.date():
                     continue
         # timezone 为空或者通过时间点及数据是否已存在检查时，连网抓取天气预报数据：
         if not city.longitude or not city.latitude:
             continue
-        api_url = 'http://api.wunderground.com/api/%s/forecast10day/lang:CN/q/%f,%f.json' % (wu_key, city.latitude, city.longitude)
+        api_url = 'http://api.wunderground.com/api/%s/hourly/forecast10day/lang:CN/q/%f,%f.json' % (wu_key, city.latitude, city.longitude)
         try:
             resp = requests.get(api_url)
             resp.encoding = 'utf-8'

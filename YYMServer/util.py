@@ -15,7 +15,7 @@ from flask.ext.restful import fields
 import qiniu.rs
 import qiniu.io
 
-from YYMServer import db, cache, qiniu_bucket, qiniu_callback
+from YYMServer import db, cache, qiniu_bucket, qiniu_callback, tz_server
 from YYMServer.models import *
 
 
@@ -251,7 +251,6 @@ def strip_image_note(note):
         ending = note.split(']')[-1]
     return leading + ending
 
-tz_cn = pytz.timezone('Asia/Shanghai')
 
 class DateTime(fields.DateTime):
     """Return a RFC822-formatted datetime string in UTC"""
@@ -259,7 +258,7 @@ class DateTime(fields.DateTime):
     def format(self, value):
         """数据库默认认为以 'Asia/Shanghai' 时区存储，在输出时做转换。"""
         try:
-            dt = tz_cn.localize(value)
+            dt = tz_server.localize(value) if value.tzinfo == None else value
             return formatdate(timegm(dt.utctimetuple()))
         except AttributeError as ae:
             raise fields.MarshallingException(ae)
