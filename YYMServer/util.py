@@ -42,7 +42,7 @@ def replace_textlib(text):
     ''' 辅助函数：检查输入的 text 数据是否匹配 TextLib 替换代码，如果是则替换后返回。'''
     return textlib_re.sub(_replace_textlib, text)
 
-def format_site(site, brief=True):
+def format_site(site):
     ''' 为了 API 输出及缓存需要，对原始 Site object 的数据格式进行调整。'''
     if site == None:
         return None
@@ -65,12 +65,12 @@ def format_site(site, brief=True):
     if site.top_images:
         site.valid_top_images = get_images(site.top_images)
     site.valid_top_images = site.valid_top_images[:5]
-    if not brief:
-        site.valid_gate_images = []
-        if site.gate_images:
-            site.valid_gate_images = get_images(site.gate_images)
-        site.valid_gate_images = site.valid_gate_images[:1]
-        site.valid_categories = [category.name for category in site.categories if category.parent_id != None]
+    # 永远按照详情页的需要格式化 site 信息：
+    site.valid_gate_images = []
+    if site.gate_images:
+        site.valid_gate_images = get_images(site.gate_images)
+    site.valid_gate_images = site.valid_gate_images[:1]
+    site.valid_categories = [category.name for category in site.categories if category.parent_id != None]
     return site
 
 def parse_textstyle(content):

@@ -740,6 +740,31 @@ def _get_area_subtree_ids(area_id):
     ''' 辅助函数：对指定 area_id ，获取其自身及其所有层级子节点的 id。'''
     return util.get_self_and_children(Area, area_id)
 
+def _get_info_sites(site_ids):
+    ''' 根据输入的 POI id，从缓存中获取对应的详情信息。'''
+    result = []
+    uncached_ids = []
+    for site_id in site_ids:
+        key = 'one_site_%d' % site_id
+        site = cache.get(key)
+        if site:
+            result.append(site)
+        else:
+            result.append(site_id)
+            uncached_ids.append(site_id)
+    if uncached_ids:
+        tmp_dic = {}
+        for site in db.session.query(Site).filter(Site.valid == True).filter(Site.id.in_(uncached_ids)):
+            formated_site = util.format_site(site)
+            key = 'one_site_%d' % site.id
+            cache.set(key, formated_site)
+            tmp_dic[site.id] = formated_site
+        for i in range(len(result)):
+            if type(result[i]) == Site:
+                continue
+            result[i] = tmp_dic[result[i]]
+    return result
+
 # ToDo: 欠一个搜索关键字推荐接口！
 class SiteList(Resource):
     '''“附近”搜索功能对应的 POI 列表获取。'''
@@ -751,10 +776,11 @@ class SiteList(Resource):
 
     @cache.memoize()
     def _get(self, brief=None, id=None, keywords=None, area=None, city=None, range=None, category=None, order=None, geohash=None):
+        ''' 本函数实际上只是根据搜索条件，给出搜索结果对应的 POI id 序列。详细属性需要通过 _get_info_sites 函数读取，以减小缓存提及。'''
         # ToDo: Site 表中各计数缓存值的数据没有做动态更新，例如晒单评论数！
         if not area and (range == None or range == 0):
             range = 5   # ToDo: 如果商圈和 range 都没有设置，表示智能范围（注意：range 为 -1 时表示全城搜索）。这里暂时只是把搜索范围置成5公里了。
-        query = db.session.query(Site).filter(Site.valid == True)
+        query = db.session.query(Site.id).filter(Site.valid == True)
         if order:
             if order == 1:      # 距离最近：
                 pass
@@ -786,9 +812,7 @@ class SiteList(Resource):
                                      Site.address.ilike(u'%{}%'.format(keyword)) |
                                      Site.address_orig.ilike(u'%{}%'.format(keyword)) 
                                     )
-        result = []
-        for site in query:
-            result.append(util.format_site(site, brief))
+        result = map(lambda x: x[0], query.all())
         return result
 
     @hmac_auth('api')
@@ -808,6 +832,8 @@ class SiteList(Resource):
         limit = args['limit']
         if limit:
             result = result[:limit]
+        # 读取具体的 site 信息详情：
+        result = _get_info_sites(result)
         # 提取 favorite 关系：
         if not brief:
             token = args['token']
@@ -1567,14 +1593,13 @@ class FavoriteList(Resource):
     @cache.memoize()
     def _get(self, user=None):
         brief = 1
-        query = db.session.query(Site).filter(Site.valid == True)
+        query = db.session.query(Site.id).filter(Site.valid == True)
         query = query.join(favorites, Site.id == favorites.columns.site_id)
         query = query.join(User).filter(User.id == favorites.columns.user_id)
         query = query.filter(User.id == user)
         query = query.order_by(favorites.columns.action_time.desc())
-        result = []
-        for site in query:
-            result.append(util.format_site(site, brief))
+        result = map(lambda x: x[0], query.all())
+        result = _get_info_sites(result)
         return result
 
     @hmac_auth('api')
@@ -1708,13 +1733,19 @@ class ShareList(Resource):
             content_list = util.parse_textstyle(util.replace_textlib(article.content))
             text_list = filter(lambda x: x['class'] == 'text', content_list)
             share.description = u'' if len(text_list) == 0 else text_list[0]['content']
-        elif share.site:
-            site = share.site
-            share.valid_site = util.format_site(site)
+        elif share.site_id:
+            valid_sites_list = _get_info_sites([share.site_id])
+            valid_site = None if not valid_sites_list else valid_sites_list[0]
+            share.valid_site = valid_site
             share.url = baseurl_share + '/sites/' + share.token
-            share.image = site.logo
-            share.title = site.name
-            share.description = site.description
+            if valid_site == None:
+                share.image = None
+                share.title = u''
+                share.description = u''
+            else:
+                share.image = valid_site.logo_image
+                share.title = valid_site.name
+                share.description = valid_site.description
         elif share.review:
             review = share.review
             share.valid_review = _format_review(review, brief = True)
