@@ -73,6 +73,34 @@ def format_site(site):
     site.valid_categories = [category.name for category in site.categories if category.parent_id != None]
     return site
 
+def get_info_sites(site_ids):
+    ''' 根据输入的 POI id，从缓存中获取对应的详情信息。'''
+    cached_result = []
+    uncached_ids = []
+    for site_id in site_ids:
+        key = 'one_site_%d' % site_id
+        site = cache.get(key)
+        if site:
+            cached_result.append(site)
+        else:
+            cached_result.append(site_id)
+            uncached_ids.append(site_id)
+    if uncached_ids:
+        tmp_dic = {}
+        for site in db.session.query(Site).filter(Site.valid == True).filter(Site.id.in_(uncached_ids)):
+            formated_site = format_site(site)
+            key = 'one_site_%d' % site.id
+            cache.set(key, formated_site)
+            tmp_dic[site.id] = formated_site
+    result = []
+    for item in cached_result:
+        if type(item) == Site:
+            result.append(item)
+            continue
+        if tmp_dic.has_key(item):
+            result.append(tmp_dic[item])
+    return result
+
 def parse_textstyle(content):
     ''' 辅助函数：解析富媒体长文本，由类 Wiki 标记转化为结构化的数据结构。'''
     content = (content or '').strip()
@@ -92,7 +120,8 @@ def parse_textstyle(content):
             if type == 'image' and id.isdigit():   # 图片
                 entry = {'class': 'image', 'content': db.session.query(Image).filter(Image.valid == True).filter(Image.id == int(id)).first()}
             elif type == 'site' and id.isdigit():  # POI
-                entry = {'class': 'site', 'content': format_site(db.session.query(Site).filter(Site.valid == True).filter(Site.id == int(id)).first())}
+                formated_sites_list = get_info_sites([long(id)])
+                entry = {'class': 'site', 'content': None if not formated_sites_list else formated_sites_list[0]}
         elif line.strip() == u'***':        # 水平分隔线
             entry = {'class': 'hline', 'content': ''}
         if entry == None:       # 普通文本
