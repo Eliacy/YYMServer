@@ -19,6 +19,51 @@ from YYMServer import db, cache, qiniu_bucket, qiniu_callback, tz_server
 from YYMServer.models import *
 
 
+def get_info_ids(model_class, ids, format_func = None, valid_only = True):
+    ''' 根据输入的 id，从缓存中获取对应 model 实例的详情信息。'''
+    key_template = 'one_' + model_class.__tablename__ + '_%d'
+    has_valid_column = True if model_class.__tablename__ + '.valid' in model_class.__table__.columns else False
+    cached_result = []
+    uncached_ids = []
+    for id in ids:
+        key = key_template % id
+        obj = cache.get(key)
+        if obj:
+            if valid_only and has_valid_column and not obj.valid:
+                continue
+            cached_result.append(obj)
+        else:
+            cached_result.append(id)
+            uncached_ids.append(id)
+    tmp_dic = {}
+    if uncached_ids:
+        query = db.session.query(model_class).filter(model_class.id.in_(uncached_ids))
+        if valid_only and has_valid_column:
+            query = query.filter(model_class.valid == True)
+        for obj in query.all():
+            if format_func != None:
+                obj = format_func(obj)
+            key = key_template % obj.id
+            cache.set(key, obj)
+            tmp_dic[obj.id] = obj
+    result = []
+    for item in cached_result:
+        if isinstance(item, model_class):
+            result.append(item)
+            continue
+        if tmp_dic.has_key(item):
+            result.append(tmp_dic[item])
+    return result
+
+def update_cache(model, format_func = None):
+    ''' 将单个 model 实例放入缓存。通常用于 post 和 put 操作数据的保存。'''
+    model_class = model.__class__
+    key_template = 'one_' + model_class.__tablename__ + '_%d'
+    key = key_template % model.id
+    if format_func != None:
+        model = format_func(model)
+    cache.set(key, model)
+
 textlib_re = re.compile(r'(\{\{text:\d+(|#.*?)\}\})')
 
 @cache.memoize()
@@ -41,6 +86,12 @@ def _replace_textlib(textlib_match):
 def replace_textlib(text):
     ''' 辅助函数：检查输入的 text 数据是否匹配 TextLib 替换代码，如果是则替换后返回。'''
     return textlib_re.sub(_replace_textlib, text)
+
+def format_user(user):
+    ''' 辅助函数：用于格式化 User 实例，用于接口输出。'''
+    # 也会被 /rpc/tokens 接口使用
+    user.icon_image = user.icon
+    return user
 
 def format_site(site):
     ''' 为了 API 输出及缓存需要，对原始 Site object 的数据格式进行调整。'''
@@ -75,31 +126,7 @@ def format_site(site):
 
 def get_info_sites(site_ids):
     ''' 根据输入的 POI id，从缓存中获取对应的详情信息。'''
-    cached_result = []
-    uncached_ids = []
-    for site_id in site_ids:
-        key = 'one_site_%d' % site_id
-        site = cache.get(key)
-        if site:
-            cached_result.append(site)
-        else:
-            cached_result.append(site_id)
-            uncached_ids.append(site_id)
-    if uncached_ids:
-        tmp_dic = {}
-        for site in db.session.query(Site).filter(Site.valid == True).filter(Site.id.in_(uncached_ids)):
-            formated_site = format_site(site)
-            key = 'one_site_%d' % site.id
-            cache.set(key, formated_site)
-            tmp_dic[site.id] = formated_site
-    result = []
-    for item in cached_result:
-        if type(item) == Site:
-            result.append(item)
-            continue
-        if tmp_dic.has_key(item):
-            result.append(tmp_dic[item])
-    return result
+    return get_info_ids(Site, site_ids, format_func = format_site)
 
 def parse_textstyle(content):
     ''' 辅助函数：解析富媒体长文本，由类 Wiki 标记转化为结构化的数据结构。'''
@@ -300,12 +327,14 @@ def diff_list(old, new):
 
 def count_follow_fans(follows, fans):
     ''' 辅助函数，对交互行为涉及的用户账号，重新计算其 follow_num 和 fans_num 。'''
-    # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
     for follow in follows:
         follow.fans_num = follow.fans.filter(User.valid == True).count()
+        db.session.commit()
+        update_cache(follow, format_func = format_user)
     for fan in fans:
         fan.follow_num = fan.follows.filter(User.valid == True).count()
-    db.session.commit()
+        db.session.commit()
+        update_cache(fan, format_func = format_user)
 
 def count_likes(users, reviews):
     ''' 辅助函数，对喜欢行为涉及的用户账号和晒单评论，重新计算其 like_num 。'''

@@ -298,11 +298,9 @@ user_fields = {
 }
 user_fields.update(user_fields_mini)
 
-def _format_user(user):
-    ''' 辅助函数：用于格式化 User 实例，用于接口输出。'''
-    # 也会被 /rpc/tokens 接口使用
-    user.icon_image = user.icon
-    return user
+def _get_info_users(user_ids, valid_only = True):
+    ''' 辅助函数：提取指定 id 的用户属性详情，并使用缓存。'''
+    return util.get_info_ids(User, user_ids, format_func = util.format_user, valid_only = valid_only)
 
 def _prepare_msg_account(user):
     ''' 辅助函数：检查 user 拥有的环信账号，如果没有则创建一个。'''
@@ -324,11 +322,6 @@ class UserList(Resource):
         '''
         return '%s' % self.__class__.__name__
 
-    def _delete_cache(self, model):
-        ''' 辅助函数：清除指定 user 的缓存数据。'''
-        # ToDo: 其实这里是有问题的。Review 和 Comment 会内嵌显示 user 的概要信息，user 属性改了之后这里没有要求清空 Review 和 Comment 的缓存。
-        cache.delete_memoized(self._get, self, model.id, None, None)
-
     def _delete_follow_cache(self, follow, fan):
         ''' 辅助函数：清除指定 follow 和 fan 的缓存数据。'''
         follow_id = 0 if not follow else follow.id
@@ -348,17 +341,16 @@ class UserList(Resource):
         # 当指定用户 id 进行查询时，即使该用户 valid 为 False，也仍然给出详细信息。
         result = []
         if id:
-            query = db.session.query(User).filter(User.id == id)
+            query = db.session.query(User.id).filter(User.id == id)
             result = query.all()
         elif follow:
             Main_User = aliased(User)
-            query = db.session.query(User).filter(User.valid == True).join(fans, User.id == fans.columns.fan_id).join(Main_User, fans.columns.user_id == Main_User.id).filter(Main_User.id == follow).order_by(fans.columns.action_time.desc())
+            query = db.session.query(User.id).filter(User.valid == True).join(fans, User.id == fans.columns.fan_id).join(Main_User, fans.columns.user_id == Main_User.id).filter(Main_User.id == follow).order_by(fans.columns.action_time.desc())
             result = query.all()
         elif fan:
             Main_User = aliased(User)
-            query = db.session.query(User).filter(User.valid == True).join(fans, User.id == fans.columns.user_id).join(Main_User, fans.columns.fan_id == Main_User.id).filter(Main_User.id == fan).order_by(fans.columns.action_time.desc())
+            query = db.session.query(User.id).filter(User.valid == True).join(fans, User.id == fans.columns.user_id).join(Main_User, fans.columns.fan_id == Main_User.id).filter(Main_User.id == fan).order_by(fans.columns.action_time.desc())
             result = query.all()
-        [_format_user(user) for user in result]
         return result
 
     @hmac_auth('api')
@@ -367,21 +359,29 @@ class UserList(Resource):
         args = user_parser.parse_args()
         id = args['id']
         result = self._get(id, args['follow'], args['fan'])
-        token = args['token']
-        if id and token:        # ToDo：这里查询关注关系使用的是数据库查询，存在性能风险！
-            for user in result:
-                Main_User = aliased(User)
-                query = db.session.query(User.id).filter(User.valid == True).join(fans, User.id == fans.columns.user_id).join(Main_User, fans.columns.fan_id == Main_User.id).join(Token, Main_User.id == Token.user_id).filter(Token.token == token)
-                if query.first() == None:
-                    user.followed = False
-                else:
-                    user.followed = True
+        # 分组输出：
         offset = args['offset']
         if offset:
             result = result[offset:]
         limit = args['limit']
         if limit:
             result = result[:limit]
+        # 准备具体属性数据：
+        if id:
+            result = _get_info_users(map(lambda x: x[0], result), valid_only = False)
+        else:
+            result = _get_info_users(map(lambda x: x[0], result))
+        # 补充与当前用户间的关注关系：
+        token = args['token']
+        if token:        # ToDo：这里查询关注关系使用的是数据库查询，存在性能风险！
+            # 其实在现有 app 界面中，只有 指定用户 id 的时候，才需要用到 followed 属性。
+            Main_User = aliased(User)
+            query = db.session.query(User.id).filter(User.valid == True).join(fans, User.id == fans.columns.user_id).join(Main_User, fans.columns.fan_id == Main_User.id).join(Token, Main_User.id == Token.user_id).filter(Token.token == token).filter(User.id.in_([user.id for user in result]))
+            follow_dic = {}
+            for user_id in query:
+                follow_dic[user_id[0]] = True
+            for user in result:
+                user.followed = follow_dic.get(user.id, False)
         return result
 
     @hmac_auth('api')
@@ -434,8 +434,7 @@ class UserList(Resource):
             user.gender = args['gender']
             _prepare_msg_account(user)
             db.session.commit()
-        self._delete_cache(user)
-        _format_user(user)
+        util.update_cache(user, format_func = util.format_user)
         # 注册后要调用登陆逻辑，返回用户 token 等。
         token = _generate_token(user, device, args['token'], )
         return marshal({'user': user, 'token': token}, token_fields), 201
@@ -465,8 +464,7 @@ class UserList(Resource):
             if gender:
                 user.gender = gender
             db.session.commit()
-            self._delete_cache(user)
-            _format_user(user)
+            util.update_cache(user, format_func = util.format_user)
             return marshal(user, user_fields), 200
         abort(404, message='Target User do not exists!')
 
@@ -519,7 +517,7 @@ class TokenList(Resource):
             abort(403, message='Login Failed!')
         old_token = args['token']
         token = _generate_token(user, args['device'], old_token)
-        _format_user(user)
+        util.update_cache(user, format_func = util.format_user)
         return {'user': user, 'token': token}, 201
 
 api.add_resource(TokenList, '/rpc/tokens')
@@ -1406,7 +1404,6 @@ class FollowList(Resource):
 
     def _count_follow_fans(self, follow, fan):
         ''' 辅助函数，对交互行为涉及的用户账号，重新计算其 follow_num 和 fans_num 。'''
-        # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
         util.count_follow_fans([follow] if follow else [], [fan] if fan else [])
         # 顺便清除相关缓存：
         UserList()._delete_follow_cache(follow, fan)
