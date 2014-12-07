@@ -317,20 +317,20 @@ def _get_image_rule(label, images):
 
 class SiteView(MyModelView):
     column_default_sort = ('update_time', True)
-    column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig', 'gate_images', 'top_images')
+    column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig', 'gate_images', 'top_images', 'note')
     column_filters = ['id', 'valid', 'order', 'create_time', 'update_time', 'create_user_id', 'update_user_id', 'brand_id', 
                       'logo_id', 'level', 'stars', 'popular',
                       'review_num', 'environment', 'flowrate', 'payment', 'menu', 'ticket', 'tour', 'booking', 'business_hours',
                       'phone', 'transport', 'description', 'area_id', 'keywords', 'images_num',
                       ] + list(column_searchable_list)
-    form_create_rules = ('valid', 'order', 'create_time', 'update_time', 'create_user', 'update_user', 'code', 'name', 'name_orig', 
+    form_create_rules = ('valid', 'order', 'note', 'create_time', 'update_time', 'create_user', 'update_user', 'code', 'name', 'name_orig', 
                          'brand', 'logo', 'level', 'stars', 'popular', 'review_num', 'reviews', 'categories',
                          'environment', 'flowrate', 'payment', 'menu', 'ticket', 'tour', 'booking', 'business_hours',
                          'phone', 'transport', 'description', 'longitude', 'latitude', 'area', 'address',
                          'address_orig', 'keywords', 'top_images', 'images_num', 'gate_images', 'data_source',
                          )
     column_list = ('id', 
-                   'valid', 'order', 'create_time', 'update_time', 'create_user', 'update_user', 'code', 'name', 'name_orig', 
+                   'valid', 'order', 'note', 'create_time', 'update_time', 'create_user', 'update_user', 'code', 'name', 'name_orig', 
                    'brand', 'logo', 'level', 'stars', 'popular', 'review_num', 'category',
                    'environment', 'flowrate', 'payment', 'menu', 'ticket', 'tour', 'booking', 'business_hours',
                    'phone', 'transport', 'description', 'longitude', 'latitude', 
@@ -788,7 +788,7 @@ class CategoryView(TagAlikeView):
 
 
 class BrandView(MyModelView):
-    column_searchable_list = ('name', 'name_zh', 'description')
+    column_searchable_list = ('name', 'name_zh', 'description', 'note')
     column_filters = ['id', 'valid', 'order', 'create_time', 'update_time', 'create_user_id', 'update_user_id', 'source', 'level'] + list(column_searchable_list)
     form_ajax_refs = {
         'create_user': {

@@ -190,6 +190,7 @@ class Brand(db.Model):   # 品牌
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
+    note = db.Column(db.UnicodeText)   # POI 的备忘描述文字
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据最初创建时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
     create_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 品牌信息上传人
@@ -216,6 +217,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     id = db.Column(db.Integer, primary_key=True)        # ToDo：这个 id 应该考虑改成 UUID （已放弃，改为从特定数值开始）。
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
+    note = db.Column(db.UnicodeText)   # POI 的备忘描述文字
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据最初创建时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 数据修改时间，以服务器时间为准
     create_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # POI 信息上传人
