@@ -882,11 +882,9 @@ article_fields = {
 }
 article_fields.update(article_fields_brief)
 
-def _format_article(article):
-    article.caption_image = article.caption
-    article.formated_keywords = [] if not article.keywords else article.keywords.strip().split()
-    article.formated_content = util.parse_textstyle(util.replace_textlib(article.content))
-    return article
+def _get_info_articles(article_ids, valid_only = True):
+    ''' 辅助函数：提取指定 id 的首页文章内容详情，并使用缓存。'''
+    return util.get_info_ids(Article, article_ids, format_func = util.format_article, valid_only = valid_only)
 
 
 class ArticleList(Resource):
@@ -899,35 +897,33 @@ class ArticleList(Resource):
         return '%s' % self.__class__.__name__
 
     @cache.memoize()
-    def _get(self, brief=None, id=None, city=None):
-        # ToDo: Article 表中各计数缓存值的数据没有做动态更新，例如子评论数！
-        query = db.session.query(Article).filter(Article.valid == True)
+    def _get(self, id=None, city=None):
+        query = db.session.query(Article.id).filter(Article.valid == True)
         if id:
             query = query.filter(Article.id == id)
         if city:
+            # 指定城市及该城市对应国家的文章都输出，以增加文章丰富度：
             city_object = db.session.query(City).filter(City.valid == True).filter(City.id == city).first()
             country = -1 if not city_object else city_object.country_id
             query_city = query.join(Article.cities).filter(City.id == city)
             query_country = query.join(Article.countries).filter(Country.id == country)
             query = query_city.union(query_country)
         query = query.order_by(Article.order.desc()).order_by(Article.create_time.desc())
-        result = []
-        for article in query:
-            _format_article(article)
-            result.append(article)
+        result = map(lambda x: x[0], query.all())
         return result
 
     @hmac_auth('api')
     def get(self):
         args = article_parser.parse_args()
-        brief = args['brief']
-        result = self._get(brief, args['id'], args['city'])
+        result = self._get(args['id'], args['city'])
         offset = args['offset']
         if offset:
             result = result[offset:]
         limit = args['limit']
         if limit:
             result = result[:limit]
+        result = _get_info_articles(result)
+        brief = args['brief']
         if brief:
             return marshal(result, article_fields_brief)
         else:
@@ -1699,7 +1695,7 @@ class ShareList(Resource):
         ''' 辅助函数：用于格式化 ShareRecord 实例，用于接口输出。'''
         if share.article:
             article = share.article
-            share.valid_article = _format_article(article)
+            share.valid_article = util.format_article(article)
             share.url = baseurl_share + '/articles/' + share.token
             share.image = article.caption
             share.title = article.title

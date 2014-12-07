@@ -124,6 +124,12 @@ def format_site(site):
     site.valid_categories = [category.name for category in site.categories if category.parent_id != None]
     return site
 
+def format_article(article):
+    article.caption_image = article.caption
+    article.formated_keywords = [] if not article.keywords else article.keywords.strip().split()
+    article.formated_content = parse_textstyle(replace_textlib(article.content))
+    return article
+
 def get_info_sites(site_ids):
     ''' 根据输入的 POI id，从缓存中获取对应的详情信息。'''
     return get_info_ids(Site, site_ids, format_func = format_site)
@@ -387,8 +393,10 @@ def count_comments(users, articles, reviews):
     # ToDo: 这样每次都重新计算不确定是否存在性能风险。
     for article in articles:
         article.comment_num = article.comments.filter(Comment.valid == True).count()
+        db.session.commit()
+        update_cache(article, format_func = format_article)
     for review in reviews:
         review.comment_num = review.comments.filter(Comment.valid == True).count()
-    db.session.commit()
+        db.session.commit()
 
 
