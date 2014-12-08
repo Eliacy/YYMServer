@@ -298,10 +298,6 @@ user_fields = {
 }
 user_fields.update(user_fields_mini)
 
-def _get_info_users(user_ids, valid_only = True):
-    ''' 辅助函数：提取指定 id 的用户属性详情，并使用缓存。'''
-    return util.get_info_ids(User, user_ids, format_func = util.format_user, valid_only = valid_only)
-
 def _prepare_msg_account(user):
     ''' 辅助函数：检查 user 拥有的环信账号，如果没有则创建一个。'''
     if not user.em_username or not user.em_password:
@@ -368,9 +364,9 @@ class UserList(Resource):
             result = result[:limit]
         # 准备具体属性数据：
         if id:
-            result = _get_info_users(map(lambda x: x[0], result), valid_only = False)
+            result = util.get_info_users(map(lambda x: x[0], result), valid_only = False)
         else:
-            result = _get_info_users(map(lambda x: x[0], result))
+            result = util.get_info_users(map(lambda x: x[0], result))
         # 补充与当前用户间的关注关系：
         token = args['token']
         if token:        # ToDo：这里查询关注关系使用的是数据库查询，存在性能风险！
@@ -1037,27 +1033,34 @@ review_fields = {
 review_fields.update(review_fields_brief)
 review_fields['content'] = fields.String        # 非 brief 模式下，提供完整的文字内容
 
-def _format_review(review, brief=None):
-    ''' 辅助函数：用于格式化 Review 实例，用于接口输出。'''
-    review.valid_user = review.user
-    review.valid_user.icon_image = review.user.icon
-    review.valid_site = review.site
-    if review.site:
-        review.valid_site.city_name = '' if not review.site.area else review.site.area.city.name
+def _format_review(review):
+    ''' 辅助函数：用于格式化 Review 实例，用于接口输出。本函数对内嵌数据（如 user、site ）的支持并不完整，需要用 _get_info_reviews 函数获取完整的内嵌属性。'''
     review.images_num = 0 if not review.images else len(review.images.split())
     review.currency = review.currency or u'人民币'
     review.content = (review.content or u'').strip()
     review.formated_keywords = [] if not review.keywords else review.keywords.split()
-    review.valid_at_users = []
-    if review.at_list:
-        review.valid_at_users = util.get_users(review.at_list)
     review.valid_images = []
     if review.images:
-        review.valid_images = util.get_images(review.images)
-    if brief:
-        review.brief_content = review.content[:80]
-        review.valid_images = review.valid_images[:1]
+        review.valid_images = util.get_images(review.images)    # 图片一般不会保留同一个 id 但修改图片内容，因而无需单独缓存
     return review
+
+def _get_info_reviews(review_ids, valid_only = True, brief = False):
+    ''' 辅助函数：提取指定 id 的晒单评论内容详情，并使用缓存。'''
+    result = util.get_info_ids(Review, review_ids, format_func = _format_review, valid_only = valid_only)
+    for review in result:
+        review.valid_user = util.get_info_user(review.user_id)
+        review.valid_site = util.get_info_site(review.site_id)
+        review.valid_at_users = []
+        if review.at_list:
+            review.valid_at_users = util.get_users(review.at_list)
+        if brief:
+            review.brief_content = review.content[:80]
+            review.valid_images = review.valid_images[:1]
+    return result
+
+def _get_info_review(review_id, valid_only = True, brief = False):
+    result = _get_info_reviews([review_id], valid_only = valid_only, brief = brief)
+    return None if not result else result[0]
 
 def _format_review_like(reviews, token):
     ''' 辅助函数：用于在 Review 实例中，插入当前 token 对应用户是否喜欢它的信息。'''
@@ -1082,23 +1085,24 @@ class ReviewList(Resource):
     def _delete_cache(self, model, site, user):
         ''' 辅助函数：尝试覆盖组合参数的主要可能性，清空对应缓存。'''
         # ToDo: 我有点儿怀疑这个搞法的效率，太多次 cache 访问了。感觉至少应该用 delete_many 处理。
-        params = [(brief, selected, published) for brief in (0, 1) for selected in (None, 0, 1) for published in (0, 1)]
+        params = [(selected, published) for selected in (None, 0, 1) for published in (0, 1)]
         id = 0 if not model else model.id
         site_id = 0 if not site else site.id
         city_id = 0 if not site else model.site.area.city.id
         user_id = 0 if not user else user.id
-        for brief, selected, published in params:
+        for selected, published in params:
             if id:
-                cache.delete_memoized(self._get, self, brief, selected, published, id, None, None, None)
+                cache.delete_memoized(self._get, self, selected, published, id, None, None, None)
             if site_id:
-                cache.delete_memoized(self._get, self, brief, selected, published, None, site_id, None, None)
+                cache.delete_memoized(self._get, self, selected, published, None, site_id, None, None)
             if city_id:
-                cache.delete_memoized(self._get, self, brief, selected, published, None, None, city_id, None)
+                cache.delete_memoized(self._get, self, selected, published, None, None, city_id, None)
             if user_id:
-                cache.delete_memoized(self._get, self, brief, selected, published, None, None, None, user_id)
+                cache.delete_memoized(self._get, self, selected, published, None, None, None, user_id)
 
     def _count_reviews(self, model):
-        ''' 辅助函数，对晒单评论涉及的用户账号和 POI ，重新计算其星级和评论数。'''
+        ''' 辅助函数，对晒单评论涉及的用户账号和 POI ，重新计算其星级和评论数。并更新各个缓存。'''
+        util.update_cache(model, format_func = _format_review)
         user = model.user
         site = model.site
         util.count_reviews([user] if user else [], [site] if site else [])
@@ -1108,9 +1112,8 @@ class ReviewList(Resource):
         self._delete_cache(model, site, user)
 
     @cache.memoize()
-    def _get(self, brief=None, selected = None, published = None, id=None, site=None, city=None, user=None):
-        # ToDo: Review 表中各计数缓存值的数据没有做动态更新，例如“赞”数！
-        query = db.session.query(Review).filter(Review.valid == True)
+    def _get(self, selected = None, published = None, id=None, site=None, city=None, user=None):
+        query = db.session.query(Review.id).filter(Review.valid == True)
         query = query.order_by(Review.publish_time.desc())
         if id:
             query = query.filter(Review.id == id)
@@ -1123,7 +1126,6 @@ class ReviewList(Resource):
             query = query.join(Review.site).join(Site.area).filter(Area.city_id == city)
             # 在“动态”栏目显示晒单评论的时候，不显示无图片评论：
             query = query.filter(Review.images != '')
-        result = []
         if selected == None:
             # ToDo: 后台需要有个定时任务，将被关注多的 Review 设置成 selected 。
             pass
@@ -1131,9 +1133,7 @@ class ReviewList(Resource):
             query = query.filter(Review.selected == selected)   # selected 取值为合法 boolean 这一点，由 get(self) 函数调用 _get 前负责保证！
         if published:
             query = query.filter(Review.published == True)
-        for review in query:
-            _format_review(review, brief)
-            result.append(review)
+        result = map(lambda x: x[0], query.all())
         return result
 
     @hmac_auth('api')
@@ -1144,16 +1144,17 @@ class ReviewList(Resource):
         limit = args['limit']
         if selected:
             # 如果 selected 数量不够，就得用没被 selected 的内容来补。
-            result = self._get(brief, True, args['published'], args['id'], args['site'], args['city'], args['user'])
+            result = self._get(True, args['published'], args['id'], args['site'], args['city'], args['user'])
             if limit and len(result) < limit:
-                result += self._get(brief, False, args['published'], args['id'], args['site'], args['city'], args['user'])
+                result += self._get(False, args['published'], args['id'], args['site'], args['city'], args['user'])
         else:
-            result = self._get(brief, None, args['published'], args['id'], args['site'], args['city'], args['user'])
+            result = self._get(None, args['published'], args['id'], args['site'], args['city'], args['user'])
         offset = args['offset']
         if offset:
             result = result[offset:]
         if limit:
             result = result[:limit]
+        result = _get_info_reviews(result, valid_only = True, brief = brief)
         # 提取 like 关系：
         _format_review_like(result, args['token'])
         # 输出结果：
@@ -1228,8 +1229,8 @@ class ReviewList(Resource):
             if args['published'] and not review.publish_time:   # 只有首次发布才记录 publish_time 
                 review.publish_time = datetime.datetime.now()
             db.session.commit()
-            _format_review(review, brief=0)
             self._count_reviews(review)
+            review = _get_info_review(review.id)
             return marshal(review, review_fields), 200
         abort(404, message='Target Review do not exists!')
 
@@ -1468,17 +1469,13 @@ class LikeList(Resource):
 
     @cache.memoize()
     def _get(self, user=None):
-        brief = 1
-        query = db.session.query(Review).filter(Review.valid == True)
+        query = db.session.query(Review.id).filter(Review.valid == True)
         query = query.join(likes, Review.id == likes.columns.review_id)
         query = query.join(User).filter(User.id == likes.columns.user_id)
         query = query.filter(User.id == user)
         query = query.order_by(likes.columns.action_time.desc())
         query = query.filter(Review.published == True)
-        result = []
-        for review in query:
-            _format_review(review, brief)
-            result.append(review)
+        result = map(lambda x: x[0], query.all())
         return result
 
     @hmac_auth('api')
@@ -1491,6 +1488,7 @@ class LikeList(Resource):
             result = result[offset:]
         if limit:
             result = result[:limit]
+        result = _get_info_reviews(result, brief = True)
         # 提取 like 关系：
         for review in result:
             review.liked = True
@@ -1703,8 +1701,7 @@ class ShareList(Resource):
             text_list = filter(lambda x: x['class'] == 'text', content_list)
             share.description = u'' if len(text_list) == 0 else text_list[0]['content']
         elif share.site_id:
-            valid_sites_list = util.get_info_sites([share.site_id])
-            valid_site = None if not valid_sites_list else valid_sites_list[0]
+            valid_site = util.get_info_site(share.site_id)
             share.valid_site = valid_site
             share.url = baseurl_share + '/sites/' + share.token
             if valid_site == None:
@@ -1715,14 +1712,14 @@ class ShareList(Resource):
                 share.image = valid_site.logo_image
                 share.title = valid_site.name
                 share.description = valid_site.description
-        elif share.review:
-            review = share.review
-            share.valid_review = _format_review(review, brief = True)
+        elif share.review_id:
+            valid_review = _get_info_review(share.review_id, brief = True)
+            share.valid_review = valid_review
             share.url = baseurl_share + '/reviews/' + share.token
-            images = review.valid_images
+            images = valid_review.valid_images
             share.image = None if len(images) == 0 else images[0]
-            share.title = review.user.name
-            share.description = review.content
+            share.title = valid_review.user.name
+            share.description = valid_review.content
         else:
             share.url = ''
             share.image = None

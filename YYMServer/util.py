@@ -89,7 +89,6 @@ def replace_textlib(text):
 
 def format_user(user):
     ''' 辅助函数：用于格式化 User 实例，用于接口输出。'''
-    # 也会被 /rpc/tokens 接口使用
     user.icon_image = user.icon
     return user
 
@@ -124,15 +123,28 @@ def format_site(site):
     site.valid_categories = [category.name for category in site.categories if category.parent_id != None]
     return site
 
+def get_info_sites(site_ids):
+    ''' 根据输入的 POI id，从缓存中获取对应的详情信息。'''
+    return get_info_ids(Site, site_ids, format_func = format_site)
+
+def get_info_site(site_id):
+    result = get_info_sites([site_id])
+    return None if not result else result[0]
+
+def get_info_users(user_ids, valid_only = True):
+    ''' 辅助函数：提取指定 id 的用户属性详情，并使用缓存。'''
+    return get_info_ids(User, user_ids, format_func = format_user, valid_only = valid_only)
+
+def get_info_user(user_id, valid_only = True):
+    ''' 与 get_info_users 的区别是只接收和返回单个的数据实例。'''
+    result = get_info_users([user_id], valid_only)
+    return None if not result else result[0]
+
 def format_article(article):
     article.caption_image = article.caption
     article.formated_keywords = [] if not article.keywords else article.keywords.strip().split()
     article.formated_content = parse_textstyle(replace_textlib(article.content))
     return article
-
-def get_info_sites(site_ids):
-    ''' 根据输入的 POI id，从缓存中获取对应的详情信息。'''
-    return get_info_ids(Site, site_ids, format_func = format_site)
 
 def parse_textstyle(content):
     ''' 辅助函数：解析富媒体长文本，由类 Wiki 标记转化为结构化的数据结构。'''
@@ -153,8 +165,8 @@ def parse_textstyle(content):
             if type == 'image' and id.isdigit():   # 图片
                 entry = {'class': 'image', 'content': db.session.query(Image).filter(Image.valid == True).filter(Image.id == int(id)).first()}
             elif type == 'site' and id.isdigit():  # POI
-                formated_sites_list = get_info_sites([long(id)])
-                entry = {'class': 'site', 'content': None if not formated_sites_list else formated_sites_list[0]}
+                # 这里对 POI 其实直接解析完就把具体信息丢进缓存了，因而不会被实时更新。
+                entry = {'class': 'site', 'content': get_info_site(long(id))}
         elif line.strip() == u'***':        # 水平分隔线
             entry = {'class': 'hline', 'content': ''}
         if entry == None:       # 普通文本
@@ -252,14 +264,7 @@ def get_users(user_ids_str):
         user_ids = map(int, user_ids_str.split())
     except:
         pass
-    users = []
-    if user_ids:
-        valid_users = db.session.query(User).filter(User.valid == True).filter(User.id.in_(user_ids)).all()
-        for user in valid_users:
-            if user:
-                user.icon_image = user.icon      # 为了缓存存储 User 对象时，icon 子对象仍然能够被读取。
-                users.append(user)
-    return users
+    return get_info_users(user_ids)
 
 def get_site_images(site_id):
     '''辅助函数：提取指定 site 的所有图片（产品图及所有评论里的图）。'''
@@ -374,19 +379,23 @@ def count_images(site):
     # ToDo: 这个实现受读取 site 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
     site.images_num = len(get_site_images(site.id))
     db.session.commit()
+    update_cache(site, format_func = format_site)
 
 def count_reviews(users, sites):
     ''' 辅助函数，对晒单评论的更新，重新计算相关 POI 的星级、评论数，以及相关用户账号的评论数。'''
     # ToDo: 这样每次都重新计算不确定是否存在性能风险。
     for user in users:
         user.review_num = user.reviews.filter(Review.valid == True).count()
+        db.session.commit()
+        update_cache(user, format_func = format_user)
     for site in sites:
         reviews = site.reviews.filter(Review.valid == True).all()
         if reviews:
             review_num = len(reviews)
             site.stars = sum([review.stars for review in reviews]) / review_num   # 假定用户发晒单评论时，星级必须填！
             site.review_num = review_num
-    db.session.commit()
+        db.session.commit()
+        update_cache(site, format_func = format_site)
 
 def count_comments(users, articles, reviews):
     ''' 辅助函数，对子评论涉及的晒单评论、首页文章、用户账号（用户账号暂时不需要），重新计算其子评论数。'''
