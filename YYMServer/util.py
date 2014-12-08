@@ -26,6 +26,7 @@ def get_info_ids(model_class, ids, format_func = None, valid_only = True):
     cached_result = []
     uncached_ids = []
     for id in ids:
+        id = id or 0
         key = key_template % id
         obj = cache.get(key)
         if obj:
@@ -139,6 +140,17 @@ def get_info_user(user_id, valid_only = True):
     ''' 与 get_info_users 的区别是只接收和返回单个的数据实例。'''
     result = get_info_users([user_id], valid_only)
     return None if not result else result[0]
+
+def format_review(review):
+    ''' 辅助函数：用于格式化 Review 实例，用于接口输出。本函数对内嵌数据（如 user、site ）的支持并不完整，需要用 _get_info_reviews 函数获取完整的内嵌属性。'''
+    review.images_num = 0 if not review.images else len(review.images.split())
+    review.currency = review.currency or u'人民币'
+    review.content = (review.content or u'').strip()
+    review.formated_keywords = [] if not review.keywords else review.keywords.split()
+    review.valid_images = []
+    if review.images:
+        review.valid_images = get_images(review.images)    # 图片一般不会保留同一个 id 但修改图片内容，因而无需单独缓存
+    return review
 
 def format_article(article):
     article.caption_image = article.caption
@@ -407,5 +419,6 @@ def count_comments(users, articles, reviews):
     for review in reviews:
         review.comment_num = review.comments.filter(Comment.valid == True).count()
         db.session.commit()
+        update_cache(review, format_func = format_review)
 
 

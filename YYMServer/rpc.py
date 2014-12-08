@@ -1033,20 +1033,9 @@ review_fields = {
 review_fields.update(review_fields_brief)
 review_fields['content'] = fields.String        # 非 brief 模式下，提供完整的文字内容
 
-def _format_review(review):
-    ''' 辅助函数：用于格式化 Review 实例，用于接口输出。本函数对内嵌数据（如 user、site ）的支持并不完整，需要用 _get_info_reviews 函数获取完整的内嵌属性。'''
-    review.images_num = 0 if not review.images else len(review.images.split())
-    review.currency = review.currency or u'人民币'
-    review.content = (review.content or u'').strip()
-    review.formated_keywords = [] if not review.keywords else review.keywords.split()
-    review.valid_images = []
-    if review.images:
-        review.valid_images = util.get_images(review.images)    # 图片一般不会保留同一个 id 但修改图片内容，因而无需单独缓存
-    return review
-
 def _get_info_reviews(review_ids, valid_only = True, brief = False):
     ''' 辅助函数：提取指定 id 的晒单评论内容详情，并使用缓存。'''
-    result = util.get_info_ids(Review, review_ids, format_func = _format_review, valid_only = valid_only)
+    result = util.get_info_ids(Review, review_ids, format_func = util.format_review, valid_only = valid_only)
     for review in result:
         review.valid_user = util.get_info_user(review.user_id)
         review.valid_site = util.get_info_site(review.site_id)
@@ -1102,7 +1091,7 @@ class ReviewList(Resource):
 
     def _count_reviews(self, model):
         ''' 辅助函数，对晒单评论涉及的用户账号和 POI ，重新计算其星级和评论数。并更新各个缓存。'''
-        util.update_cache(model, format_func = _format_review)
+        util.update_cache(model, format_func = util.format_review)
         user = model.user
         site = model.site
         util.count_reviews([user] if user else [], [site] if site else [])
@@ -1288,6 +1277,7 @@ class CommentList(Resource):
     
     def _count_comments(self, model):
         ''' 辅助函数，对子评论涉及的首页文章和晒单评论，重新计算其子评论计数。'''
+        util.update_cache(model, format_func = self._format_comment)
         user = model.user
         article = model.article
         review = model.review
@@ -1297,14 +1287,24 @@ class CommentList(Resource):
 
     def _format_comment(self, comment):
         ''' 辅助函数：用于格式化 Comment 实例，用于接口输出。'''
-        comment.valid_user = comment.user
-        comment.valid_at_users = util.get_users(comment.at_list or '')
         comment.content = (comment.content or u'').strip()
         return comment
+
+    def _get_info_comments(self, comment_ids, valid_only = True):
+        ''' 辅助函数：提取指定 id 的子评论详细信息，并使用缓存。'''
+        result = util.get_info_ids(Comment, comment_ids, format_func = self._format_comment, valid_only = valid_only)
+        for comment in result:
+            comment.valid_user = util.get_info_user(comment.user_id)
+            comment.valid_at_users = util.get_users(comment.at_list or '')
+        return result
+
+    def _get_info_comment(self, comment_id, valid_only = True):
+        result = self._get_info_comments([comment_id], valid_only)
+        return None if not result else result[0]
     
     @cache.memoize()
     def _get(self, id=None, article=None, review=None):
-        query = db.session.query(Comment).filter(Comment.valid == True)
+        query = db.session.query(Comment.id).filter(Comment.valid == True)
         query = query.order_by(Comment.publish_time.desc())
         if id:
             query = query.filter(Comment.id == id)
@@ -1312,10 +1312,7 @@ class CommentList(Resource):
             query = query.filter(Comment.article_id == article)
         if review:
             query = query.filter(Comment.review_id == review)
-        result = []
-        for comment in query:
-            self._format_comment(comment)
-            result.append(comment)
+        result = map(lambda x: x[0], query.all())
         return result
 
     @hmac_auth('api')
@@ -1329,6 +1326,7 @@ class CommentList(Resource):
         limit = args['limit']
         if limit:
             result = result[:limit]
+        result = self._get_info_comments(result)
         return result
 
     @hmac_auth('api')
@@ -1378,7 +1376,8 @@ class CommentList(Resource):
             comment.at_list = at_list
             comment.content = args['content']
             db.session.commit()
-            self._format_comment(comment)
+            util.update_cache(comment, format_func = self._format_comment)
+            comment = self._get_info_comment(comment.id)
             return marshal(comment, comment_fields), 200
         abort(404, message='Target Comment do not exists!')
 
