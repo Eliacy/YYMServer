@@ -364,9 +364,12 @@ def count_likes(users, reviews):
     # ToDo: 这个实现受读取 User 信息和 Review 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
     for user in users:
         user.like_num = user.likes.filter(Review.valid == True).count()
+        db.session.commit()
+        update_cache(user, format_func = format_user)
     for review in reviews:
         review.like_num = review.fans.filter(User.valid == True).count()
-    db.session.commit()
+        db.session.commit()
+        update_cache(review, format_func = format_review)
 
 def count_favorites(users, sites):
     ''' 辅助函数，对收藏行为涉及的用户账号和 POI ，重新计算其 favorite_num 。'''
@@ -374,7 +377,8 @@ def count_favorites(users, sites):
     for user in users:
         user.favorite_num = user.favorites.filter(Site.valid == True).count()
     # Site 暂时没有与 favorite 相关的计数
-    db.session.commit()
+        db.session.commit()
+        update_cache(user, format_func = format_user)
 
 def count_shares(users, sites, reviews, articles):
     ''' 辅助函数，对共享行为涉及的用户账号、 POI 、晒单评论、和首页文章，重新计算其 share_num 。'''
