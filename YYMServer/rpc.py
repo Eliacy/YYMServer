@@ -882,6 +882,10 @@ def _get_info_articles(article_ids, valid_only = True):
     ''' 辅助函数：提取指定 id 的首页文章内容详情，并使用缓存。'''
     return util.get_info_ids(Article, article_ids, format_func = util.format_article, valid_only = valid_only)
 
+def _get_info_article(article_id, valid_only = True):
+    result = _get_info_articles([article_id], valid_only = valid_only)
+    return None if not result else result[0]
+
 
 class ArticleList(Resource):
     '''按城市获取相关首页推荐文章的接口。'''
@@ -1684,47 +1688,49 @@ class ShareList(Resource):
 
     def _count_shares(self, user, site, review, article):
         ''' 辅助函数，对交互行为涉及的用户账号、 POI 、晒单评论、首页文章，重新计算其 share_num 。'''
-        # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
         util.count_shares([user] if user else [], [site] if site else [], [review] if review else [], [article] if article else [])
         self._delete_cache(user)
 
-    def _format_share(self, share):
-        ''' 辅助函数：用于格式化 ShareRecord 实例，用于接口输出。'''
-        if share.article:
-            article = share.article
-            share.valid_article = util.format_article(article)
-            share.url = baseurl_share + '/articles/' + share.token
-            share.image = article.caption
-            share.title = article.title
-            content_list = util.parse_textstyle(util.replace_textlib(article.content))
-            text_list = filter(lambda x: x['class'] == 'text', content_list)
-            share.description = u'' if len(text_list) == 0 else text_list[0]['content']
-        elif share.site_id:
-            valid_site = util.get_info_site(share.site_id)
-            share.valid_site = valid_site
-            share.url = baseurl_share + '/sites/' + share.token
-            if valid_site == None:
-                share.image = None
-                share.title = u''
-                share.description = u''
-            else:
-                share.image = valid_site.logo_image
-                share.title = valid_site.name
-                share.description = valid_site.description
-        elif share.review_id:
-            valid_review = _get_info_review(share.review_id, brief = True)
-            share.valid_review = valid_review
-            share.url = baseurl_share + '/reviews/' + share.token
-            images = valid_review.valid_images
-            share.image = None if len(images) == 0 else images[0]
-            share.title = valid_review.user.name
-            share.description = valid_review.content
-        else:
+    def _get_info_shares(self, share_ids):
+        ''' 辅助函数：用于格式化 ShareRecord 实例，用于接口输出并缓存。'''
+        result = util.get_info_ids(ShareRecord, share_ids)
+        for share in result:
             share.url = ''
             share.image = None
             share.title = u''
             share.description = u''
-        return share
+            if share.article_id:    # 其实 article 不怎么变，完全可以放入缓存。。
+                valid_article = _get_info_article(share.article_id)
+                share.valid_article = valid_article
+                share.url = baseurl_share + '/articles/' + share.token
+                if valid_article != None:
+                    share.image = valid_article.caption
+                    share.title = valid_article.title
+                    content_list = valid_article.formated_content
+                    text_list = filter(lambda x: x['class'] == 'text', content_list)
+                    share.description = u'' if len(text_list) == 0 else text_list[0]['content']
+            elif share.site_id:    # 其实 site 不怎么变，完全可以放入缓存。。
+                valid_site = util.get_info_site(share.site_id)
+                share.valid_site = valid_site
+                share.url = baseurl_share + '/sites/' + share.token
+                if valid_site != None:
+                    share.image = valid_site.logo_image
+                    share.title = valid_site.name
+                    share.description = valid_site.description
+            elif share.review_id:
+                valid_review = _get_info_review(share.review_id, brief = True)
+                share.valid_review = valid_review
+                share.url = baseurl_share + '/reviews/' + share.token
+                if valid_review != None:
+                    images = valid_review.valid_images
+                    share.image = None if len(images) == 0 else images[0]
+                    share.title = valid_review.valid_user.name
+                    share.description = valid_review.content
+        return result
+
+    def _get_info_share(self, share_id):
+        result = self._get_info_shares([share_id])
+        return None if not result else result[0]
 
     @cache.memoize()
     def _get(self, user=None):
@@ -1732,9 +1738,7 @@ class ShareList(Resource):
         query = query.order_by(ShareRecord.action_time.desc())  # 对同一个 Article，Site，Review，显示其最新的一次共享
         query = db.session.query().add_entity(ShareRecord, alias=query.subquery()).group_by('article_id', 'site_id', 'review_id')         # 让 order_by 比 group_by 更早生效！
         query = query.order_by(desc('action_time'))      # 保证 group 后输出结果的顺序
-        result = []
-        for share_record in query:
-            result.append(self._format_share(share_record))
+        result = map(lambda x: x.id, query.all())
         return result
 
     @hmac_auth('api')
@@ -1748,6 +1752,7 @@ class ShareList(Resource):
         limit = args['limit']
         if limit:
             result = result[:limit]
+        result = self._get_info_shares(result)
         # 处理 review 的 like 关系：
         if user_id:
             token = db.session.query(Token).filter(Token.user_id == user_id).first()
@@ -1791,7 +1796,7 @@ class ShareList(Resource):
                            share_record.review,
                            share_record.article,
                            )
-        self._format_share(share_record)
+        share_record = self._get_info_share(share_record.id)
         return marshal(share_record, share_fields), 201
 
 api.add_resource(ShareList, '/rpc/shares')

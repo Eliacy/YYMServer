@@ -378,13 +378,13 @@ def count_favorites(users, sites):
 
 def count_shares(users, sites, reviews, articles):
     ''' 辅助函数，对共享行为涉及的用户账号、 POI 、晒单评论、和首页文章，重新计算其 share_num 。'''
-    # ToDo: 这个实现受读取 User 、 Site 、 Review 、Article 信息读取接口的缓存影响，还不能保证把有效的值传递给前端。
     for user in users:
         user.share_num = user.share_records.join(ShareRecord.site).filter(Site.valid == True).group_by('site_id').count() + \
                          user.share_records.join(ShareRecord.review).filter(Review.valid == True).group_by('review_id').count() + \
                          user.share_records.join(ShareRecord.article).filter(Article.valid == True).group_by('article_id').count()
+        db.session.commit()
+        update_cache(user, format_func = format_user)
     # Site 暂时没有与 site, review, article 相关的计数
-    db.session.commit()
 
 def count_images(site):
     ''' 辅助函数，重新计算指定 POI 的 image_num 。'''
