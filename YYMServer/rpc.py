@@ -1446,6 +1446,7 @@ like_parser = reqparse.RequestParser()
 like_parser.add_argument('offset', type=int)    # offset 偏移量。
 like_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
 like_parser.add_argument('user', type=long, required=True)
+like_parser.add_argument('token', type=str)     # 用户 token，用于获取是否喜欢的关系
 
 like_parser_detail = reqparse.RequestParser()
 like_parser_detail.add_argument('user', type=long, required=True)  # 表达喜欢的用户的 id
@@ -1493,8 +1494,9 @@ class LikeList(Resource):
             result = result[:limit]
         result = _get_info_reviews(result, brief = True)
         # 提取 like 关系：
-        for review in result:
-            review.liked = True
+        token = args['token']
+        if token:
+            _format_review_like(result, token)
         # 输出结果：
         return marshal(result, review_fields_brief)
 
@@ -1619,9 +1621,10 @@ api.add_resource(FavoriteList, '/rpc/favorites')
 
 # 分享 POI，晒单评论，首页文章 接口：
 share_parser = reqparse.RequestParser()
-share_parser.add_argument('offset', type=int)    # offset 偏移量。
-share_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
-share_parser.add_argument('user', type=long)      # 用户 id。
+share_parser.add_argument('offset', type=int)    # offset 偏移量
+share_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致
+share_parser.add_argument('user', type=long)      # 分享人用户 id
+share_parser.add_argument('token', type=str)      # 当前用户的登陆 token
 
 share_parser_detail = reqparse.RequestParser()
 share_parser_detail.add_argument('user', type=long, required=True)    # 进行分享的用户的 id
@@ -1754,12 +1757,10 @@ class ShareList(Resource):
             result = result[:limit]
         result = self._get_info_shares(result)
         # 处理 review 的 like 关系：
-        if user_id:
-            token = db.session.query(Token).filter(Token.user_id == user_id).first()
-            token = '' if not token else token.token
-            for share in result:
-                if hasattr(share, 'valid_review') and share.valid_review:
-                    _format_review_like([share.valid_review], token)
+        token = args['token']
+        if token:
+            valid_reviews = [share.valid_review for share in result if hasattr(share, 'valid_review') and share.valid_review]
+            _format_review_like(valid_reviews, token)
         return marshal_share(result)
 
     # 共享行为类似一个行为记录，一旦发生就无法取消记录。
