@@ -647,8 +647,12 @@ class ReviewView(MyModelView):
             return ''
         return Markup(_get_images_code(util.get_images(model.images, valid_only=False)))
     
+    def _list_content(view, context, model, name):
+        return Markup(u'''<table width="300" cellpadding="5"><tr> </tr></table>''') + model.content
+
     column_formatters = {
         'images': _list_thumbnail_images,
+        'content':_list_content,
     }
 
 
