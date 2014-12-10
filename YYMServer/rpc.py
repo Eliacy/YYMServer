@@ -370,7 +370,6 @@ class UserList(Resource):
         # 补充与当前用户间的关注关系：
         token = args['token']
         if token:        # ToDo：这里查询关注关系使用的是数据库查询，存在性能风险！
-            # 其实在现有 app 界面中，只有 指定用户 id 的时候，才需要用到 followed 属性。
             Main_User = aliased(User)
             query = db.session.query(User.id).filter(User.valid == True).join(fans, User.id == fans.columns.user_id).join(Main_User, fans.columns.fan_id == Main_User.id).join(Token, Main_User.id == Token.user_id).filter(Token.token == token).filter(User.id.in_([user.id for user in result]))
             follow_dic = {}
@@ -898,7 +897,7 @@ class ArticleList(Resource):
 
     @cache.memoize()
     def _get(self, id=None, city=None):
-        query = db.session.query(Article.id).filter(Article.valid == True)
+        query = db.session.query(Article).filter(Article.valid == True)
         if id:
             query = query.filter(Article.id == id)
         if city:
@@ -909,7 +908,7 @@ class ArticleList(Resource):
             query_country = query.join(Article.countries).filter(Country.id == country)
             query = query_city.union(query_country)
         query = query.order_by(Article.order.desc()).order_by(Article.create_time.desc())
-        result = map(lambda x: x[0], query.all())
+        result = map(lambda x: x.id, query.all())
         return result
 
     @hmac_auth('api')
