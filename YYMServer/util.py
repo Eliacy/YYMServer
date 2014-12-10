@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import random
 import re
 from calendar import timegm
 from email.utils import formatdate
@@ -88,9 +89,13 @@ def replace_textlib(text):
     ''' 辅助函数：检查输入的 text 数据是否匹配 TextLib 替换代码，如果是则替换后返回。'''
     return textlib_re.sub(_replace_textlib, text)
 
+default_user_icon = db.session.query(Image).filter(Image.id == 9).first()
+
 def format_user(user):
     ''' 辅助函数：用于格式化 User 实例，用于接口输出。'''
     user.icon_image = user.icon
+    if not user.icon_id:
+        user.icon_image = default_user_icon
     return user
 
 def format_site(site):
@@ -150,6 +155,11 @@ def format_review(review):
     review.valid_images = []
     if review.images:
         review.valid_images = get_images(review.images)    # 图片一般不会保留同一个 id 但修改图片内容，因而无需单独缓存
+    else:           # 如果 review 无图，则从对应的 site 的 gate_images 中随机取一个。
+        if review.site_id:
+            site = get_info_site(review.site_id)
+            if site.valid_gate_images:
+                review.valid_images = [random.choice(site.valid_gate_images)]
     return review
 
 def format_article(article):
@@ -175,7 +185,7 @@ def parse_textstyle(content):
             type, id = link.split(u':', 1)
             id = id.strip()
             if type == 'image' and id.isdigit():   # 图片
-                entry = {'class': 'image', 'content': db.session.query(Image).filter(Image.valid == True).filter(Image.id == int(id)).first()}
+                entry = {'class': 'image', 'content': db.session.query(Image).filter(Image.valid == True).filter(Image.id == long(id)).first()}
             elif type == 'site' and id.isdigit():  # POI
                 # 这里对 POI 其实直接解析完就把具体信息丢进缓存了，因而不会被实时更新。
                 entry = {'class': 'site', 'content': get_info_site(long(id))}
