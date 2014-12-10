@@ -148,7 +148,6 @@ def get_info_user(user_id, valid_only = True):
 
 def format_review(review):
     ''' 辅助函数：用于格式化 Review 实例，用于接口输出。本函数对内嵌数据（如 user、site ）的支持并不完整，需要用 _get_info_reviews 函数获取完整的内嵌属性。'''
-    review.images_num = 0 if not review.images else len(review.images.split())
     review.currency = review.currency or u'人民币'
     review.content = (review.content or u'').strip()
     review.formated_keywords = [] if not review.keywords else review.keywords.split()
@@ -160,6 +159,7 @@ def format_review(review):
             site = get_info_site(review.site_id)
             if site.valid_gate_images:
                 review.valid_images = [random.choice(site.valid_gate_images)]
+    review.images_num = len(review.valid_images)
     return review
 
 def format_article(article):
