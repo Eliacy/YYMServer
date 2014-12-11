@@ -371,7 +371,6 @@ def count_follow_fans(follows, fans):
 
 def count_likes(users, reviews):
     ''' 辅助函数，对喜欢行为涉及的用户账号和晒单评论，重新计算其 like_num 。'''
-    # ToDo: 这个实现受读取 User 信息和 Review 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
     for user in users:
         user.like_num = user.likes.filter(Review.valid == True).count()
         db.session.commit()
@@ -383,7 +382,6 @@ def count_likes(users, reviews):
 
 def count_favorites(users, sites):
     ''' 辅助函数，对收藏行为涉及的用户账号和 POI ，重新计算其 favorite_num 。'''
-    # ToDo: 这个实现受读取 User 信息和 Site 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
     for user in users:
         user.favorite_num = user.favorites.filter(Site.valid == True).count()
     # Site 暂时没有与 favorite 相关的计数
@@ -402,14 +400,12 @@ def count_shares(users, sites, reviews, articles):
 
 def count_images(site):
     ''' 辅助函数，重新计算指定 POI 的 image_num 。'''
-    # ToDo: 这个实现受读取 site 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
     site.images_num = len(get_site_images(site.id))
     db.session.commit()
     update_cache(site, format_func = format_site)
 
 def count_reviews(users, sites):
     ''' 辅助函数，对晒单评论的更新，重新计算相关 POI 的星级、评论数，以及相关用户账号的评论数。'''
-    # ToDo: 这样每次都重新计算不确定是否存在性能风险。
     for user in users:
         user.review_num = user.reviews.filter(Review.valid == True).count()
         db.session.commit()
@@ -425,7 +421,6 @@ def count_reviews(users, sites):
 
 def count_comments(users, articles, reviews):
     ''' 辅助函数，对子评论涉及的晒单评论、首页文章、用户账号（用户账号暂时不需要），重新计算其子评论数。'''
-    # ToDo: 这样每次都重新计算不确定是否存在性能风险。
     for article in articles:
         article.comment_num = article.comments.filter(Comment.valid == True).count()
         db.session.commit()

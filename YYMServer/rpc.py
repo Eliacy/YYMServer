@@ -72,7 +72,7 @@ class ImageUrl(fields.Raw):
 
 # 图片信息查询接口：
 image_parser = reqparse.RequestParser()
-image_parser.add_argument('id', type=long)       # ToDo: 这里的 type 参数指明的 类型，需要保证与 model 中的对应字段一致！model 中的 Integer 这里对应 long； model 中的 SmallInteger 这里对应 int。
+image_parser.add_argument('id', type=long)       # 这里的 type 参数指明的 类型，需要保证与 model 中的对应字段一致！model 中的 Integer 这里对应 long； model 中的 SmallInteger 这里对应 int。
 image_parser.add_argument('offset', type=int)    # offset 偏移量。
 image_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
 image_parser.add_argument('site', type=long)      # 指定 POI id，获取所有相关图片
@@ -99,7 +99,6 @@ image_fields = {
 image_fields.update(image_fields_mini)
 
 
-# ToDo: 图片上传的接口！
 class ImageList(Resource):
     '''提供图片的增、查、删三组服务。'''
     def __repr__(self):
@@ -369,7 +368,7 @@ class UserList(Resource):
             result = util.get_info_users(map(lambda x: x[0], result))
         # 补充与当前用户间的关注关系：
         token = args['token']
-        if token:        # ToDo：这里查询关注关系使用的是数据库查询，存在性能风险！
+        if token:        # ToDo: 这里查询关注关系使用的是数据库查询，存在性能风险！
             Main_User = aliased(User)
             query = db.session.query(User.id).filter(User.valid == True).join(fans, User.id == fans.columns.user_id).join(Main_User, fans.columns.fan_id == Main_User.id).join(Token, Main_User.id == Token.user_id).filter(Token.token == token).filter(User.id.in_([user.id for user in result]))
             follow_dic = {}
@@ -746,7 +745,6 @@ class SiteList(Resource):
     @cache.memoize()
     def _get(self, brief=None, id=None, keywords=None, area=None, city=None, range=None, category=None, order=None, geohash=None):
         ''' 本函数实际上只是根据搜索条件，给出搜索结果对应的 POI id 序列。详细属性需要通过 util.get_info_sites 函数读取，以减小缓存提及。'''
-        # ToDo: Site 表中各计数缓存值的数据没有做动态更新，例如晒单评论数！
         if not area and (range == None or range == 0):
             range = 5   # ToDo: 如果商圈和 range 都没有设置，表示智能范围（注意：range 为 -1 时表示全城搜索）。这里暂时只是把搜索范围置成5公里了。
         query = db.session.query(Site.id).filter(Site.valid == True)
@@ -806,7 +804,7 @@ class SiteList(Resource):
         # 提取 favorite 关系：
         if not brief:
             token = args['token']
-            if token:        # ToDo：这里查询收藏关系使用的是数据库查询，存在性能风险！
+            if token:        # ToDo: 这里查询收藏关系使用的是数据库查询，存在性能风险！
                 query = db.session.query(Site.id).filter(Site.valid == True).join(Site.fans).join(Token, User.id == Token.user_id).filter(Token.token == token).filter(Site.id.in_([site.id for site in result]))
                 favorite_dic = {}
                 for site_id in query:
@@ -872,7 +870,6 @@ article_fields_brief = {
 article_fields = {
     'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
     'content': fields.List(ContentEntry, attribute='formated_content'),         # 首页文章的文本正文，需区分自然段、小标题、图片、店铺链接、分隔符等特殊格式！
-    # ToDo: 这里需要和客户端统一一下图文混排的方案！
     'comment_num': fields.Integer,
 }
 article_fields.update(article_fields_brief)
@@ -946,7 +943,6 @@ tips_fields_brief = {
 tips_fields = {
     'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
     'content': fields.List(ContentEntry, attribute='formated_content'),         # 小贴士的文本正文，需区分自然段、小标题、分隔符、排序列表等特殊格式！以及支持对其他 Tips 的引用（例如该国家通用的内容）
-    # ToDo: 这里需要和客户端统一一下图文混排的方案！
 }
 tips_fields.update(tips_fields_brief)
 
@@ -1057,7 +1053,7 @@ def _get_info_review(review_id, valid_only = True, brief = False):
 def _format_review_like(reviews, token):
     ''' 辅助函数：用于在 Review 实例中，插入当前 token 对应用户是否喜欢它的信息。'''
     like_dic = {}
-    if token:        # ToDo：这里查询喜欢关系使用的是数据库查询，存在性能风险！
+    if token:        # ToDo: 这里查询喜欢关系使用的是数据库查询，存在性能风险！
         query = db.session.query(Review.id).filter(Review.valid == True).join(Review.fans).join(Token, User.id == Token.user_id).filter(Token.token == token).filter(Review.id.in_([review.id for review in reviews]))
         for review_id in query:
             like_dic[review_id[0]] = True
@@ -1466,7 +1462,6 @@ class LikeList(Resource):
 
     def _count_likes(self, user, review):
         ''' 辅助函数，对交互行为涉及的用户账号和晒单评论，重新计算其 like_num 。'''
-        # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
         util.count_likes([user] if user else [], [review] if review else [])
         self._delete_cache(user)
 
@@ -1557,7 +1552,6 @@ class FavoriteList(Resource):
 
     def _count_favorites(self, user, site):
         ''' 辅助函数，对交互行为涉及的用户账号和 POI ，重新计算其 favorite_num 。'''
-        # ToDo: 这个实现受读取 User 信息的接口的缓存影响，还不能保证把有效的值传递给前端。
         util.count_favorites([user] if user else [], [site] if site else [])
         self._delete_cache(user)
 

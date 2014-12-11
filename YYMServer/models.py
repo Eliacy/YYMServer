@@ -214,7 +214,7 @@ categories = db.Table('categories',
 
 
 class Site(db.Model):   # 店铺或景点等 POI
-    id = db.Column(db.Integer, primary_key=True)        # ToDo：这个 id 应该考虑改成 UUID （已放弃，改为从特定数值开始）。
+    id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否用户可见
     order = db.Column(db.Integer, default=0)    # 控制在前台的显示顺序，数字越大越靠前
     note = db.Column(db.UnicodeText)   # POI 的备忘描述文字
@@ -451,7 +451,7 @@ def generate_default_name_and_icon(mapper, connection, target):
 
 
 class Image(db.Model):  # 全局图片存储
-    id = db.Column(db.Integer, primary_key=True)        # ToDo：考虑改为 UUID 。
+    id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=True)   # 控制是否当作已删除处理（False 表示删除）
     type = db.Column(db.SmallInteger, default=1)   # 图片分类：1 表示店铺 logo；2 表示店铺门脸图；3 表示用户头像；4 表示评论图片。
     path = db.Column(db.String(120), default='')    # 图片所在存储路径
@@ -470,7 +470,7 @@ class Image(db.Model):  # 全局图片存储
 
 
 class Review(db.Model):        # 用户晒单评论
-    id = db.Column(db.Integer, primary_key=True)        # ToDo: 考虑改为 UUID（已放弃，改为从特定数值开始）。
+    id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
     selected = db.Column(db.Boolean, default=False)     # 控制本文是否强制加入精选推荐
     published = db.Column(db.Boolean, default=False)       # 控制是否对外发布

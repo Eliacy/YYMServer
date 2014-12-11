@@ -441,7 +441,7 @@ class SiteView(MyModelView):
         return super(SiteView, self).after_model_change(form, model, is_created)
 
     def get_one(self, id):
-        ''' ToDo：一个脏补丁，用来显示店铺相关的各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
+        ''' ToDo: 一个脏补丁，用来显示店铺相关的各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
         site = super(SiteView, self).get_one(id)
         columns = []
         for col in self.form_create_rules:
@@ -967,7 +967,7 @@ class UserView(MyModelView):
         return super(UserView, self).after_model_change(form, model, is_created)
 
     def get_one(self, id):
-        ''' ToDo：一个脏补丁，用来显示各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
+        ''' ToDo: 一个脏补丁，用来显示各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
         user = super(UserView, self).get_one(id)
         columns = []
         for col in self.form_create_rules:
@@ -1073,7 +1073,7 @@ class ArticleView(MyModelView):
         return super(ArticleView, self).after_model_change(form, model, is_created)
 
     def get_one(self, id):
-        ''' ToDo：一个脏补丁，用来显示各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
+        ''' ToDo: 一个脏补丁，用来显示各种图片。但是被迫经常刷新缓存，性能比较差。应该还是通过定制 Form Field 来实现较好。'''
         article = super(ArticleView, self).get_one(id)
         columns = []
         for col in self.form_create_rules:
