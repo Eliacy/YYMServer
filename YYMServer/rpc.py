@@ -90,7 +90,7 @@ image_fields_mini = {
 
 image_fields = {
     'type': fields.Integer,
-    'create_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'create_time': util.DateTime,    # RFC3339 格式的时间戳字符串
     'user_id': fields.Integer,
     'mime': fields.String,
     'width': fields.Integer,
@@ -278,8 +278,8 @@ user_fields_mini = {
 }
 user_fields = {
     'anonymous': fields.Boolean,
-    'create_time': util.DateTime,    # 首次创建时间，RFC822-formatted datetime string in UTC
-    'update_time': util.DateTime,    # 用户属性修改时间，RFC822-formatted datetime string in UTC
+    'create_time': util.DateTime,    # 首次创建时间，RFC3339 格式的时间戳字符串
+    'update_time': util.DateTime,    # 用户属性修改时间，RFC3339 格式的时间戳字符串
     'username': fields.String,  # 登陆用用户名，App 端会是设备 id（匿名用户）或手机号（已注册用户）
     'mobile': fields.String,    # 用户手机号
     'gender': fields.String,    # 性别：文字直接表示的“男、女、未知”
@@ -862,13 +862,13 @@ class ContentEntry(fields.Raw):
 
 article_fields_brief = {
     'id': fields.Integer,
-    'create_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'create_time': util.DateTime,    # RFC3339 格式的时间戳字符串
     'title': fields.String,         # 首页文章的标题
     'caption': fields.Nested(image_fields_mini, attribute='caption_image'),     # 首页文章的标题衬图（也即首图）
     'keywords': fields.List(fields.String, attribute='formated_keywords'),      # 概要状态通常只使用第一个关键词
 }
 article_fields = {
-    'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'update_time': util.DateTime,    # RFC3339 格式的时间戳字符串
     'content': fields.List(ContentEntry, attribute='formated_content'),         # 首页文章的文本正文，需区分自然段、小标题、图片、店铺链接、分隔符等特殊格式！
     'comment_num': fields.Integer,
 }
@@ -937,11 +937,11 @@ tips_parser.add_argument('city', type=long)      # 城市 id。
 tips_fields_brief = {
     'id': fields.Integer,
     'default': fields.Boolean,  # 是否是当前城市的默认贴士
-    'create_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'create_time': util.DateTime,    # RFC3339 格式的时间戳字符串
     'title': fields.String,         # Tips 的标题，用于列表选单，不用于正文显示
 }
 tips_fields = {
-    'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'update_time': util.DateTime,    # RFC3339 格式的时间戳字符串
     'content': fields.List(ContentEntry, attribute='formated_content'),         # 小贴士的文本正文，需区分自然段、小标题、分隔符、排序列表等特殊格式！以及支持对其他 Tips 的引用（例如该国家通用的内容）
 }
 tips_fields.update(tips_fields_brief)
@@ -1018,8 +1018,8 @@ review_fields_brief = {
     'comment_num': fields.Integer,
     'images_num': fields.Integer,
     'user': fields.Nested(user_fields_mini, attribute='valid_user'),
-    'publish_time': util.DateTime,    # RFC822-formatted datetime string in UTC
-    'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'publish_time': util.DateTime,    # RFC3339 格式的时间戳字符串
+    'update_time': util.DateTime,    # RFC3339 格式的时间戳字符串
     'total': fields.Float,
     'currency': fields.String,
     'site': fields.Nested(site_fields_mini, attribute='valid_site'),
@@ -1244,8 +1244,8 @@ comment_parser_detail.add_argument('content', type=unicode, required=True)
 
 comment_fields = {
     'id': fields.Integer,
-    'publish_time': util.DateTime,    # RFC822-formatted datetime string in UTC
-    'update_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'publish_time': util.DateTime,    # RFC3339 格式的时间戳字符串
+    'update_time': util.DateTime,    # RFC3339 格式的时间戳字符串
     'review_id': fields.Integer,        # 绑定的晒单评论 id
     'article_id': fields.Integer,        # 绑定的首页文章 id
     'user': fields.Nested(user_fields_mini, attribute='valid_user'),
@@ -1628,7 +1628,7 @@ share_parser_detail.add_argument('target', type=unicode, required=True)    # 分
 
 share_fields = {
     'id': fields.Integer,
-    'action_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'action_time': util.DateTime,    # RFC3339 格式的时间戳字符串
     'user_id': fields.Integer,        # 进行共享的用户 id （仅用于辅助复查确认，前端展现应该不需要）
     'target': fields.String,        # 分享的目标应用，辅助复查确认用
     'token': fields.String,         # 分享的唯一编码，用于访问被分享的内容
@@ -1809,7 +1809,7 @@ message_parser.add_argument('thread', type=str)         # 仅获取这一指定�
 message_fields_thread = {
     'id': fields.Integer,       # 当前对话线索中，最新一条的消息 id
     'thread': fields.String(attribute='group_key'),        # 对话线索标识，也即后台数据库中的 group_key （私信消息分组快捷键，将本消息相关 user_id 按从小到大排序，用“_”连接作为 Key）
-    'create_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'create_time': util.DateTime,    # RFC3339 格式的时间戳字符串
     'sender': fields.Nested(user_fields_mini, attribute='valid_sender'),        # 发送人的账号信息
     'content': fields.String,   # 消息文本正文，如果是系统发送的消息，则可能存在应用内资源的跳转链接。（截取前 100 个字符差不多够了吧？）
     'unread': fields.Integer,   # 该线索的未读消息数
@@ -1879,7 +1879,7 @@ message_parser_detail.add_argument('content', type=unicode, required=True)      
 
 message_fields = {
     'id': fields.Integer,
-    'create_time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'create_time': util.DateTime,    # RFC3339 格式的时间戳字符串
     'sender_id': fields.Integer,        # 发送人的 user id （message 详情通常用于提取一个对话线索中的详细消息，因此 user 的详细属性就不展开了。）
     'content': fields.String,   # 消息文本正文，如果是系统发送的消息，则可能存在应用内资源的跳转链接。
     'thread': fields.String(attribute='group_key'),        # 对话线索标识。其实是冗余的，因为在参数里通常已经指定 thread 了，但再次显示用于确认。
@@ -2012,7 +2012,7 @@ forecast_parser = reqparse.RequestParser()
 forecast_parser.add_argument('city', type=long, required=True)     # 获取此城市的天气预报信息
 
 datapoint_fields = {
-    'time': util.DateTime,    # RFC822-formatted datetime string in UTC
+    'time': util.DateTime,    # RFC3339 格式的时间戳字符串
     'weekday': fields.String,   # 对应日期的星期中文缩写
     'temp': fields.Integer,  # 当前温度（摄氏），每日天气数据中没有这一项
     'low': fields.Integer,  # 最低温度（摄氏），当前时刻天气数据中没有这一项

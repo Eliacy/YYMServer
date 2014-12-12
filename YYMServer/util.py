@@ -3,11 +3,11 @@
 import random
 import re
 from calendar import timegm
-from email.utils import formatdate
 import os.path
 
 import PIL
 import pytz
+from rfc3339 import rfc3339
 
 import flask
 from flask.ext.admin import form as admin_form
@@ -342,13 +342,13 @@ def strip_image_note(note):
 
 
 class DateTime(fields.DateTime):
-    """Return a RFC822-formatted datetime string in UTC"""
+    '''格式化时间戳为 RFC3339 格式字符串。'''
 
     def format(self, value):
-        """数据库默认认为以 'Asia/Shanghai' 时区存储，在输出时做转换。"""
+        '''数据库默认认为以 'Asia/Shanghai' 时区存储，在输出时做转换。'''
         try:
-            dt = tz_server.localize(value) if value.tzinfo == None else value
-            return formatdate(timegm(dt.utctimetuple()))
+            dt = value if value.tzinfo != None else tz_server.localize(value)
+            return rfc3339(dt)
         except AttributeError as ae:
             raise fields.MarshallingException(ae)
 

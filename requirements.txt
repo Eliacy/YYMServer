@@ -16,6 +16,7 @@ WTForms
 Werkzeug
 MySQL-python
 pytz
+rfc3339
 shortuuid
 # PIL
 # redis
