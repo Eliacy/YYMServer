@@ -2020,6 +2020,7 @@ datapoint_fields = {
     'conditions': fields.String,    # 天气情况的中文说明
     'type_name': fields.String,     # 天气类别的英文名称
     'type_id': fields.Integer,  # 天气类别的 id
+    'is_night': fields.Boolean,     # 是否是夜晚。每日天气数据中没有这一项
 }
 
 forecast_fields = {
@@ -2069,6 +2070,9 @@ class ForecastList(Resource):
         result['high'] = None if not datapoint.has_key('high') else datapoint['high']['celsius']
         result['type_name'] = datapoint['icon']
         result['type_id'] = conditions_dic.get(result['type_name'], 0)
+        hour = result['time'].hour
+        # ToDo: 目前只是简单地把早7点到晚7点之间当做白天，有些时候不够准确。
+        result['is_night'] = None if not datapoint.has_key('temp') else hour < 7 or hour >= 19
         return result
 
     @cache.memoize()
@@ -2080,7 +2084,6 @@ class ForecastList(Resource):
         local_tz = '' if not city else city.timezone
         timezone = pytz.timezone(local_tz)
         dt = timezone.normalize(now)
-        print dt
         result = {'city': city}
         forecast = db.session.query(Forecast).filter(Forecast.city_id == city_id).order_by(Forecast.id.desc()).first()
         if forecast:
