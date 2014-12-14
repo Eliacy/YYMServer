@@ -8,6 +8,7 @@ import os.path
 import PIL
 import pytz
 from rfc3339 import rfc3339
+from sqlalchemy.orm import aliased
 
 import flask
 from flask.ext.admin import form as admin_form
@@ -137,13 +138,23 @@ def get_info_site(site_id):
     result = get_info_sites([site_id])
     return None if not result else result[0]
 
-def get_info_users(user_ids, valid_only = True):
+def get_info_users(user_ids, valid_only = True, token = None):
     ''' 辅助函数：提取指定 id 的用户属性详情，并使用缓存。'''
-    return get_info_ids(User, user_ids, format_func = format_user, valid_only = valid_only)
+    result = get_info_ids(User, user_ids, format_func = format_user, valid_only = valid_only)
+    # 补充与当前用户间的关注关系：
+    if token:        # ToDo: 这里查询关注关系使用的是数据库查询，存在性能风险！
+        Main_User = aliased(User)
+        query = db.session.query(User.id).filter(User.valid == True).join(fans, User.id == fans.columns.user_id).join(Main_User, fans.columns.fan_id == Main_User.id).join(Token, Main_User.id == Token.user_id).filter(Token.token == token).filter(User.id.in_([user.id for user in result]))
+        follow_dic = {}
+        for user_id in query:
+            follow_dic[user_id[0]] = True
+        for user in result:
+            user.followed = follow_dic.get(user.id, False)
+    return result
 
-def get_info_user(user_id, valid_only = True):
+def get_info_user(user_id, valid_only = True, token = None):
     ''' 与 get_info_users 的区别是只接收和返回单个的数据实例。'''
-    result = get_info_users([user_id], valid_only)
+    result = get_info_users([user_id], valid_only, token = token)
     return None if not result else result[0]
 
 def format_review(review):

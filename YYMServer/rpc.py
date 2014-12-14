@@ -275,6 +275,9 @@ user_fields_mini = {
     'icon': fields.Nested(image_fields_mini, attribute='icon_image'),   # 用户头像，没有时会变成 id 为 0 的图片
     'name': fields.String,      # 用户昵称
     'level': fields.Integer,    # 用数字表示的用户等级
+    'follow_num': fields.Integer,      # 该用户已关注的账号的数量，是一个缓存值
+    'fans_num': fields.Integer,      # 该用户拥有的粉丝数量，是一个缓存值
+    'followed': fields.Boolean,         # 当前 token 参数表示的用户是否关注了此用户（依赖于有效的 token 参数，否则一定会是 null）
 }
 user_fields = {
     'anonymous': fields.Boolean,
@@ -284,14 +287,11 @@ user_fields = {
     'mobile': fields.String,    # 用户手机号
     'gender': fields.String,    # 性别：文字直接表示的“男、女、未知”
     'exp': fields.Integer,      # 与用户等级对应的用户经验，需要根据每天的行为日志做更新
-    'follow_num': fields.Integer,      # 该用户已关注的账号的数量，是一个缓存值
-    'fans_num': fields.Integer,      # 该用户拥有的粉丝数量，是一个缓存值
     'like_num': fields.Integer,      # 该用户喜欢的晒单评论数量，是一个缓存值
     'share_num': fields.Integer,      # 该用户的分享行为数量，是一个缓存值
     'review_num': fields.Integer,      # 该用户发表的晒单评论数量，是一个缓存值
     'favorite_num': fields.Integer,      # 该用户收藏的店铺的数量，是一个缓存值
     'badges': fields.String,    # 用户拥有的徽章名称列表
-    'followed': fields.Boolean,         # 当前 token 参数表示的用户是否关注了此用户（仅查询时指定了 id 参数时提供，否则都是 null）
     'em_username': fields.String,   # 用户对应的环信账号用户名
     'em_password': fields.String,   # 用户对应的环信账号密码
 }
@@ -362,20 +362,11 @@ class UserList(Resource):
         if limit:
             result = result[:limit]
         # 准备具体属性数据：
-        if id:
-            result = util.get_info_users(map(lambda x: x[0], result), valid_only = False)
-        else:
-            result = util.get_info_users(map(lambda x: x[0], result))
-        # 补充与当前用户间的关注关系：
         token = args['token']
-        if token:        # ToDo: 这里查询关注关系使用的是数据库查询，存在性能风险！
-            Main_User = aliased(User)
-            query = db.session.query(User.id).filter(User.valid == True).join(fans, User.id == fans.columns.user_id).join(Main_User, fans.columns.fan_id == Main_User.id).join(Token, Main_User.id == Token.user_id).filter(Token.token == token).filter(User.id.in_([user.id for user in result]))
-            follow_dic = {}
-            for user_id in query:
-                follow_dic[user_id[0]] = True
-            for user in result:
-                user.followed = follow_dic.get(user.id, False)
+        if id:
+            result = util.get_info_users(map(lambda x: x[0], result), valid_only = False, token = token)
+        else:
+            result = util.get_info_users(map(lambda x: x[0], result), token = token)
         return result
 
     @hmac_auth('api')
@@ -993,7 +984,7 @@ review_parser.add_argument('limit', type=int, default=10)     # limit 限制，�
 review_parser.add_argument('user', type=long)
 review_parser.add_argument('site', type=long)    # 相关联的 POI id
 review_parser.add_argument('city', type=long)    # 相关联的城市 id
-review_parser.add_argument('token', type=str)     # 用户 token，用于获取是否喜欢的关系
+review_parser.add_argument('token', type=str)     # 用户 token，用于获取是否喜欢的关系，以及是否 关注 了相关用户
 
 review_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 Review 的信息的参数集合
 review_parser_detail.add_argument('id', type=long)
@@ -1032,11 +1023,11 @@ review_fields = {
 review_fields.update(review_fields_brief)
 review_fields['content'] = fields.String        # 非 brief 模式下，提供完整的文字内容
 
-def _get_info_reviews(review_ids, valid_only = True, brief = False):
+def _get_info_reviews(review_ids, valid_only = True, brief = False, token = None):
     ''' 辅助函数：提取指定 id 的晒单评论内容详情，并使用缓存。'''
     result = util.get_info_ids(Review, review_ids, format_func = util.format_review, valid_only = valid_only)
     for review in result:
-        review.valid_user = util.get_info_user(review.user_id)
+        review.valid_user = util.get_info_user(review.user_id, token = token)
         review.valid_site = util.get_info_site(review.site_id)
         review.valid_at_users = []
         if review.at_list:
@@ -1044,10 +1035,12 @@ def _get_info_reviews(review_ids, valid_only = True, brief = False):
         if brief:
             review.brief_content = review.content[:80]
             review.valid_images = review.valid_images[:1]
+    # 提取 like 关系：
+    _format_review_like(result, token)
     return result
 
-def _get_info_review(review_id, valid_only = True, brief = False):
-    result = _get_info_reviews([review_id], valid_only = valid_only, brief = brief)
+def _get_info_review(review_id, valid_only = True, brief = False, token = None):
+    result = _get_info_reviews([review_id], valid_only = valid_only, brief = brief, token = token)
     return None if not result else result[0]
 
 def _format_review_like(reviews, token):
@@ -1142,9 +1135,7 @@ class ReviewList(Resource):
             result = result[offset:]
         if limit:
             result = result[:limit]
-        result = _get_info_reviews(result, valid_only = True, brief = brief)
-        # 提取 like 关系：
-        _format_review_like(result, args['token'])
+        result = _get_info_reviews(result, valid_only = True, brief = brief, token = args['token'])
         # 输出结果：
         if brief:
             return marshal(result, review_fields_brief)
@@ -1486,11 +1477,7 @@ class LikeList(Resource):
             result = result[offset:]
         if limit:
             result = result[:limit]
-        result = _get_info_reviews(result, brief = True)
-        # 提取 like 关系：
-        token = args['token']
-        if token:
-            _format_review_like(result, token)
+        result = _get_info_reviews(result, brief = True, token = args['token'])
         # 输出结果：
         return marshal(result, review_fields_brief)
 
@@ -1687,7 +1674,7 @@ class ShareList(Resource):
         util.count_shares([user] if user else [], [site] if site else [], [review] if review else [], [article] if article else [])
         self._delete_cache(user)
 
-    def _get_info_shares(self, share_ids):
+    def _get_info_shares(self, share_ids, token = None):
         ''' 辅助函数：用于格式化 ShareRecord 实例，用于接口输出并缓存。'''
         result = util.get_info_ids(ShareRecord, share_ids)
         for share in result:
@@ -1714,7 +1701,7 @@ class ShareList(Resource):
                     share.title = valid_site.name
                     share.description = valid_site.description
             elif share.review_id:
-                valid_review = _get_info_review(share.review_id, brief = True)
+                valid_review = _get_info_review(share.review_id, brief = True, token = token)
                 share.valid_review = valid_review
                 share.url = baseurl_share + '/reviews/' + share.token
                 if valid_review != None:
@@ -1724,8 +1711,8 @@ class ShareList(Resource):
                     share.description = valid_review.content
         return result
 
-    def _get_info_share(self, share_id):
-        result = self._get_info_shares([share_id])
+    def _get_info_share(self, share_id, token = None):
+        result = self._get_info_shares([share_id], token = token)
         return None if not result else result[0]
 
     @cache.memoize()
@@ -1748,12 +1735,7 @@ class ShareList(Resource):
         limit = args['limit']
         if limit:
             result = result[:limit]
-        result = self._get_info_shares(result)
-        # 处理 review 的 like 关系：
-        token = args['token']
-        if token:
-            valid_reviews = [share.valid_review for share in result if hasattr(share, 'valid_review') and share.valid_review]
-            _format_review_like(valid_reviews, token)
+        result = self._get_info_shares(result, token = args['token'])
         return marshal_share(result)
 
     # 共享行为类似一个行为记录，一旦发生就无法取消记录。
