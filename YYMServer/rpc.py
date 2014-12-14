@@ -254,6 +254,8 @@ api.add_resource(UpTokenList, '/rpc/uptokens')
 # 用户信息查询接口：
 user_parser = reqparse.RequestParser()
 user_parser.add_argument('id', type=long)
+user_parser.add_argument('brief', type=int, default=0)     # 大于 0 表示只输出概要信息即可（默认只概要）。
+user_parser.add_argument('em', type=str)    # 环信用户名，用于反查 user 信息
 user_parser.add_argument('offset', type=int)    # offset 偏移量。
 user_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
 user_parser.add_argument('follow', type=long)      # 关注指定 id 所对应用户的账号列表
@@ -267,7 +269,7 @@ user_parser_detail.add_argument('name', type=unicode)    # 用户昵称，不能
 user_parser_detail.add_argument('mobile', type=str)  # 预留手机号接口，但 App 前端在初期版本不应该允许用户修改！不能与其他用户的手机号重复，否则报错。
 user_parser_detail.add_argument('password', type=str)  # 账号密码的明文，至少6个字符。
 user_parser_detail.add_argument('gender', type=unicode)    # 用户性别：文字直接表示的“男、女、未知”
-user_parser_detail.add_argument('token', type=str)  # 旧 token，用于迁移登录前发生的匿名行为。
+user_parser_detail.add_argument('token', type=str)  # 注册时代表旧 token，用于迁移登录前发生的匿名行为。查询时用于代表当前用户获取对目标用户的 关注 状态。
 user_parser_detail.add_argument('device', type=str)      # 设备 id 。
 
 user_fields_mini = {
@@ -279,23 +281,26 @@ user_fields_mini = {
     'fans_num': fields.Integer,      # 该用户拥有的粉丝数量，是一个缓存值
     'followed': fields.Boolean,         # 当前 token 参数表示的用户是否关注了此用户（依赖于有效的 token 参数，否则一定会是 null）
 }
+user_fields_brief = {
+    'badges': fields.String,    # 用户拥有的徽章名称列表
+}
+user_fields_brief.update(user_fields_mini)
 user_fields = {
     'anonymous': fields.Boolean,
     'create_time': util.DateTime,    # 首次创建时间，RFC3339 格式的时间戳字符串
     'update_time': util.DateTime,    # 用户属性修改时间，RFC3339 格式的时间戳字符串
     'username': fields.String,  # 登陆用用户名，App 端会是设备 id（匿名用户）或手机号（已注册用户）
-    'mobile': fields.String,    # 用户手机号
+    'mobile': fields.String,    # 用户手机号    # ToDo: 可能存在用户信息泄露的风险。
     'gender': fields.String,    # 性别：文字直接表示的“男、女、未知”
     'exp': fields.Integer,      # 与用户等级对应的用户经验，需要根据每天的行为日志做更新
     'like_num': fields.Integer,      # 该用户喜欢的晒单评论数量，是一个缓存值
     'share_num': fields.Integer,      # 该用户的分享行为数量，是一个缓存值
     'review_num': fields.Integer,      # 该用户发表的晒单评论数量，是一个缓存值
     'favorite_num': fields.Integer,      # 该用户收藏的店铺的数量，是一个缓存值
-    'badges': fields.String,    # 用户拥有的徽章名称列表
     'em_username': fields.String,   # 用户对应的环信账号用户名
     'em_password': fields.String,   # 用户对应的环信账号密码
 }
-user_fields.update(user_fields_mini)
+user_fields.update(user_fields_brief)
 
 def _prepare_msg_account(user):
     ''' 辅助函数：检查 user 拥有的环信账号，如果没有则创建一个。'''
@@ -332,11 +337,15 @@ class UserList(Resource):
             abort(403, message='The password length should be at least 6 characters!')
     
     @cache.memoize()
-    def _get(self, id=None, follow=None, fan=None):
+    def _get(self, id=None, em=None, follow=None, fan=None):
         # 当指定用户 id 进行查询时，即使该用户 valid 为 False，也仍然给出详细信息。
         result = []
         if id:
             query = db.session.query(User.id).filter(User.id == id)
+            result = query.all()
+        elif em:
+            em = em.strip()
+            query = db.session.query(User.id).filter(User.em_username == em)
             result = query.all()
         elif follow:
             Main_User = aliased(User)
@@ -349,11 +358,10 @@ class UserList(Resource):
         return result
 
     @hmac_auth('api')
-    @marshal_with(user_fields)
     def get(self):
         args = user_parser.parse_args()
         id = args['id']
-        result = self._get(id, args['follow'], args['fan'])
+        result = self._get(id, args['em'], args['follow'], args['fan'])
         # 分组输出：
         offset = args['offset']
         if offset:
@@ -367,7 +375,11 @@ class UserList(Resource):
             result = util.get_info_users(map(lambda x: x[0], result), valid_only = False, token = token)
         else:
             result = util.get_info_users(map(lambda x: x[0], result), token = token)
-        return result
+        brief = args['brief']
+        if brief:
+            return marshal(result, user_fields_brief)
+        else:
+            return marshal(result, user_fields)
 
     @hmac_auth('api')
     def post(self):
