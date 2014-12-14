@@ -255,7 +255,7 @@ api.add_resource(UpTokenList, '/rpc/uptokens')
 user_parser = reqparse.RequestParser()
 user_parser.add_argument('id', type=long)
 user_parser.add_argument('brief', type=int, default=0)     # 大于 0 表示只输出概要信息即可（默认只概要）。
-user_parser.add_argument('em', type=str)    # 环信用户名，用于反查 user 信息
+user_parser.add_argument('em', type=str)    # 环信用户名，用于反查 user 信息。多个环信账号用英文逗号分隔。
 user_parser.add_argument('offset', type=int)    # offset 偏移量。
 user_parser.add_argument('limit', type=int, default=10)     # limit 限制，与 SQL 语句中的 limit 含义一致。
 user_parser.add_argument('follow', type=long)      # 关注指定 id 所对应用户的账号列表
@@ -283,6 +283,7 @@ user_fields_mini = {
 }
 user_fields_brief = {
     'badges': fields.String,    # 用户拥有的徽章名称列表
+    'em_username': fields.String,   # 用户对应的环信账号用户名
 }
 user_fields_brief.update(user_fields_mini)
 user_fields = {
@@ -297,7 +298,6 @@ user_fields = {
     'share_num': fields.Integer,      # 该用户的分享行为数量，是一个缓存值
     'review_num': fields.Integer,      # 该用户发表的晒单评论数量，是一个缓存值
     'favorite_num': fields.Integer,      # 该用户收藏的店铺的数量，是一个缓存值
-    'em_username': fields.String,   # 用户对应的环信账号用户名
     'em_password': fields.String,   # 用户对应的环信账号密码
 }
 user_fields.update(user_fields_brief)
@@ -344,8 +344,8 @@ class UserList(Resource):
             query = db.session.query(User.id).filter(User.id == id)
             result = query.all()
         elif em:
-            em = em.strip()
-            query = db.session.query(User.id).filter(User.em_username == em)
+            em_ids = em.strip().split(',')
+            query = db.session.query(User.id).filter(User.em_username.in_(em_ids))
             result = query.all()
         elif follow:
             Main_User = aliased(User)

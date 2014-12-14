@@ -294,7 +294,7 @@ def get_users(user_ids_str):
     user_ids = ()
     user_ids_str = user_ids_str.strip()
     try:
-        user_ids = map(int, user_ids_str.split())
+        user_ids = map(long, user_ids_str.split())
     except:
         pass
     return get_info_users(user_ids)
@@ -309,7 +309,7 @@ def get_site_images(site_id):
         image_ids_str = (related_site.gate_images or '') + ' ' + (related_site.top_images or '') + ' ' + image_ids_str
     image_ids = ()
     try:
-        image_ids = map(int, set(image_ids_str.strip().split()))
+        image_ids = map(long, set(image_ids_str.strip().split()))
     except:
         pass
     return list(image_ids)
@@ -320,7 +320,7 @@ def get_images(image_ids, valid_only=True):
         image_ids_str = image_ids
         image_ids = ()
         try:
-            image_ids = map(int, image_ids_str.strip().split())
+            image_ids = map(long, image_ids_str.strip().split())
         except:
             pass
     images = []
