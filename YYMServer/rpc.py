@@ -748,12 +748,11 @@ class SiteList(Resource):
     @cache.memoize()
     def _get(self, brief=None, id=None, keywords=None, area=None, city=None, range=None, category=None, order=None, geohash=None):
         ''' 本函数实际上只是根据搜索条件，给出搜索结果对应的 POI id 序列。详细属性需要通过 util.get_info_sites 函数读取，以减小缓存提及。'''
-        if not area and (range == None or range == 0):
-            range = 5   # ToDo: 如果商圈和 range 都没有设置，表示智能范围（注意：range 为 -1 时表示全城搜索）。这里暂时只是把搜索范围置成5公里了。
-        query = db.session.query(Site.id).filter(Site.valid == True)
+        # ToDo: 需要利用 geohash，实现高效率的距离初步筛选！
+        query = db.session.query(Site.id, Site.longitude, Site.latitude).filter(Site.valid == True)
         if order:
             if order == 1:      # 距离最近：
-                pass
+                pass    # 在 _get_sorted 函数中实现。
             elif order == 2:    # 人气最高：
                 query = query.order_by(Site.popular.desc())
             elif order == 3:    # 评价最好：
@@ -782,20 +781,41 @@ class SiteList(Resource):
                                      Site.address.ilike(u'%{}%'.format(keyword)) |
                                      Site.address_orig.ilike(u'%{}%'.format(keyword)) 
                                     )
-        result = map(lambda x: x[0], query.all())
+        result = query.all()
+        return result
+
+    @cache.memoize()
+    def _get_sorted(self, brief=None, id=None, keywords=None, area=None, city=None, range=None, category=None, order=None, longitude = None, latitude = None):
+        ''' 本函数基于 _get 函数封装数据库查询给出的基础结果，进一步用 Python 处理复杂的排序条件等，并利用缓存支撑用户端分批读取。'''
+        if not area and (range == None or range == 0):
+            range = 5   # ToDo: 如果商圈和 range 都没有设置，表示智能范围（注意：range 为 -1 时表示全城搜索）。这里暂时只是把搜索范围置成5公里了。
+        # ToDo: 应当利用 geohash，实现高效率的距离初步筛选！
+        geohash = None
+        result = []
+        site_items = self._get(brief, id, keywords, area, city, range, category, order, geohash)
+        for site_item in site_items:
+            id, lon, lat = site_item
+            distance = 0.0 if not longitude or not latitude else util.get_distance(longitude, latitude, lon, lat)
+            if range and distance > range:
+                continue
+            result.append({'id': id,
+                           'dist': distance,
+                          })
+        if order == 1:
+            result.sort(key = lambda x: x['dist'])
+        result = map(lambda x: x['id'], result)
         return result
 
     @hmac_auth('api')
     def get(self):
         args = site_parser.parse_args()
-        # ToDo: 基于距离范围的搜索暂时没有实现！
-        # ToDo: 按距离最近排序暂时没有实现！
         longitude = args['longitude']
         latitude = args['latitude']
-        geohash = None
-        # 其他基本搜索条件处理：
+        longitude = None if not longitude else round(longitude, 4)     # 降低位置精度到 10m 量级，期望靠这个保证用户稍稍移动时缓存仍然有效。
+        latitude = None if not latitude else round(latitude, 4)
+        # 基本搜索条件处理：
         brief = args['brief']
-        result = self._get(brief, args['id'], args['keywords'], args['area'], args['city'], args['range'], args['category'], args['order'], geohash)
+        result = self._get_sorted(brief, args['id'], args['keywords'], args['area'], args['city'], args['range'], args['category'], args['order'], longitude, latitude)
         offset = args['offset']
         if offset:
             result = result[offset:]

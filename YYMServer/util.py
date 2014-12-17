@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import math
 import random
 import re
 from calendar import timegm
@@ -20,6 +21,36 @@ import qiniu.io
 from YYMServer import db, cache, qiniu_bucket, qiniu_callback, tz_server
 from YYMServer.models import *
 
+
+def get_distance(long1, lat1, long2, lat2):
+    ''' 根据经纬度计算距离，代码来自：http://www.johndcook.com/blog/python_longitude_latitude/ 。'''
+ 
+    # Convert latitude and longitude to
+    # spherical coordinates in radians.
+    degrees_to_radians = math.pi / 180.0
+         
+    # phi = 90 - latitude
+    phi1 = (90.0 - lat1) * degrees_to_radians
+    phi2 = (90.0 - lat2) * degrees_to_radians
+         
+    # theta = longitude
+    theta1 = long1 * degrees_to_radians
+    theta2 = long2 * degrees_to_radians
+         
+    # Compute spherical distance from spherical coordinates.
+         
+    # For two locations in spherical coordinates
+    # (1, theta, phi) and (1, theta, phi)
+    # cosine( arc length ) =
+    #    sin phi sin phi' cos(theta-theta') + cos phi cos phi'
+    # distance = rho * arc length
+     
+    cos = (math.sin(phi1) * math.sin(phi2) * math.cos(theta1 - theta2) + math.cos(phi1) * math.cos(phi2))
+    arc = math.acos(cos)
+ 
+    # Remember to multiply arc by the radius of the earth
+    # in your favorite set of units to get length.
+    return arc * 6378.1     # 后者是地球半径（单位是公里）
 
 def get_info_ids(model_class, ids, format_func = None, valid_only = True):
     ''' 根据输入的 id，从缓存中获取对应 model 实例的详情信息。'''
