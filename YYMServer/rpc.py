@@ -282,7 +282,7 @@ user_fields_mini = {
     'followed': fields.Boolean,         # 当前 token 参数表示的用户是否关注了此用户（依赖于有效的 token 参数，否则一定会是 null）
 }
 user_fields_brief = {
-    'badges': fields.String,    # 用户拥有的徽章名称列表
+    'badges': fields.List(fields.String, attribute='formated_badges'),    # 用户拥有的徽章名称列表
     'em_username': fields.String,   # 用户对应的环信账号用户名
 }
 user_fields_brief.update(user_fields_mini)

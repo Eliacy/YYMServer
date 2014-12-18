@@ -125,6 +125,7 @@ default_user_icon = db.session.query(Image).filter(Image.id == 9).first()
 
 def format_user(user):
     ''' 辅助函数：用于格式化 User 实例，用于接口输出。'''
+    user.formated_badges = () if not user.badges else user.badges.strip().split()
     user.icon_image = user.icon
     if not user.icon_id:
         user.icon_image = default_user_icon
