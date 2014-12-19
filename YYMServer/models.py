@@ -585,30 +585,34 @@ event.listen(
 )
 
 
-class UserReadMessage(db.Model):        # 辅助用关联关系表，未做 Admin 管理界面
-    id = db.Column(db.BigInteger, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 相关用户
-    user = db.relationship('User', backref=db.backref('read_records', lazy='dynamic'), foreign_keys=[user_id])
-    message_id = db.Column(db.Integer, db.ForeignKey('message.id'))     # 相关的私信消息
-    message = db.relationship('Message', backref=db.backref('read_records', lazy='dynamic'), foreign_keys=[message_id])
-    has_read = db.Column(db.Boolean, default=False)     # 该用户是否已经读过特定私信
+class Message(db.Model):    # 用户消息，同时作为与 环信 进行消息同步的临时存储队列  # ToDo: 需要考虑在消息量大的时候的性能表现。
+    id = db.Column(db.Integer, primary_key=True)
+    sender_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))  # 消息发送人
+    sender_user = db.relationship('User', backref=db.backref('sent_messages', lazy='dynamic'), foreign_keys=[sender_user_id])
+    receiver_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))  # 消息接收人
+    receiver_user = db.relationship('User', backref=db.backref('messages', lazy='dynamic'), foreign_keys=[receiver_user_id])
+    create_time = db.Column(db.DateTime, default=datetime.datetime.now)        # 创建向特定用户推送的一条消息的时间点
+    announce_id = db.Column(db.Integer, db.ForeignKey('announce.id'))   # 通知的 id
+    announce = db.relationship('Announce')
+    content = db.Column(db.UnicodeText)     # 如果不是通知，而是独立的用户消息，则消息正文存储在本字段
+    ext = db.Column(db.Unicode(200), default=u'')   # 对应环信消息的 ext 参数，例如表明跳转目的地的界面展示对象 id 等
+    pushed = db.Column(db.Boolean, default=False)   # 是否已经将消息同步到环信
 
     def __unicode__(self):
-        return u'<UserReadMessage [%d] %s: msg %d, has_read %d>' % (self.id, None if not self.user else self.user.name, self.message_id or -1, self.has_read)
+        return u'<Message [%d] %s: %s>' % (self.id, self.user.name, self.create_time.strftime('%y-%m-%d'))
 
 
-class Message(db.Model):        # 用户私信， #ToDo: 当前的数据库结构设计可能存在性能问题。。
+class Announce(db.Model):   # 用户通知，借助 Message 完成实际发送。 # ToDo: 怀疑 User 量较多的时候，现在的方案设计会在创建新的全局通知时造成严重性能阻塞。
     id = db.Column(db.Integer, primary_key=True)
     valid = db.Column(db.Boolean, default=False)   # 控制是否当作已删除处理（False 表示删除）
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
-    sender_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 私信消息的作者
-    sender_user = db.relationship('User', backref=db.backref('sent_messages', lazy='dynamic'))  # 反向是该用户发送的所有信息
-    content = db.Column(db.UnicodeText)         # 私信消息的文本正文，应支持 App 内信息的链接
-    group_key = db.Column(db.String(50), default='')        # 私信消息分组快捷键，将本消息相关 user_id 按从小到大排序，用“_”连接作为 Key
-    users = db.relationship('User', lazy='dynamic', secondary=UserReadMessage.__table__,
-                                      backref=db.backref('messages', lazy='dynamic'))   # 反向为该用户的全部信息
+    sender_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 通知消息的作者
+    sender_user = db.relationship('User', backref=db.backref('sent_announces', lazy='dynamic'))  # 反向是该用户发送的所有通知
+    content = db.Column(db.UnicodeText)         # 通知消息的文本正文，暂未包括特殊格式支持，也还没支持图片
+    at_once = db.Column(db.Boolean, default=False)     # 在创建通知时即发送，不保证后注册的用户也能收到，可以和 at_login 组合使用覆盖全部用户
+    at_login = db.Column(db.Boolean, default=False)     # 当用户登录时发送，因而无法覆盖当前已经登录的用户，可以和 at_once 组合使用以覆盖之
 
     def __unicode__(self):
-        return u'<Message [%d] %s: %s>' % (self.id, self.sender_user.name, self.create_time.strftime('%y-%m-%d'))
+        return u'<Announce [%d] %s: %s>' % (self.id, self.sender_user.name, self.create_time.strftime('%y-%m-%d'))
 
 

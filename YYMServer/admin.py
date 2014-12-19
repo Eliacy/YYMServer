@@ -5,7 +5,7 @@ import shortuuid
 
 from flask import url_for, redirect, request, flash, escape
 from jinja2 import Markup
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 from werkzeug import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from wtforms import form, fields, validators
@@ -84,6 +84,7 @@ class ImageUploadField(admin_form.ImageUploadField):
 
 # Create customized model view class
 class MyModelView(ModelView):
+    # ToDo: 应该记录用户在后台的全部操作，以追踪误删等可能造成运营风险的行为。
     list_template = 'my_list.html'
     column_default_sort = ('id', True)
     column_display_pk = True
@@ -901,11 +902,8 @@ class UserView(MyModelView):
         'tips': {
             'fields': (Tips.id,)
         },
-        'sent_messages': {
-            'fields': (Message.id,)
-        },
-        'messages': {
-            'fields': (Message.id,)
+        'sent_announces': {
+            'fields': (Announce.id,)
         },
     }
 
@@ -1086,21 +1084,37 @@ class ArticleView(MyModelView):
         return article
 
 
-class MessageView(MyModelView):
+class AnnounceView(MyModelView):
+    form_create_rules = ('valid', 'at_once', 'at_login', 'create_time', 'sender_user', 'content',
+                         )
     column_default_sort = ('create_time', True)
-    column_searchable_list = ('content', 'group_key')
-    column_filters = ['id', 'valid', 'create_time', 'sender_user_id'] + list(column_searchable_list)
+    column_searchable_list = ('content', )
+    column_filters = ['id', 'valid', 'at_once', 'at_login', 'create_time', 'sender_user_id'] + list(column_searchable_list)
     form_ajax_refs = {
-        'read_records': {
-            'fields': (UserReadMessage.id,)
-        },
         'sender_user': {
             'fields': (User.id,)
         },
-        'users': {
-            'fields': (User.id,)
-        },
     }
+
+    def create_model(self, form):
+        if not form.sender_user.data:
+            form.sender_user.data = login.current_user
+        return super(AnnounceView, self).create_model(form)
+
+    def update_model(self, form, model):
+        if not form.sender_user.data:
+            form.sender_user.data = login.current_user
+        return super(AnnounceView, self).update_model(form, model)
+
+    def after_model_change(self, form, model, is_created):
+        # 对 at_once == True 的通知，通知当前还没通知到的用户：
+        if model.valid and model.at_once:
+            # 下面这个查询性能可能比 select * from  B where (select count(1) as num from A where A.ID = B.ID) = 0 要稍差一点：
+            unsent_users = db.session.query(User.id).filter(User.valid == True).outerjoin(Message, and_(User.id == Message.receiver_user_id, Message.announce_id == model.id)).filter(Message.id == None)
+            for unsent_user in unsent_users:
+                receiver_user_id = unsent_user[0]
+                util.send_message(323, receiver_user_id, model.id)  # 以运营经理名义发送
+        return super(AnnounceView, self).after_model_change(form, model, is_created)
 
 
 # Create admin
@@ -1120,6 +1134,6 @@ admin.add_view(AreaView(Area, db.session))
 admin.add_view(UserView(User, db.session))
 admin.add_view(RoleView(Role, db.session))
 admin.add_view(ShareRecordView(ShareRecord, db.session))
-admin.add_view(MessageView(Message, db.session))
+admin.add_view(AnnounceView(Announce, db.session))
 
 

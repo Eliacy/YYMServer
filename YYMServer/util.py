@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import json
 import math
 import random
 import re
@@ -382,6 +383,17 @@ def strip_image_note(note):
     if ']' in note:
         ending = note.split(']')[-1]
     return leading + ending
+
+def send_message(sender_user_id=None, receiver_user_id=None, announce_id=None, content=u'', ext={}):
+    ''' 封装发送环信消息的功能，使调用者与 model 的修改分离。'''
+    message = Message(sender_user_id = sender_user_id,
+                      receiver_user_id = receiver_user_id,
+                      announce_id = announce_id,
+                      content = content,
+                      ext = json.dumps(ext),    # 这里有可能造成中文字符编码问题
+                     )
+    db.session.add(message)
+    db.session.commit()
 
 
 class DateTime(fields.DateTime):
