@@ -190,6 +190,11 @@ def get_info_user(user_id, valid_only = True, token = None):
     result = get_info_users([user_id], valid_only, token = token)
     return None if not result else result[0]
 
+def get_info_announce(announce_id, valid_only = True):
+    ''' 辅助函数：提取指定 id 的用户通知，并使用缓存。'''
+    result = get_info_ids(Announce, [announce_id], format_func = None, valid_only = valid_only)
+    return None if not result else result[0]
+
 def format_review(review):
     ''' 辅助函数：用于格式化 Review 实例，用于接口输出。本函数对内嵌数据（如 user、site ）的支持并不完整，需要用 _get_info_reviews 函数获取完整的内嵌属性。'''
     review.currency = review.currency or u'人民币'
@@ -322,14 +327,19 @@ def get_self_and_children(model_class, self_id):
         entries.extend(sub_entries)
     return entries
 
-def get_users(user_ids_str):
-    ''' 辅助函数：文本的用户 id 列表转为 User 对象的列表。'''
-    user_ids = ()
-    user_ids_str = user_ids_str.strip()
+def get_ids_from_str(ids_str):
+    ''' 辅助函数：文本的用户 id 列表转为 long 类型的列表。'''
+    ids = ()
+    ids_str = ids_str.strip()
     try:
-        user_ids = map(long, user_ids_str.split())
+        ids = map(long, ids_str.split())
     except:
         pass
+    return ids
+
+def get_users(user_ids_str):
+    ''' 辅助函数：文本的用户 id 列表转为 User 对象的列表。'''
+    user_ids = get_ids_from_str(user_ids_str)
     return get_info_users(user_ids)
 
 def get_site_images(site_id):
@@ -340,22 +350,14 @@ def get_site_images(site_id):
     related_site = db.session.query(Site).filter(Site.valid == True).filter(Site.id == site_id).first()
     if related_site:
         image_ids_str = (related_site.gate_images or '') + ' ' + (related_site.top_images or '') + ' ' + image_ids_str
-    image_ids = ()
-    try:
-        image_ids = map(long, set(image_ids_str.strip().split()))
-    except:
-        pass
+    image_ids = set(get_ids_from_str(image_ids_str))
     return list(image_ids)
 
 def get_images(image_ids, valid_only=True):
     ''' 辅助函数：文本的图片 id 列表转为 Image 对象的列表。'''
     if type(image_ids) != list:
         image_ids_str = image_ids
-        image_ids = ()
-        try:
-            image_ids = map(long, image_ids_str.strip().split())
-        except:
-            pass
+        image_ids = get_ids_from_str(image_ids_str)
     images = []
     if image_ids:
         valid_images = db.session.query(Image).filter(Image.valid == True).filter(Image.id.in_(image_ids)).all()

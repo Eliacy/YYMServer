@@ -4,7 +4,7 @@ import json
 import time, datetime
 
 import pytz
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, or_, and_
 from sqlalchemy.orm import aliased
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -482,6 +482,7 @@ token_fields = {
 
 def _generate_token(new_user, device, old_token=None):
     '''辅助函数：根据新登陆的 user 实例创建对应 token。如果提供了旧 token ，相应做旧 token 的历史行为记录迁移。'''
+    old_user = None
     if old_token:
         old_user = db.session.query(User).join(User.tokens).filter(Token.token == old_token).first()
         if old_user:
@@ -492,6 +493,15 @@ def _generate_token(new_user, device, old_token=None):
                   )
     db.session.add(token)
     db.session.commit()
+    # 检查是否应该创建未发送的通知：
+    if old_user:
+        receiver_check = or_(Message.receiver_user_id == new_user.id, Message.receiver_user_id == old_user.id)
+    else:
+        receiver_check = or_(Message.receiver_user_id == new_user.id)
+    unsent_announces = db.session.query(Announce.id).filter(Announce.valid == True).filter(Announce.at_login == True).outerjoin(Message, and_(Announce.id == Message.announce_id, receiver_check)).filter(Message.id == None)
+    for unsent_announce in unsent_announces:
+        announce_id = unsent_announce[0]
+        util.send_message(323, new_user.id, announce_id)  # 以运营经理名义发送
     return token.token
 
 
@@ -1195,10 +1205,11 @@ class ReviewList(Resource):
         images = util.truncate_list(args['images'], 200, 10)
         keywords = util.truncate_list(args['keywords'], 200, 15)
         keywords = keywords if not keywords or len(keywords) < 200 else keywords[:200]
+        user_id = args['user']
         review = Review(valid = True,
                         published = args['published'],
                         update_time = datetime.datetime.now(),
-                        user_id = args['user'],
+                        user_id = user_id,
                         at_list = at_list,
                         stars = args['stars'],
                         content = args['content'],
@@ -1213,6 +1224,14 @@ class ReviewList(Resource):
         db.session.add(review)
         db.session.commit()
         self._count_reviews(review)
+        # 通过用户消息通知被 @ 的用户：
+        for at_id in util.get_ids_from_str(at_list):
+            util.send_message(user_id, 
+                              at_id, 
+                              None, 
+                              u'我发表了一篇 @ 您的晒单评论，快来看看吧～',
+                              {'review': review.id,}
+                             )
         return {'id': review.id}, 201
 
     @hmac_auth('api')
@@ -1369,18 +1388,27 @@ class CommentList(Resource):
         ''' 创建新的子评论的接口。'''
         args = comment_parser_detail.parse_args()
         at_list = util.truncate_list(args['at_list'], 200, 20)
+        user_id = args['user']
         comment = Comment(valid = True,
                           publish_time = datetime.datetime.now(),
                           update_time = datetime.datetime.now(),
                           review_id = args['review'],
                           article_id = args['article'],
-                          user_id = args['user'],
+                          user_id = user_id,
                           at_list = at_list,
                           content = args['content'],
                          )
         db.session.add(comment)
         db.session.commit()
         self._count_comments(comment)
+        # 通过用户消息通知被 @ 的用户：
+        for at_id in util.get_ids_from_str(at_list):
+            util.send_message(user_id, 
+                              at_id, 
+                              None, 
+                              u'我回复了您的评论，快来看看吧～',
+                              {'review': comment.review_id, 'comment': comment.id}
+                             )
         return {'id': comment.id}, 201
 
     @hmac_auth('api')
@@ -1454,6 +1482,13 @@ class FollowList(Resource):
             follow.fans.append(fan)
             db.session.commit()
             self._count_follow_fans(follow, fan)
+        # 通过用户消息通知关注的用户：
+        util.send_message(fan.id, 
+                          follow.id, 
+                          None, 
+                          u'我刚刚关注了您，期待您发布更多有意思的观点哦～',
+                          {'user': fan.id,}
+                         )
         return '', 201
 
 api.add_resource(FollowList, '/rpc/follows')
@@ -1541,6 +1576,13 @@ class LikeList(Resource):
             user.likes.append(review)
             db.session.commit()
             self._count_likes(user, review)
+        # 通过用户消息通知被喜欢的用户：
+        util.send_message(user.id, 
+                          review.user_id, 
+                          None, 
+                          u'我喜欢您发表的晒单评论，期待能看到更多您的有趣观点哦～',
+                          {'user': user.id, 'review': review.id,}
+                         )
         return '', 201
 
 api.add_resource(LikeList, '/rpc/likes')

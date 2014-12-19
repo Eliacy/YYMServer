@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
 
+import json
+import requests
+import time
+
 import shortuuid
 
-from YYMServer import app, easemob
+from YYMServer import db, app, easemob, util
+from YYMServer.models import Message
 
 
 org_name = app.config['EASEMOB_ORG']
@@ -28,6 +33,37 @@ class EaseMob(object):
             result = unicode(e)
         return (success, result)
 
+    def send_message(self, sender, receivers, msg, ext={}):
+        '''
+        自行封装的环信发送文本消息接口调用，参考文档：http://www.easemob.com/docs/rest/sendmessage/#sendmsg 。
+        '''
+        source = ''
+        target = []
+        if sender:
+            source = '' if not sender.em_username else sender.em_username
+        if receivers:
+            for receiver in receivers:
+                if receiver.em_username:
+                    target.append(receiver.em_username)
+        url = easemob.EASEMOB_HOST + ('/%s/%s/messages' % (self.org, self.app))
+        payload = {'target_type': 'users',
+                   'target': target,
+                   'msg': {'type': 'txt',
+                           'msg': msg,
+                          },
+                   'from': source,
+                   'ext': ext,
+                  }
+        try:
+            body = json.dumps(payload, ensure_ascii=False).encode('utf8')
+            print body
+            r = requests.post(url, data=body, auth=self.app_client_auth)
+            return easemob.http_result(r)
+        except Exception, e:
+            success = False
+            result = unicode(e)
+        return (success, result)
+
 
 em = EaseMob()
 
@@ -41,6 +77,66 @@ def prepare_msg_account():
         success, result = em.register_new_user(username, password)
         if success:
             return (success, result, username, password)
+    # ToDo: 创建失败应该写日志记录原因
+    return (False, u'', u'', u'')
+
+def send_message(sender, receivers, msg, ext={}):
+    ''' 辅助函数：发送环信纯文本消息。'''
+    i = 0
+    while i < 3:
+        i += 1
+        success, result = em.send_message(sender, receivers, msg, ext)
+        if success:
+            return (success, result)
+    # ToDo: 消息发送失败应该写日志记录原因
+    return (False, u'')
+
+def group(seq, size):
+    ''' 按指定的步长分批读取 seq 中的元素。'''
+    def take(seq, n):
+        for i in xrange(n):
+            yield seq.next()
+
+    if not hasattr(seq, 'next'):
+        seq = iter(seq)
+
+    while True:
+        x = list(take(seq, size))
+        if x:
+            yield x
+        else:
+            break
+
+def check_msg_queue():
+    ''' 检查环信消息发送队列，发出待发送的消息。'''
+    start_time = time.time()
+    announce_id_groups = db.session.query(Message.announce_id, Message.sender_user_id, Message.content, Message.ext).filter(Message.pushed == False).group_by(Message.announce_id, Message.sender_user_id, Message.content, Message.ext).order_by(Message.announce_id.desc()).all()
+    for announce_id_group in announce_id_groups:
+        announce_id, sender_user_id, content, ext = announce_id_group
+        query = db.session.query(Message).filter(Message.announce_id == announce_id).filter(Message.sender_user_id == sender_user_id).filter(Message.content == content).filter(Message.ext == ext).order_by(Message.id.desc())
+        messages_groups = group(query, 20)
+        for messages_group in messages_groups:
+            messages = messages_group
+            message = messages[0]
+            sender = util.get_info_user(message.sender_user_id)
+            receivers = util.get_info_users(map(lambda message: message.receiver_user_id, messages))
+            if message.announce_id:
+                announce = util.get_info_announce(message.announce_id)
+                msg = u'' if not announce else announce.content
+            else:
+                msg = message.content
+            ext = json.loads(message.ext)
+            resp = send_message(sender, receivers, msg, ext)
+            # 记录发送状态
+            success, result = resp
+            if success:
+                for message in messages:
+                    message.pushed = True
+                db.session.commit()
+            # 假定每分钟调用这个函数一次，因此 50 秒即退出，避免多个发送队列同时启动，产生冲突：
+            time_diff = time.time() - start_time
+            if time_diff > 50:
+                return None
 
 if __name__ == '__main__':
     em = EaseMob()
