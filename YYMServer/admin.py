@@ -936,6 +936,7 @@ class UserView(MyModelView):
         self.before_update_fans_ids = [fan.id for fan in model.fans]
         self.before_update_likes_ids = [review.id for review in model.likes]
         self.before_update_favorites_ids = [site.id for site in model.favorites]
+        self.before_update_badges = () if not model.badges else model.badges.strip().split()
         return super(UserView, self).update_model(form, model)
 
     def after_model_change(self, form, model, is_created):
@@ -962,6 +963,16 @@ class UserView(MyModelView):
         after_update_favorites_ids = [site.id for site in model.favorites]
         favorites_ids_diff = util.diff_list(self.before_update_favorites_ids, after_update_favorites_ids)
         util.count_favorites([model], db.session.query(Site).filter(Site.id.in_(favorites_ids_diff)))
+        # 监控 badges 的修改，向用户发送通知：
+        after_update_badges = () if not model.badges else model.badges.strip().split()
+        badges_diff = util.diff_list_added(self.before_update_badges, after_update_badges)
+        for badge in badges_diff:
+            util.send_message(323,      # 以运营经理名义发送
+                              model.id, 
+                              None, 
+                              u'由于您在社区中的贡献，授予您勋章“%s”。新的勋章将显示在您的“个人主页”里～',
+                              {'user': model.id,}
+                             )
         return super(UserView, self).after_model_change(form, model, is_created)
 
     def get_one(self, id):

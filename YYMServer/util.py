@@ -415,6 +415,12 @@ def diff_list(old, new):
     new_set = set(new)
     return list(old_set - new_set) + list(new_set - old_set)
 
+def diff_list_added(old, new):
+    ''' 辅助函数，给出列表 new 比列表 old 新增的部分，通常用于比较数据库 Instance 具体字段更新前后的变化（不保证原始数据顺序）。'''
+    old_set = set(old)
+    new_set = set(new)
+    return list(new_set - old_set)
+
 def count_follow_fans(follows, fans):
     ''' 辅助函数，对交互行为涉及的用户账号，重新计算其 follow_num 和 fans_num 。'''
     for follow in follows:
