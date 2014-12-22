@@ -164,6 +164,7 @@ def export_messages(dir_path):
             break
     if len(result_list) > 0:
         with codecs.open(os.path.join(dir_path, str(latest_timestamp)), 'w', 'utf-8') as file:
+            # ToDo: 这里的实现机制是一次备份的数据一次性写入，在消息特别特别多的情况下，有可能造成服务器内存压力。那时可以考虑一天执行多次消息导出脚本，从而降低每次导出的消息数量来缓解内存压力。
             file.write(json.dumps(result_list, ensure_ascii=False))
 
 def group(seq, size):

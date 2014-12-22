@@ -23,6 +23,7 @@ def download(storage_dir=storage_dir, logging_path=logging_path):
     logger.setLevel(logging.INFO)
 
     for image in db.session.query(Image).filter(Image.path.ilike('qiniu:%')):
+        # ToDo: 其实可以记录一下连续下载成功的最大 Image id，下次备份时从那个最大 id 开始扫描就行了。
         path = image.path
         filename = path[6:]
         storage_path = os.path.join(storage_dir, filename)
