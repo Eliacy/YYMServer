@@ -585,6 +585,11 @@ area_fields['children'] = fields.List(fields.Nested(area_fields), attribute='val
 
 
 # 城市接口：
+city_parser = reqparse.RequestParser()
+city_parser.add_argument('id', type=long)
+city_parser.add_argument('longitude', type=float)       # 用户当前位置的经度
+city_parser.add_argument('latitude', type=float)        # 用户当前位置的维度
+
 city_fields = {
     'id': fields.Integer,
     'name': fields.String,
@@ -635,9 +640,29 @@ class CityList(Resource):
     @hmac_auth('api')
     @marshal_with(nested_city_fields)
     def get(self):
-        args = id_parser.parse_args()
+        # ToDo: 这里默认对每个城市会输出其 areas 列表，在城市多了之后这一块的响应性能可能会很差。
+        args = city_parser.parse_args()
         id = args['id']
-        return self._get(id)
+        result = self._get(id)
+        longitude = args['longitude']
+        latitude = args['latitude']
+        if longitude and latitude:  # 参数中存在经纬度信息时，按距离排序城市列表，越靠近的排序越前，用于辅助 App 前台自动识别城市
+            sorted_result = []
+            for city in result:
+                lon = city.longitude
+                lat = city.latitude
+                distance = 40000.0 if not lon or not lat else util.get_distance(longitude, latitude, lon, lat)
+                sorted_result.append({'obj': city,
+                                      'dist': distance,
+                                     })
+            sorted_result.sort(key = lambda x: x['dist'])
+            if sorted_result[0]['dist'] > 300:  # 最近的城市距离有 300 公里时，则默认城市改为放到最前
+                for i in range(len(sorted_result)):
+                    if sorted_result[i]['obj'].id == 1:     # 默认纽约
+                        default_city = sorted_result.pop(i)
+                        sorted_result.insert(0, default_city)
+            result = map(lambda x: x['obj'], sorted_result)
+        return result
 
 api.add_resource(CityList, '/rpc/cities')
 
