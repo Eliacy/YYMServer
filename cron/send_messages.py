@@ -13,7 +13,7 @@ sys.path.insert(0, '/var/www/youyoumm/YYMServer')
 from YYMServer import message
 
 # 建议设定的 cron 执行时间为每分钟执行一次：
-# */1 * * * *
+# 0-59/1 * * * *
 if __name__ == '__main__':
     message.check_msg_queue()
 

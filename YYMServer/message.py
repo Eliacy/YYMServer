@@ -56,8 +56,32 @@ class EaseMob(object):
                   }
         try:
             body = json.dumps(payload, ensure_ascii=False).encode('utf8')
-            print body
             r = requests.post(url, data=body, auth=self.app_client_auth)
+            return easemob.http_result(r)
+        except Exception, e:
+            success = False
+            result = unicode(e)
+        return (success, result)
+
+    def export_messages(self, limit=100, cursor=None, start_time=None, end_time=None):
+        '''
+        自行封装的环信历史消息导出接口，参考文档：http://www.easemob.com/docs/rest/chatmessage/ 。
+        '''
+        url = easemob.EASEMOB_HOST + ('/%s/%s/chatmessages' % (self.org, self.app))
+        params = {'limit': limit,}
+        if cursor:
+            params['cursor'] = cursor
+        time_range = []
+        if start_time:
+            time_range.append('timestamp>%d' % start_time)
+        if end_time:
+            time_range.append('timestamp<%d' % end_time)
+        if time_range:
+            params['ql'] = 'select * where %s' % ' and '.join(time_range)
+        payload = {}
+        try:
+            body = json.dumps(payload, ensure_ascii=False).encode('utf8')
+            r = requests.get(url, params=params, auth=self.app_client_auth)
             return easemob.http_result(r)
         except Exception, e:
             success = False
@@ -86,6 +110,19 @@ def send_message(sender, receivers, msg, ext={}):
     while i < 3:
         i += 1
         success, result = em.send_message(sender, receivers, msg, ext)
+        if success:
+            return (success, result)
+    # ToDo: 消息发送失败应该写日志记录原因
+    return (False, u'')
+
+def _export_messages(limit=100, cursor=None, start_time=None, end_time=None):
+    '''
+    辅助函数：导出环信历史数据。封装底层 API 提高健壮性。
+    '''
+    i = 0
+    while i < 3:
+        i += 1
+        success, result = em.export_messages(limit, cursor, start_time, end_time)
         if success:
             return (success, result)
     # ToDo: 消息发送失败应该写日志记录原因
@@ -140,7 +177,10 @@ def check_msg_queue():
 
 if __name__ == '__main__':
     em = EaseMob()
-    success, result = em.register_new_user('test', 'test')
+#     success, result = em.register_new_user('test', 'test')
+#     print success
+#     print result
+    success, result = _export_messages()
     print success
     print result
 
