@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import codecs
 import json
+import os
 import requests
 import time
 
@@ -130,6 +132,38 @@ def _export_messages(limit=100, cursor=None, start_time=None, end_time=None):
     # ToDo: 消息发送失败应该写日志记录原因
     return (False, u'')
 
+def export_messages(dir_path):
+    '''
+    导出环信历史数据到指定目录，以文件名作为上次导出进度的时间戳。
+    '''
+    if not os.path.exists(dir_path):
+        os.mkdir(dir_path)
+    last_timestamp = 0
+    for filename in os.listdir(dir_path):
+        if filename.isdigit():
+            timestamp = long(filename)
+            if timestamp > last_timestamp:
+                last_timestamp = timestamp
+    cursor = None
+    latest_timestamp = 0
+    result_list = []
+    while True:
+        success, result = _export_messages(cursor = cursor, start_time = last_timestamp)
+        if success:
+            new_timestamp = result['timestamp']
+            if new_timestamp > latest_timestamp:
+                latest_timestamp = new_timestamp
+            cursor = None if not result.has_key('cursor') else result['cursor']
+            count = result['count']
+            if cursor == None:
+                break
+            result_list.append(result)
+        else:
+            break
+    if len(result_list) > 0:
+        with codecs.open(os.path.join(dir_path, str(latest_timestamp)), 'w', 'utf-8') as file:
+            file.write(json.dumps(result_list, ensure_ascii=False))
+
 def group(seq, size):
     ''' 按指定的步长分批读取 seq 中的元素。'''
     def take(seq, n):
@@ -182,8 +216,9 @@ if __name__ == '__main__':
 #     success, result = em.register_new_user('test', 'test')
 #     print success
 #     print result
-    success, result = _export_messages()
-    print success
-    print result
+#     success, result = _export_messages()
+#     print success
+#     print result
+    export_messages('/Users/elias/tmp/FormatterKit-master')
 
 
