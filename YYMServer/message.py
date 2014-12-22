@@ -90,13 +90,15 @@ class EaseMob(object):
 
 
 em = EaseMob()
+_alphabet = shortuuid.get_alphabet()
+shortuuid_lowercase = shortuuid.ShortUUID(alphabet=_alphabet.lower())
 
 def prepare_msg_account():
     ''' 辅助函数：尝试注册环信用户，如果成功则返回环信用户名和密码。'''
     i = 0
     while i < 3:
         i += 1
-        username = shortuuid.uuid()
+        username = shortuuid_lowercase.uuid()   # 环信在很多接口其实会自动进行小写转换，所以统一使用小写字母更为安全
         password = shortuuid.uuid()
         success, result = em.register_new_user(username, password)
         if success:
