@@ -155,9 +155,11 @@ def export_messages(dir_path):
                 latest_timestamp = new_timestamp
             cursor = None if not result.has_key('cursor') else result['cursor']
             count = result['count']
+            print '*', count, 'messages downloaded.'
+            if count > 0:
+                result_list.append(result)
             if cursor == None:
                 break
-            result_list.append(result)
         else:
             break
     if len(result_list) > 0:
