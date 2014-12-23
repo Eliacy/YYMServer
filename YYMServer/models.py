@@ -616,3 +616,14 @@ class Announce(db.Model):   # 用户通知，借助 Message 完成实际发送�
         return u'<Announce [%d] %s: %s>' % (self.id, self.sender_user.name, self.create_time.strftime('%y-%m-%d'))
 
 
+class Task(db.Model):   # 后台处理任务。 # ToDo: 如果需后台处理的任务比较多的时候，可能用数据库作为任务队列并不合适。
+    id = db.Column(db.Integer, primary_key=True)
+    create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
+    type = db.Column(db.Unicode(20), default=u'')   # 任务类型
+    data = db.Column(db.Unicode(200), default=u'')         # json 格式字典，任务相关的详细数据
+    processed = db.Column(db.Boolean, default=False)   # 任务是否已经被处理完毕
+
+    def __unicode__(self):
+        return u'<Task [%d]: %s>' % (self.id, self.create_time.strftime('%y-%m-%d'))
+
+

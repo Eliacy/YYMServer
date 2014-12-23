@@ -385,8 +385,8 @@ class UserList(Resource):
     def post(self):
         ''' 用户注册或创建新的匿名用户的接口。'''
         args = user_parser_detail.parse_args()
-        mobile = args['mobile']
-        password = args['password']
+        mobile = args['mobile'] or None
+        password = args['password'] or None
         device = args['device']
         token = args['token']
         # 以匿名用户作为默认选择：
@@ -486,7 +486,16 @@ def _generate_token(new_user, device, old_token=None):
     if old_token:
         old_user = db.session.query(User).join(User.tokens).filter(Token.token == old_token).first()
         if old_user:
-            pass        # ToDo: 生成一个后台任务，合并旧 token 的行为数据到当前登陆的新账号！
+            # 建立后台任务，合并旧 token 的行为数据到当前登陆的新账号：
+            if new_user.anonymous == False and old_user.anonymous == True and new_user.id != old_user.id:
+                task_data = {'from': old_user.id,
+                             'to': new_user.id,
+                            }
+                task = Task(type = 'transfer_actions',
+                            data = json.dumps(task_data),
+                           )
+                db.session.add(task)
+                db.session.commit()
     # 永远生成新 token，而不复用之前产生的 token。
     token = Token(user_id = new_user.id,
                   device = device,
@@ -517,13 +526,12 @@ class TokenList(Resource):
     @marshal_with(token_fields)
     def post(self):
         ''' 用户登陆接口。'''
-        # ToDo: 用户登录时，应当把登录前匿名用户的历史行为尽可能地迁移过来！
         args = login_parser.parse_args()
         user = db.session.query(User).filter(User.valid == True).filter(User.anonymous == False).filter(User.username == args['username']).first()
         if not user or not check_password_hash(user.password, args['password']):
             abort(403, message='Login Failed!')
         old_token = args['token']
-        token = _generate_token(user, args['device'], old_token)
+        token = _generate_token(user, args['device'], old_token)    # 把登录前匿名用户的历史行为尽可能地迁移过来！
         util.update_cache(user, format_func = util.format_user)
         return {'user': user, 'token': token}, 201
 

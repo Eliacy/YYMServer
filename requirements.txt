@@ -18,6 +18,7 @@ MySQL-python
 pytz
 rfc3339
 shortuuid
+flock
 # PIL
 # redis
 qiniu 	# 七牛云存储 SDK
