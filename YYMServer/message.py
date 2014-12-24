@@ -6,6 +6,7 @@ import os
 import requests
 import time
 
+import flock
 import shortuuid
 
 from YYMServer import db, app, easemob, util
@@ -185,34 +186,38 @@ def group(seq, size):
 
 def check_msg_queue():
     ''' 检查环信消息发送队列，发出待发送的消息。'''
-    start_time = time.time()
-    announce_id_groups = db.session.query(Message.announce_id, Message.sender_user_id, Message.content, Message.ext).filter(Message.pushed == False).group_by(Message.announce_id, Message.sender_user_id, Message.content, Message.ext).order_by(Message.announce_id.desc()).all()
-    for announce_id_group in announce_id_groups:
-        announce_id, sender_user_id, content, ext = announce_id_group
-        query = db.session.query(Message).filter(Message.announce_id == announce_id).filter(Message.sender_user_id == sender_user_id).filter(Message.content == content).filter(Message.ext == ext).order_by(Message.id.desc())
-        messages_groups = group(query, 20)
-        for messages_group in messages_groups:
-            messages = messages_group
-            message = messages[0]
-            sender = util.get_info_user(message.sender_user_id)
-            receivers = util.get_info_users(map(lambda message: message.receiver_user_id, messages))
-            if message.announce_id:
-                announce = util.get_info_announce(message.announce_id)
-                msg = u'' if not announce else announce.content
-            else:
-                msg = message.content
-            ext = json.loads(message.ext)
-            resp = send_message(sender, receivers, msg, ext)
-            # 记录发送状态
-            success, result = resp
-            if success:
-                for message in messages:
-                    message.pushed = True
-                db.session.commit()
-            # 假定每分钟调用这个函数一次，因此 50 秒即退出，避免多个发送队列同时启动，产生冲突：
-            time_diff = time.time() - start_time
-            if time_diff > 50:
-                return None
+    with open('/tmp/yym_check_msg_queue.lock', 'w') as f:
+        blocking_lock = flock.Flock(f, flock.LOCK_EX|flock.LOCK_NB)
+
+        try:
+            with blocking_lock:
+                print 'Got lock and checking messages queue:'
+                announce_id_groups = db.session.query(Message.announce_id, Message.sender_user_id, Message.content, Message.ext).filter(Message.pushed == False).group_by(Message.announce_id, Message.sender_user_id, Message.content, Message.ext).order_by(Message.announce_id.desc()).all()
+                for announce_id_group in announce_id_groups:
+                    announce_id, sender_user_id, content, ext = announce_id_group
+                    query = db.session.query(Message).filter(Message.pushed == False).filter(Message.announce_id == announce_id).filter(Message.sender_user_id == sender_user_id).filter(Message.content == content).filter(Message.ext == ext).order_by(Message.id.desc())
+                    messages_groups = group(query, 20)
+                    for messages_group in messages_groups:
+                        messages = messages_group
+                        message = messages[0]
+                        sender = util.get_info_user(message.sender_user_id)
+                        receivers = util.get_info_users(map(lambda message: message.receiver_user_id, messages))
+                        if message.announce_id:
+                            announce = util.get_info_announce(message.announce_id)
+                            msg = u'' if not announce else announce.content
+                        else:
+                            msg = message.content
+                        ext = json.loads(message.ext)
+                        resp = send_message(sender, receivers, msg, ext)
+                        # 记录发送状态
+                        success, result = resp
+                        if success:
+                            for message in messages:
+                                message.pushed = True
+                            db.session.commit()
+                            print '* Sent messages:', ' '.join(map(lambda x: str(x.id), messages))
+        except IOError, e:
+            print 'Checking messages queue job has been under processing!'
 
 if __name__ == '__main__':
     em = EaseMob()

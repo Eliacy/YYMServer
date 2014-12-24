@@ -616,7 +616,7 @@ class Announce(db.Model):   # 用户通知，借助 Message 完成实际发送�
         return u'<Announce [%d] %s: %s>' % (self.id, self.sender_user.name, self.create_time.strftime('%y-%m-%d'))
 
 
-class Task(db.Model):   # 后台处理任务。 # ToDo: 如果需后台处理的任务比较多的时候，可能用数据库作为任务队列并不合适。
+class Task(db.Model):   # 后台处理任务。 # ToDo: 需后台处理的任务比较多的时候，用数据库作为任务队列可能并不合适。更好的方案应该是基于 Celery 进行任务分发。
     id = db.Column(db.Integer, primary_key=True)
     create_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 首次创建时间，以服务器时间为准
     type = db.Column(db.Unicode(20), default=u'')   # 任务类型
