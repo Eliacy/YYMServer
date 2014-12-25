@@ -970,7 +970,7 @@ class UserView(MyModelView):
             util.send_message(323,      # 以运营经理名义发送
                               model.id, 
                               None, 
-                              u'由于您在社区中的贡献，授予您勋章“%s”。新的勋章将显示在您的“个人主页”里～',
+                              u'由于您在社区中的贡献，授予您勋章“%s”。新的勋章将显示在您的“个人主页”里～' % badge,
                               {'user': model.id,}
                              )
         return super(UserView, self).after_model_change(form, model, is_created)
