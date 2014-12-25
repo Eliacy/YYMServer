@@ -944,15 +944,17 @@ class UserView(MyModelView):
         after_update_follows_ids = [follow.id for follow in model.follows]
         follows_ids_diff = util.diff_list(self.before_update_follows_ids, after_update_follows_ids)
         follows = []
+        fans = []
         if follows_ids_diff:
             follows = [model]
+            fans.append(model)
             follows.extend(db.session.query(User).filter(User.id.in_(follows_ids_diff)).all())
         # 监控 fans 的修改，更新计数：
         after_update_fans_ids = [fan.id for fan in model.fans]
         fans_ids_diff = util.diff_list(self.before_update_fans_ids, after_update_fans_ids)
-        fans = []
         if fans_ids_diff:
             fans = [model]
+            follows.append(model)
             fans.extend(db.session.query(User).filter(User.id.in_(fans_ids_diff)).all())
         util.count_follow_fans(follows, fans)
         # 监控 like reviews 的修改，更新计数：
