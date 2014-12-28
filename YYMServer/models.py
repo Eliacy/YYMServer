@@ -627,3 +627,18 @@ class Task(db.Model):   # 后台处理任务。 # ToDo: 需后台处理的任务
         return u'<Task [%d]: %s>' % (self.id, self.create_time.strftime('%y-%m-%d'))
 
 
+class Log(db.Model):   # 用户后台操作日志
+    id = db.Column(db.Integer, primary_key=True)
+    action_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 行为发生时间，以服务器时间为准
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))  # 行为操作人
+    user = db.relationship('User', backref=db.backref('action_logs', lazy='dynamic'), foreign_keys=[user_id])
+    model = db.Column(db.Unicode(20), default=u'')  # 被操作的数据 Model 类型
+    model_id = db.Column(db.Integer)    # 被操作的数据 Model 的 id
+    action = db.Column(db.Unicode(20), default=u'')   # 后台操作的行为类别
+    before = db.Column(db.UnicodeText, default=u'')         # json 格式字典，被改变的字段的原始内容
+    after = db.Column(db.UnicodeText, default=u'')         # json 格式字典，被改变的字段的修改后内容
+
+    def __unicode__(self):
+        return u'<Log [%d]: %s>' % (self.id, self.action_time.strftime('%y-%m-%d'))
+
+

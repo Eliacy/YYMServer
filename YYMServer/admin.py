@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 
+import json
 import os.path
 import shortuuid
 
 from flask import url_for, redirect, request, flash, escape
 from jinja2 import Markup
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, inspect, orm
 from werkzeug import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from wtforms import form, fields, validators
@@ -82,6 +83,52 @@ class ImageUploadField(admin_form.ImageUploadField):
     widget = ImageUploadInput()
 
 
+def _get_model_items(model):
+    ''' 把一个数据 model 的值转为字典形式保存，用于后续比较。'''
+    dic = {}
+    mapper = inspect(model)
+    for column in mapper.attrs:
+        # ToDo: 下一行的实现存在 bug，因为无法正确保存外键关联的数据。
+        value = getattr(model, column.key, None)
+        if isinstance(value, (db.Model, orm.query.Query)):     # 不记录关联表的实体
+            continue
+        if type(value) == datetime.datetime:    # 不比较时间戳
+            continue
+        dic[column.key] = value
+    return dic
+
+def _compare_model(before_model, after_model):
+    ''' 比较两个不同 model 的内容差别，输出为字典。'''
+    before_model = before_model or {}
+    after_model = after_model or {}
+    keys = ()
+    if before_model:
+        keys = before_model.keys()
+    if after_model:
+        keys = after_model.keys()
+    diff_before_dic = {}
+    diff_after_dic = {}
+    for key in keys:
+        before = before_model.get(key, None) or None
+        after = after_model.get(key, None) or None
+        if before != after:
+            diff_before_dic[key] = before
+            diff_after_dic[key] = after
+    return (diff_before_dic, diff_after_dic)
+
+def _create_log(user, model, action, before, after):
+    ''' 实际记录用户在后台的操作行为。'''
+    log = Log(user=user,
+              model = unicode(model.__tablename__),
+              model_id = model.id,
+              action = unicode(action),
+              before = unicode(json.dumps(before, ensure_ascii=False)),
+              after = unicode(json.dumps(after, ensure_ascii=False)),
+             )
+    db.session.add(log)
+    db.session.commit()
+
+
 # Create customized model view class
 class MyModelView(ModelView):
     # ToDo: 应该记录用户在后台的全部操作，以追踪误删等可能造成运营风险的行为。
@@ -94,6 +141,7 @@ class MyModelView(ModelView):
 
     def update_model(self, form, model):
         ''' 避免在表单中未显示的字段将数据库 Model 覆盖为空值。'''
+        self.before_update_model = _get_model_items(model)
         # 不确定这是不是合适的实现方法。
         if self.form_edit_rules:
             for field in form:
@@ -103,6 +151,24 @@ class MyModelView(ModelView):
         if hasattr(model, 'update_time'):
             model.update_time = datetime.datetime.now()
         return super(MyModelView, self).update_model(form, model)
+
+    def after_model_change(self, form, model, is_created):
+        ''' 比较更新前后的 model 取值，以记录后台更新日志。'''
+        if is_created:
+            before, after = _compare_model({}, _get_model_items(model))
+            _create_log(login.current_user, model, u'create', {}, after)
+        else:
+            after_update_model = _get_model_items(model)
+            before, after = _compare_model(self.before_update_model, after_update_model)
+            if before != after:
+                _create_log(login.current_user, model, u'edit', before, after)
+        return super(MyModelView, self).after_model_change(form, model, is_created)
+
+    def on_model_delete(self, model):
+        ''' 记录用户在后台的删除行为。'''
+        before, after = _compare_model(_get_model_items(model), {})
+        _create_log(login.current_user, model, u'delete', before, {})
+        return super(MyModelView, self).on_model_delete(model)
 
 
 # Create customized index view class that handles login & registration
@@ -1130,6 +1196,24 @@ class AnnounceView(MyModelView):
         return super(AnnounceView, self).after_model_change(form, model, is_created)
 
 
+class LogView(ModelView):
+    can_create = False
+    can_edit = False
+    can_delete = False
+    column_display_pk = True
+    column_default_sort = ('id', True)
+    column_searchable_list = ('before', 'after', 'action', 'model')
+    column_filters = ['id', 'action_time', 'user_id', 'model_id',] + list(column_searchable_list)
+    form_ajax_refs = {
+        'user': {
+            'fields': (User.id,)
+        },
+    }
+
+    def is_accessible(self):
+        return super(LogView, self).is_accessible() and login.current_user.is_admin()
+
+
 # Create admin
 admin = Admin(app, 'Admin', index_view=MyAdminIndexView(), base_template='my_master.html')
 admin.add_view(TextLibView(TextLib, db.session))
@@ -1148,5 +1232,6 @@ admin.add_view(UserView(User, db.session))
 admin.add_view(RoleView(Role, db.session))
 admin.add_view(ShareRecordView(ShareRecord, db.session))
 admin.add_view(AnnounceView(Announce, db.session))
+admin.add_view(LogView(Log, db.session))
 
 
