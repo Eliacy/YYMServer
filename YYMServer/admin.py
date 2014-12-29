@@ -1213,7 +1213,7 @@ class LogView(ModelView):
     }
     
     def is_accessible(self):
-        return login.current_user.is_authenticated() and (login.current_user.is_admin() and login.current_user.is_operator())
+        return login.current_user.is_authenticated() and login.current_user.is_admin()
 
 
 # Create admin
