@@ -1211,9 +1211,9 @@ class LogView(ModelView):
             'fields': (User.id,)
         },
     }
-
+    
     def is_accessible(self):
-        return super(LogView, self).is_accessible() and login.current_user.is_admin()
+        return login.current_user.is_authenticated() and (login.current_user.is_admin() and login.current_user.is_operator())
 
 
 # Create admin
