@@ -249,7 +249,7 @@ def extend_image_path(path):
     ''' 辅助函数：对给定的图片资源，扩展为外网可访问的完整路径（未处理云存储私有授权问题）。'''
     if path.startswith('qiniu:'):
         etag, params = (path[6:].split('?') + [''])[:2]
-        url = qiniu.rs.make_base_url('youyoumm.qiniudn.com', etag)
+        url = qiniu.rs.make_base_url('7qn83g.com1.z0.glb.clouddn.com', etag)
         if params:
             return url + '?' + params
         return url
