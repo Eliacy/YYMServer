@@ -330,8 +330,8 @@ def get_self_and_children(model_class, self_id):
 def get_ids_from_str(ids_str):
     ''' 辅助函数：文本的用户 id 列表转为 long 类型的列表。'''
     ids = ()
-    ids_str = ids_str.strip()
     try:
+        ids_str = ids_str.strip()
         ids = map(long, ids_str.split())
     except:
         pass
