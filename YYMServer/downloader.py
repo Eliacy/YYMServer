@@ -13,6 +13,17 @@ logging_path = os.path.join(os.path.split(os.path.realpath(__file__))[0], 'downl
 default_encoding = sys.stdin.encoding
 
 def download(storage_dir=storage_dir, logging_path=logging_path):
+    all_synced = True
+    largest_success_id = 0
+    # 读取上一次的处理进度
+    record_path = logging_path + '.record'
+    try:
+        with open(record_path, 'r') as record:
+            line = record.readline()
+            largest_success_id = long(line.strip())
+    except:
+        pass
+
     # 准备日志：
     import logging
     logger = logging.getLogger('YYMServer.downloader')
@@ -22,16 +33,24 @@ def download(storage_dir=storage_dir, logging_path=logging_path):
     logger.addHandler(hdlr) 
     logger.setLevel(logging.INFO)
 
-    for image in db.session.query(Image).filter(Image.path.ilike('qiniu:%')):
-        # ToDo: 其实可以记录一下连续下载成功的最大 Image id，下次备份时从那个最大 id 开始扫描就行了。
+    for image in db.session.query(Image).filter(Image.id > largest_success_id).order_by(Image.id):
         path = image.path
+        if not path.lower().startswith('qiniu:'):
+            all_synced = False
+            print 'x', image.id, 'not synced to qiniu'
+            logger.error(unicode(image.id) + u':' + unicode(path.replace(':', '~')) + u':' + unicode(image.size) + u':' + u'not in qiniu')
+            continue
+
         filename = path[6:]
         storage_path = os.path.join(storage_dir, filename)
         # 如果目标文件和本地文件大小一致，就不重新下载了：
         if os.path.exists(storage_path):
             real_size = os.path.getsize(storage_path)
             if image.size == real_size:
+                if all_synced:  # 只有至少经过一次本地文件比对通过之后，才认为备份是有效的，下次可以跳过！
+                    largest_success_id = image.id
                 continue
+        all_synced = False
         # 没下载过的开始下载：
         try:
             url = util.url_for(image.path)
@@ -46,5 +65,9 @@ def download(storage_dir=storage_dir, logging_path=logging_path):
         except Exception, e:
             print 'x', image.id, 'error'
             logger.error(unicode(image.id) + u':' + unicode(filename) + u':' + unicode(image.size) + u':' + unicode(e))
+
+    # 记录连续下载成功的最大 Image id，下次备份时从那个最大 id 开始扫描就行了。
+    with open(record_path, 'w') as record:
+        record.write(str(largest_success_id))
 
 

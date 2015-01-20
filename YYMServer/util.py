@@ -53,6 +53,7 @@ def get_distance(long1, lat1, long2, lat2):
     # in your favorite set of units to get length.
     return arc * 6378.1     # 后者是地球半径（单位是公里）
 
+# @cache.memoize()    # 本应对常用的批量对象格式化结果进行缓存，避免对缓存服务进行频繁读取。但具体数据内容变化（例如评论数）时，无法自动更新这一级缓存，因而放弃。
 def get_info_ids(model_class, ids, format_func = None, valid_only = True):
     ''' 根据输入的 id，从缓存中获取对应 model 实例的详情信息。'''
     key_template = 'one_' + model_class.__tablename__ + '_%d'
