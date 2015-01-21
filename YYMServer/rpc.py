@@ -264,7 +264,7 @@ user_parser.add_argument('token', type=str)     # 用户 token，用于获取是
 
 user_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 User 的信息的参数集合
 user_parser_detail.add_argument('id', type=long, default=0l)
-user_parser_detail.add_argument('icon', type=long, default=0l)        # 用户头像对应图片的 id
+user_parser_detail.add_argument('icon', type=long)        # 用户头像对应图片的 id
 user_parser_detail.add_argument('name', type=unicode)    # 用户昵称，不能与已有的昵称重复，否则报错。
 user_parser_detail.add_argument('mobile', type=str)  # 预留手机号接口，但 App 前端在初期版本不应该允许用户修改！不能与其他用户的手机号重复，否则报错。
 user_parser_detail.add_argument('password', type=str)  # 账号密码的明文，至少6个字符。
