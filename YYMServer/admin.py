@@ -386,11 +386,11 @@ def _get_image_rule(label, images):
 
 class SiteView(MyModelView):
     column_default_sort = ('update_time', True)
-    column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig', 'gate_images', 'top_images', 'note')
+    column_searchable_list = ('code', 'name', 'name_orig', 'address', 'address_orig', 'gate_images', 'top_images', 'note', 'description')
     column_filters = ['id', 'valid', 'order', 'create_time', 'update_time', 'create_user_id', 'update_user_id', 'brand_id', 
                       'logo_id', 'level', 'stars', 'popular',
                       'review_num', 'environment', 'flowrate', 'payment', 'menu', 'ticket', 'tour', 'booking', 'business_hours',
-                      'phone', 'transport', 'description', 'area_id', 'keywords', 'images_num',
+                      'phone', 'transport', 'area_id', 'keywords', 'images_num',
                       ] + list(column_searchable_list)
     form_create_rules = ('valid', 'order', 'note', 'create_time', 'update_time', 'create_user', 'update_user', 'code', 'name', 'name_orig', 
                          'brand', 'logo', 'level', 'stars', 'popular', 'review_num', 'reviews', 'categories',
@@ -644,9 +644,9 @@ class SiteView(MyModelView):
 
 class ReviewView(MyModelView):
     column_default_sort = ('update_time', True)
-    column_searchable_list = ('keywords',)
+    column_searchable_list = ('keywords', 'content')
     column_filters = ['id', 'valid', 'selected', 'published', 'publish_time', 'update_time', 'user_id',
-                      'stars', 'content', 'total', 'currency', 'site_id', 'like_num', 'comment_num',
+                      'stars', 'total', 'currency', 'site_id', 'like_num', 'comment_num',
                       ] + list(column_searchable_list)
     form_ajax_refs = {
         'fans': {
@@ -727,8 +727,8 @@ class ReviewView(MyModelView):
 
 class CommentView(MyModelView):
     column_default_sort = ('update_time', True)
-    column_searchable_list = ()
-    column_filters = ['id', 'valid', 'publish_time', 'update_time', 'review_id', 'article_id', 'user_id', 'content'
+    column_searchable_list = ('content', )
+    column_filters = ['id', 'valid', 'publish_time', 'update_time', 'review_id', 'article_id', 'user_id',
                       ] + list(column_searchable_list)
     form_ajax_refs = {
         'review': {
