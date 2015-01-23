@@ -27,17 +27,17 @@ def parse_appkey(appkey):
     return tuple(appkey.split('#'))
 
 def post(url, payload, auth=None):
-    r = requests.post(url, data=json.dumps(payload), headers=JSON_HEADER, auth=auth)
+    r = requests.post(url, data=json.dumps(payload), headers=JSON_HEADER, auth=auth, timeout=5)
     return http_result(r)
 
 
 def get(url, auth=None):
-    r = requests.get(url, headers=JSON_HEADER, auth=auth)
+    r = requests.get(url, headers=JSON_HEADER, auth=auth, timeout=5)
     return http_result(r)
 
 
 def delete(url, auth=None):
-    r = requests.delete(url, headers=JSON_HEADER, auth=auth)
+    r = requests.delete(url, headers=JSON_HEADER, auth=auth, timeout=5)
     return http_result(r)
 
 
@@ -202,7 +202,7 @@ def send_file(org, app, auth, file_path, secret=True):
     # files = {'file': open(file_path, 'rb')}
     files = {'file': ('report.xls', open(file_path, 'rb'), 'image/jpeg', {'Expires': '0'})}
 
-    r = requests.post(url, files=files,  auth=auth)
+    r = requests.post(url, files=files,  auth=auth, timeout=5)
     return http_result(r)
  
 

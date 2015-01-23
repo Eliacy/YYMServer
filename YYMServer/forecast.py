@@ -38,7 +38,7 @@ def check_update():
             continue
         api_url = 'http://api.wunderground.com/api/%s/hourly/forecast10day/lang:CN/q/%f,%f.json' % (wu_key, city.latitude, city.longitude)
         try:
-            resp = requests.get(api_url)
+            resp = requests.get(api_url, timeout=5)
             resp.encoding = 'utf-8'
             if resp.status_code != 200:
                 continue

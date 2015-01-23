@@ -59,7 +59,7 @@ class EaseMob(object):
                   }
         try:
             body = json.dumps(payload, ensure_ascii=False).encode('utf8')
-            r = requests.post(url, data=body, auth=self.app_client_auth)
+            r = requests.post(url, data=body, auth=self.app_client_auth, timeout=5)
             return easemob.http_result(r)
         except Exception, e:
             success = False
@@ -84,7 +84,7 @@ class EaseMob(object):
         payload = {}
         try:
             body = json.dumps(payload, ensure_ascii=False).encode('utf8')
-            r = requests.get(url, params=params, auth=self.app_client_auth)
+            r = requests.get(url, params=params, auth=self.app_client_auth, timeout=5)
             return easemob.http_result(r)
         except Exception, e:
             success = False
