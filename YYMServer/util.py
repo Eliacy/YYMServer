@@ -260,6 +260,7 @@ def extend_image_path(path):
 
 def url_for(path):
     ''' 辅助函数：对给定图片资源，扩展为经过访问授权的外网完整路径。'''
+    path = path or ''
     base_url = extend_image_path(path)
     if path.startswith('qiniu:'):
         policy = qiniu.rs.GetPolicy()
@@ -268,6 +269,7 @@ def url_for(path):
 
 def url_for_thumb(path):
     ''' 辅助函数：对给定图片资源，生成经过访问授权的外网缩略图。'''
+    path = path or ''
     if path.startswith('qiniu:'):
         return url_for(path + '?imageView2/2/w/100')
     else:
