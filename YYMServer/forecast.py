@@ -68,7 +68,7 @@ def export_forecasts(dir_path):
             sub_query = db.session.query(Forecast).filter(Forecast.city_id == city_id).order_by(Forecast.id).limit(num - MAX_FORECAST_RECORDS)
             for forecast_to_export in sub_query:
                 print forecast_to_export.city_id, forecast_to_export.update_time
-                filename = '%d_%d' % (forecast_to_export.id, int((forecast_to_export.update_time - datetime.datetime(1970, 1, 1)).total_seconds()))
+                filename = '%d_%d' % (forecast_to_export.city_id, int((forecast_to_export.update_time - datetime.datetime(1970, 1, 1)).total_seconds()))
                 with codecs.open(os.path.join(dir_path, filename), 'w', 'utf-8') as file:
                     file.write(forecast_to_export.data)
                 db.session.delete(forecast_to_export)
