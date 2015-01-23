@@ -1,14 +1,19 @@
 # -*- coding: utf-8 -*-
 
+import codecs
 import datetime
 import json
+import os
 import time
 
 import pytz
 import requests
+from sqlalchemy import func
 
 from YYMServer import app, db, tz_server
 from YYMServer.models import City, Forecast
+
+MAX_FORECAST_RECORDS = 3
 
 wu_key = app.config['WEATHER_KEY_WU']
 
@@ -50,5 +55,23 @@ def check_update():
             print e
             # ToDo: 应该对出错做一个通知机制，告诉管理员处理。
         time.sleep(6)   # 为了满足 WU 天气接口 api 访问频次的限制（10次/分钟），进行休眠等待。
+
+def export_forecasts(dir_path):
+    ''' 清理冗余天气数据，保证数据库体积维持在较小的状态下。'''
+    if not os.path.exists(dir_path):
+        os.mkdir(dir_path)
+    query = db.session.query(Forecast.city_id, func.count(Forecast.id)).group_by(Forecast.city_id)
+    for forecast_count in query:
+        city_id, num = forecast_count
+        print city_id, num
+        if num > MAX_FORECAST_RECORDS:
+            sub_query = db.session.query(Forecast).filter(Forecast.city_id == city_id).order_by(Forecast.id).limit(num - MAX_FORECAST_RECORDS)
+            for forecast_to_export in sub_query:
+                print forecast_to_export.city_id, forecast_to_export.update_time
+                filename = '%d_%d' % (forecast_to_export.id, int((forecast_to_export.update_time - datetime.datetime(1970, 1, 1)).total_seconds()))
+                with codecs.open(os.path.join(dir_path, filename), 'w', 'utf-8') as file:
+                    file.write(forecast_to_export.data)
+                db.session.delete(forecast_to_export)
+                db.session.commit()
 
 

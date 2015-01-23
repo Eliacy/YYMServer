@@ -16,5 +16,6 @@ from YYMServer import forecast
 # 7 * * * *
 if __name__ == '__main__':
     forecast.check_update()
+    forecast.export_forecasts('/root/_backup/forecasts')
 
 
