@@ -644,12 +644,18 @@ class SiteView(MyModelView):
 
 class ReviewView(MyModelView):
     column_default_sort = ('update_time', True)
-    column_searchable_list = ('keywords', 'content')
-    column_filters = ['id', 'valid', 'selected', 'published', 'publish_time', 'update_time', 'user_id',
+    column_searchable_list = ('keywords', 'content', 'note')
+    column_filters = ['id', 'valid', 'selected', 'published', 'publish_time', 'update_time', 'create_user_id', 'update_user_id', 'user_id',
                       'stars', 'total', 'currency', 'site_id', 'like_num', 'comment_num',
                       ] + list(column_searchable_list)
     form_ajax_refs = {
         'fans': {
+            'fields': (User.id,)
+        },
+        'create_user': {
+            'fields': (User.id,)
+        },
+        'update_user': {
             'fields': (User.id,)
         },
         'user': {
@@ -667,6 +673,11 @@ class ReviewView(MyModelView):
     before_update_comments_ids = []
 
     def update_model(self, form, model):
+        if not model.published and form.published.data and not form.publish_time.data:
+            form.publish_time.data = datetime.datetime.now()
+        if not form.create_user.data:
+            form.__delitem__('create_user')
+        form.update_user.data = login.current_user
         # 记录 model 修改前的计数相关取值
         self.before_update_fans_ids = [fan.id for fan in model.fans]
         self.before_update_comments_ids = [comment.id for comment in model.comments]
@@ -707,8 +718,12 @@ class ReviewView(MyModelView):
         return super(ReviewView, self).on_model_delete(model)
 
     def create_model(self, form):
+        if form.published.data and not form.publish_time.data:
+            form.publish_time.data = datetime.datetime.now()
         if not form.user.data:
             form.user.data = login.current_user
+        form.create_user.data = login.current_user
+        form.update_user.data = login.current_user
         return super(ReviewView, self).create_model(form)
 
     def _list_thumbnail_images(view, context, model, name):

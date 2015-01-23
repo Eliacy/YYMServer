@@ -476,8 +476,13 @@ class Review(db.Model):        # 用户晒单评论
     published = db.Column(db.Boolean, default=False)       # 控制是否对外发布
     publish_time = db.Column(db.DateTime, default=None)       # 首次发布时间，以服务器时间为准
     update_time = db.Column(db.DateTime, default=datetime.datetime.now)       # 评论修改时间，以服务器时间为准
+    note = db.Column(db.Unicode(120), default=u'')   # 晒单评论的后台运营备忘描述文字
+    create_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 晒单评论信息创建人（有时后台运营人员会代替买手创建评论）
+    create_user = db.relationship('User', backref=db.backref('created_reviews', lazy='dynamic'), foreign_keys=[create_user_id])
+    update_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 晒单评论信息修改人（有时后台运营人员会代替买手创建评论）
+    update_user = db.relationship('User', backref=db.backref('updated_reviews', lazy='dynamic'), foreign_keys=[update_user_id])
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))      # 晒单评论的作者
-    user = db.relationship('User', backref=db.backref('reviews', lazy='dynamic'))
+    user = db.relationship('User', backref=db.backref('reviews', lazy='dynamic'), foreign_keys=[user_id])
     at_list = db.Column(db.String(200), default='')         # 本评论将@的用户 id 列表，后端代码需要实现注意控制长度！多个 id 使用英文空格分隔。
     stars = db.Column(db.Float, default=0.0)         # POI 的评论星级，出于与统计结果，使用小数表示，实际只能是1～5
     content = db.Column(db.UnicodeText)         # 晒单评论的文本正文，只需分自然段，无需支持特殊格式。

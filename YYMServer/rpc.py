@@ -1243,6 +1243,8 @@ class ReviewList(Resource):
         review = Review(valid = True,
                         published = args['published'],
                         update_time = datetime.datetime.now(),
+                        create_user_id = user_id,
+                        update_user_id = user_id,
                         user_id = user_id,
                         at_list = at_list,
                         stars = args['stars'],
@@ -1281,6 +1283,7 @@ class ReviewList(Resource):
             keywords = keywords if not keywords or len(keywords) < 200 else keywords[:200]
             review.published = args['published']
             review.update_time = datetime.datetime.now()
+            review.update_user_id = args['user']
             review.user_id = args['user']
             review.at_list = at_list
             review.stars = args['stars']
