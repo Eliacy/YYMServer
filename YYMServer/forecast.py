@@ -22,7 +22,7 @@ def check_update():
     now = tz_server.localize(datetime.datetime.now())
     today = now.date()
     for city in db.session.query(City).all():
-        if city.timezone:
+        if city.timezone and city.timezone in pytz.all_timezones_set:
             timezone = pytz.timezone(city.timezone)
             dt = timezone.normalize(now)
             if dt.hour < 5 or dt.hour > 17:     # 只在当地时间 5点～17点之间更新数据
@@ -47,7 +47,7 @@ def check_update():
                                )
             db.session.add(forecast)
             db.session.commit()
-            if not city.timezone:
+            if not city.timezone or city.timezone not in pytz.all_timezones_set:
                 resp_dic = json.loads(resp.text)
                 city.timezone = resp_dic['forecast']['simpleforecast']['forecastday'][0]['date']['tz_long']
                 db.session.commit()
