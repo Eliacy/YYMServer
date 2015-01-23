@@ -54,7 +54,7 @@ def download(storage_dir=storage_dir, logging_path=logging_path):
         # 没下载过的开始下载：
         try:
             url = util.url_for(image.path)
-            r = requests.get(url, timeout=5) 
+            r = requests.get(url, timeout=15) 
             if r.status_code != 200:
                 raise Exception(unicode(r))
             with open(storage_path, "wb") as code:
