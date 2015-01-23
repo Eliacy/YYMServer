@@ -233,7 +233,7 @@ def uuid_name(obj, file_data):
 
 def get_image_size(image_obj):
     if image_obj:
-        path = image_obj.path
+        path = image_obj.path or ''
         if path.startswith('qiniu:'):
             return '%dx%d' % (image_obj.width or 0, image_obj.height or 0)
         full_path = os.path.join(file_path, path)
