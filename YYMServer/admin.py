@@ -997,6 +997,7 @@ class UserView(MyModelView):
     before_update_follows_ids = []
     before_update_likes_ids = []
     before_update_favorites_ids = []
+    before_update_badges = []
 
     def on_model_change(self, form, model, is_created):
         '''
