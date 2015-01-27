@@ -271,6 +271,7 @@ user_parser_detail.add_argument('password', type=str)  # 账号密码的明文�
 user_parser_detail.add_argument('gender', type=unicode)    # 用户性别：文字直接表示的“男、女、未知”
 user_parser_detail.add_argument('token', type=str)  # 注册时代表旧 token，用于迁移登录前发生的匿名行为。查询时用于代表当前用户获取对目标用户的 关注 状态。
 user_parser_detail.add_argument('device', type=str)      # 设备 id 。
+user_parser_detail.add_argument('old_password', type=str)  # 账号旧密码的明文，至少6个字符。当用户修改密码时，会要求提供正确的旧密码，否则拒绝修改。
 
 user_fields_mini = {
     'id': fields.Integer,
@@ -334,7 +335,7 @@ class UserList(Resource):
     def _check_password(self, password):
         ''' 辅助函数：用于检查用户提交的新密码的合规性。'''
         if len(password) < 6:
-            abort(403, message='The password length should be at least 6 characters!')
+            abort(409, message='The password length should be at least 6 characters!')
     
     @cache.memoize()
     def _get(self, id=0l, em='', follow=0l, fan=0l):
@@ -455,6 +456,8 @@ class UserList(Resource):
                 user.name = name
             password = args['password']
             if password:
+                if not check_password_hash(user.password, args['old_password']):
+                    abort(409, message='The old password is not correct!')
                 self._check_password(password)
                 user.password = password        # 明文 password 会被 Model 自动加密保存
             gender = args['gender']
