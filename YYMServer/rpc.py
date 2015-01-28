@@ -271,7 +271,7 @@ user_parser_detail.add_argument('password', type=str)  # 账号密码的明文�
 user_parser_detail.add_argument('gender', type=unicode)    # 用户性别：文字直接表示的“男、女、未知”
 user_parser_detail.add_argument('token', type=str)  # 注册时代表旧 token，用于迁移登录前发生的匿名行为。查询时用于代表当前用户获取对目标用户的 关注 状态。
 user_parser_detail.add_argument('device', type=str)      # 设备 id 。
-user_parser_detail.add_argument('old_password', type=str)  # 账号旧密码的明文，至少6个字符。当用户修改密码时，会要求提供正确的旧密码，否则拒绝修改。
+user_parser_detail.add_argument('old_password', type=str, default='')  # 账号旧密码的明文，至少6个字符。当用户修改密码时，会要求提供正确的旧密码，否则拒绝修改。
 
 user_fields_mini = {
     'id': fields.Integer,
