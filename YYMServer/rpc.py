@@ -1062,6 +1062,7 @@ review_parser.add_argument('limit', type=int, default=10)     # limit 限制，�
 review_parser.add_argument('user', type=long, default=0l)
 review_parser.add_argument('site', type=long, default=0l)    # 相关联的 POI id
 review_parser.add_argument('city', type=long, default=0l)    # 相关联的城市 id
+review_parser.add_argument('country', type=long, default=0l)    # 相关联的国家 id
 review_parser.add_argument('token', type=str)     # 用户 token，用于获取是否喜欢的关系，以及是否 关注 了相关用户
 
 review_parser_detail = reqparse.RequestParser()         # 用于创建和更新一个 Review 的信息的参数集合
@@ -1148,16 +1149,19 @@ class ReviewList(Resource):
         id = 0l if not model else model.id
         site_id = 0l if not site else site.id
         city_id = 0l if not site else model.site.area.city.id
+        country_id = 0l if not site else model.site.area.city.country.id
         user_id = 0l if not user else user.id
         for selected, published in params:
             if id:
-                cache.delete_memoized(self._get, self, selected, published, id, 0l, 0l, 0l)
+                cache.delete_memoized(self._get, self, selected, published, id, 0l, 0l, 0l, 0l)
             if site_id:
-                cache.delete_memoized(self._get, self, selected, published, 0l, site_id, 0l, 0l)
+                cache.delete_memoized(self._get, self, selected, published, 0l, site_id, 0l, 0l, 0l)
             if city_id:
-                cache.delete_memoized(self._get, self, selected, published, 0l, 0l, city_id, 0l)
+                cache.delete_memoized(self._get, self, selected, published, 0l, 0l, city_id, 0l, 0l)
+            if country_id:
+                cache.delete_memoized(self._get, self, selected, published, 0l, 0l, 0l, country_id, 0l)
             if user_id:
-                cache.delete_memoized(self._get, self, selected, published, 0l, 0l, 0l, user_id)
+                cache.delete_memoized(self._get, self, selected, published, 0l, 0l, 0l, 0l, user_id)
 
     def _count_reviews(self, model):
         ''' 辅助函数，对晒单评论涉及的用户账号和 POI ，重新计算其星级和评论数。并更新各个缓存。'''
@@ -1171,7 +1175,7 @@ class ReviewList(Resource):
         self._delete_cache(model, site, user)
 
     @cache.memoize()
-    def _get(self, selected = None, published = False, id=0l, site=0l, city=0l, user=0l):
+    def _get(self, selected = None, published = False, id=0l, site=0l, city=0l, country=0l, user=0l):
         query = db.session.query(Review.id).filter(Review.valid == True)
         query = query.order_by(Review.publish_time.desc())
         if id:
@@ -1183,6 +1187,10 @@ class ReviewList(Resource):
         if city:
             # ToDo: 搜索 POI 的时候，会把某城市中心点一定范围内的 POI （尽管是别的城市的）也放进来，那么搜 Review 时候是否也应该支持这个？
             query = query.join(Review.site).join(Site.area).filter(Area.city_id == city)
+            # 在“动态”栏目显示晒单评论的时候，不显示无图片评论：
+            query = query.filter(Review.images != '')
+        if country:
+            query = query.join(Review.site).join(Site.area).join(Area.city).filter(City.country_id == country)
             # 在“动态”栏目显示晒单评论的时候，不显示无图片评论：
             query = query.filter(Review.images != '')
         if selected is None:
@@ -1204,11 +1212,11 @@ class ReviewList(Resource):
         limit = args['limit']
         if selected:
             # 如果 selected 数量不够，就得用没被 selected 的内容来补。
-            result = self._get(True, published, args['id'], args['site'], args['city'], args['user'])
+            result = self._get(True, published, args['id'], args['site'], args['city'], args['country'], args['user'])
             if limit and len(result) < limit:
-                result += self._get(False, published, args['id'], args['site'], args['city'], args['user'])
+                result += self._get(False, published, args['id'], args['site'], args['city'], args['country'], args['user'])
         else:
-            result = self._get(None, published, args['id'], args['site'], args['city'], args['user'])
+            result = self._get(None, published, args['id'], args['site'], args['city'], args['country'], args['user'])
         offset = args['offset']
         if offset:
             result = result[offset:]
