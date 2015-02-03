@@ -796,7 +796,7 @@ class SiteList(Resource):
         ''' 本函数实际上只是根据搜索条件，给出搜索结果对应的 POI id 序列。详细属性需要通过 util.get_info_sites 函数读取，以减小缓存提及。'''
         # ToDo: 需要利用 geohash，实现高效率的距离初步筛选！
         query = db.session.query(Site.id, Site.longitude, Site.latitude).filter(Site.valid == True)
-        if order:
+        if order is not None:
             if order == 1:      # 距离最近：
                 pass    # 在 _get_sorted 函数中实现。
             elif order == 2:    # 人气最高：
