@@ -633,6 +633,7 @@ class CityList(Resource):
         else:
             query = parent.children.filter(Area.valid == True).order_by(Area.order.desc())
         children = query.all()
+        children.sort(key = lambda x: x.name.encode('GB18030', 'ignore'))  # 按拼音排序，忽略了 order 的效果。
         for child in children:
             self._get_children_areas(child)
         parent.valid_areas = children
@@ -642,8 +643,10 @@ class CityList(Resource):
         query = db.session.query(City).filter(City.valid == True).order_by(City.order.desc())
         if id:
             query = query.filter(City.id == id)
+        sorted_result = query.all()
+        sorted_result.sort(key = lambda x: x.name.encode('GB18030', 'ignore'))  # 按拼音排序，忽略了 order 的效果。
         result = []
-        for city in query:
+        for city in sorted_result:
             self._get_children_areas(city)
             result.append(city)
         return result
@@ -657,7 +660,9 @@ class CityList(Resource):
         result = self._get(id)
         longitude = args['longitude']
         latitude = args['latitude']
-        if longitude and latitude:  # 参数中存在经纬度信息时，按距离排序城市列表，越靠近的排序越前，用于辅助 App 前台自动识别城市
+        # 参数中存在经纬度信息时，将距离最近的城市放到最前，其余城市按照拼音顺序排序
+        first_city = None
+        if longitude and latitude:
             sorted_result = []
             for city in result:
                 lon = city.longitude
@@ -672,13 +677,23 @@ class CityList(Resource):
                     if sorted_result[i]['obj'].id == 1:     # 默认纽约
                         default_city = sorted_result.pop(i)
                         sorted_result.insert(0, default_city)
-            result = map(lambda x: x['obj'], sorted_result)
+            first_city = sorted_result[0]['obj']
+        if first_city:
+            for i in range(len(result)):
+                if result[i].id == first_city.id:
+                    result.pop(i)
+                    result.insert(0, first_city)
         return result
 
 api.add_resource(CityList, '/rpc/cities')
 
 
 # 国家接口：
+country_parser = reqparse.RequestParser()
+country_parser.add_argument('id', type=long, default=0l)
+country_parser.add_argument('longitude', type=float)       # 用户当前位置的经度
+country_parser.add_argument('latitude', type=float)        # 用户当前位置的维度
+
 country_fields = {
     'id': fields.Integer,
     'name': fields.String,
@@ -701,18 +716,53 @@ class CountryList(Resource):
         query = db.session.query(Country).filter(Country.valid == True).order_by(Country.order.desc())
         if id:
             query = query.filter(Country.id == id)
+        sorted_result = query.all()
+        sorted_result.sort(key = lambda x: x.name.encode('GB18030', 'ignore'))  # 按拼音排序，忽略了 order 的效果。
         result = []
-        for country in query:
+        for country in sorted_result:
             country.valid_cities = country.cities.filter(City.valid == True).order_by(City.order.desc()).all()
+            country.valid_cities.sort(key = lambda x: x.name.encode('GB18030', 'ignore'))  # 按拼音排序，忽略了 order 的效果。
+            country.valid_default_city = country.default_city   # 为了能使动态绑定数据被缓存，从而允许 self.get() 中使用。
             result.append(country)
         return result
 
     @hmac_auth('api')
     @marshal_with(country_fields)
     def get(self):
-        args = id_parser.parse_args()
+        args = country_parser.parse_args()
         id = args['id']
-        return self._get(id)
+        result = self._get(id)
+        longitude = args['longitude']
+        latitude = args['latitude']
+        # 参数中存在经纬度信息时，将距离最近的国家放到最前，其余国家按照拼音顺序排序
+        # ToDo: 此排序实现在国家比较多的时候可能存在性能问题。。。
+        first_country = None
+        if longitude and latitude:
+            sorted_result = []
+            for country in result:
+                if country.valid_default_city:
+                    lon = country.valid_default_city.longitude
+                    lat = country.valid_default_city.latitude
+                else:
+                    lon = None
+                    lat = None
+                distance = 40000.0 if not lon or not lat else util.get_distance(longitude, latitude, lon, lat)
+                sorted_result.append({'obj': country,
+                                      'dist': distance,
+                                     })
+            sorted_result.sort(key = lambda x: x['dist'])
+            if sorted_result[0]['dist'] > 5000:  # 最近的国家距离有 5000 公里时，则默认国家改为放到最前
+                for i in range(len(sorted_result)):
+                    if sorted_result[i]['obj'].id == 1:     # 默认美国
+                        default_country = sorted_result.pop(i)
+                        sorted_result.insert(0, default_country)
+            first_country = sorted_result[0]['obj']
+        if first_country:
+            for i in range(len(result)):
+                if result[i].id == first_country.id:
+                    result.pop(i)
+                    result.insert(0, first_country)
+        return result
 
 api.add_resource(CountryList, '/rpc/countries')
 
