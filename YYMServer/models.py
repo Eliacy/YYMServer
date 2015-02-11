@@ -254,6 +254,7 @@ class Site(db.Model):   # 店铺或景点等 POI
     # ToDo: 缺经纬度对应的方格坐标的缓存字段！
     area_id = db.Column(db.Integer, db.ForeignKey('area.id'))   # 所属商区
     area = db.relationship('Area', backref=db.backref('sites', lazy='dynamic'))
+    mark = db.Column(db.UnicodeText)        # 周围地标，支持换行
     address = db.Column(db.UnicodeText)        # POI 地址，应支持换行
     address_orig = db.Column(db.UnicodeText)   # POI 地址的当地文字版本，应支持换行
     keywords = db.Column(db.Unicode(200), default=u'')       # POI 关键词，可以认为是一个缓存，被 {} 括起来的是系统自动统计得到的，其他是运营人工设置。正常情况是使用空格分隔
