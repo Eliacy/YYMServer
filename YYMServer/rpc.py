@@ -17,6 +17,7 @@ from qiniu.auth import digest
 
 from YYMServer import app, db, cache, api, util, message, baseurl_share, tz_server
 from YYMServer.models import *
+from YYMServer.keywords import KEYWORDS_TRANS
 
 from flask.ext.restful.representations.json import output_json
 output_json.func_globals['settings'] = {'ensure_ascii': False, 'encoding': 'utf8'}
@@ -871,6 +872,10 @@ class SiteList(Resource):
             # ToDo: 搜索关键词还应考虑支持 description 和 keywords 两项！
             keywords = keywords.translate({ord('+'):' '})
             keyword_list = keywords.split()
+            for i in xrange(len(keyword_list)):
+                target = KEYWORDS_TRANS.get(keyword_list[i], None)
+                if target != None:
+                    keyword_list.append(target)
             for keyword in keyword_list:
                 query = query.filter(Site.name.ilike(u'%{}%'.format(keyword)) | 
                                      Site.name_orig.ilike(u'%{}%'.format(keyword)) |
