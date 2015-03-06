@@ -1510,7 +1510,7 @@ class CommentList(Resource):
                               at_id, 
                               None, 
                               u'我回复了您的评论，快来看看吧～',
-                              {'review': comment.review_id, 'comment': comment.id}
+                              {'review': comment.review_id, 'article': comment.article_id, 'comment': comment.id}
                              )
         return {'id': comment.id}, 201
 
