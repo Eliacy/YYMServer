@@ -998,12 +998,12 @@ article_fields = {
 }
 article_fields.update(article_fields_brief)
 
-def _get_info_articles(article_ids, valid_only = True):
+def get_info_articles(article_ids, valid_only = True):
     ''' 辅助函数：提取指定 id 的首页文章内容详情，并使用缓存。'''
     return util.get_info_ids(Article, article_ids, format_func = util.format_article, valid_only = valid_only)
 
-def _get_info_article(article_id, valid_only = True):
-    result = _get_info_articles([article_id], valid_only = valid_only)
+def get_info_article(article_id, valid_only = True):
+    result = get_info_articles([article_id], valid_only = valid_only)
     return None if not result else result[0]
 
 
@@ -1042,7 +1042,7 @@ class ArticleList(Resource):
         limit = args['limit']
         if limit:
             result = result[:limit]
-        result = _get_info_articles(result)
+        result = get_info_articles(result)
         brief = args['brief']
         if brief:
             return marshal(result, article_fields_brief)
@@ -1860,7 +1860,7 @@ class ShareList(Resource):
             share.title = u''
             share.description = u''
             if share.article_id:    # 其实 article 不怎么变，完全可以放入缓存。。
-                valid_article = _get_info_article(share.article_id)
+                valid_article = get_info_article(share.article_id)
                 share.valid_article = valid_article
                 share.url = baseurl_share + '/articles/' + share.token
                 if valid_article != None:
