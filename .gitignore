@@ -1,5 +1,5 @@
 # Path for uploaded files:
-YYMServer/files/*
+YYMServer/files/*.*
 YYMUploader/*.jpg
 YYMUploader/*/*.jpg
 

@@ -1157,7 +1157,7 @@ review_fields = {
 review_fields.update(review_fields_brief)
 review_fields['content'] = fields.String        # 非 brief 模式下，提供完整的文字内容
 
-def _get_info_reviews(review_ids, valid_only = True, brief = False, token = None):
+def get_info_reviews(review_ids, valid_only = True, brief = False, token = None):
     ''' 辅助函数：提取指定 id 的晒单评论内容详情，并使用缓存。'''
     result = util.get_info_ids(Review, review_ids, format_func = util.format_review, valid_only = valid_only)
     for review in result:
@@ -1173,8 +1173,8 @@ def _get_info_reviews(review_ids, valid_only = True, brief = False, token = None
     _format_review_like(result, token)
     return result
 
-def _get_info_review(review_id, valid_only = True, brief = False, token = None):
-    result = _get_info_reviews([review_id], valid_only = valid_only, brief = brief, token = token)
+def get_info_review(review_id, valid_only = True, brief = False, token = None):
+    result = get_info_reviews([review_id], valid_only = valid_only, brief = brief, token = token)
     return None if not result else result[0]
 
 def _format_review_like(reviews, token):
@@ -1187,6 +1187,35 @@ def _format_review_like(reviews, token):
     for review in reviews:
         review.liked = like_dic.get(review.id, False)
     return reviews
+
+@cache.memoize()
+def get_reviews_id(selected = None, published = False, id=0l, site=0l, city=0l, country=0l, user=0l):
+    query = db.session.query(Review.id).filter(Review.valid == True)
+    query = query.order_by(Review.publish_time.desc())
+    if id:
+        query = query.filter(Review.id == id)
+    if user:
+        query = query.filter(Review.user_id == user)
+    if site:
+        query = query.filter(Review.site_id == site)
+    if city:
+        # ToDo: 搜索 POI 的时候，会把某城市中心点一定范围内的 POI （尽管是别的城市的）也放进来，那么搜 Review 时候是否也应该支持这个？
+        query = query.join(Review.site).join(Site.area).filter(Area.city_id == city)
+        # 在“动态”栏目显示晒单评论的时候，不显示无图片评论：
+        query = query.filter(Review.images != '')
+    if country:
+        query = query.join(Review.site).join(Site.area).join(Area.city).filter(City.country_id == country)
+        # 在“动态”栏目显示晒单评论的时候，不显示无图片评论：
+        query = query.filter(Review.images != '')
+    if selected is None:
+        # ToDo: 后台需要有个定时任务，将被关注多的 Review 设置成 selected 。
+        pass
+    else:   # 要求只返回 selected 或者只返回一定没被 selected 的内容时：
+        query = query.filter(Review.selected == selected)   # selected 取值为合法 boolean 这一点，由 ReviewList.get 函数调用 get_reviews_id 前负责保证！
+    if published:
+        query = query.filter(Review.published == True)
+    result = map(lambda x: x[0], query.all())
+    return result
 
 
 class ReviewList(Resource):
@@ -1208,15 +1237,15 @@ class ReviewList(Resource):
         user_id = 0l if not user else user.id
         for selected, published in params:
             if id:
-                cache.delete_memoized(self._get, self, selected, published, id, 0l, 0l, 0l, 0l)
+                cache.delete_memoized(get_reviews_id, selected, published, id, 0l, 0l, 0l, 0l)
             if site_id:
-                cache.delete_memoized(self._get, self, selected, published, 0l, site_id, 0l, 0l, 0l)
+                cache.delete_memoized(get_reviews_id, selected, published, 0l, site_id, 0l, 0l, 0l)
             if city_id:
-                cache.delete_memoized(self._get, self, selected, published, 0l, 0l, city_id, 0l, 0l)
+                cache.delete_memoized(get_reviews_id, selected, published, 0l, 0l, city_id, 0l, 0l)
             if country_id:
-                cache.delete_memoized(self._get, self, selected, published, 0l, 0l, 0l, country_id, 0l)
+                cache.delete_memoized(get_reviews_id, selected, published, 0l, 0l, 0l, country_id, 0l)
             if user_id:
-                cache.delete_memoized(self._get, self, selected, published, 0l, 0l, 0l, 0l, user_id)
+                cache.delete_memoized(get_reviews_id, selected, published, 0l, 0l, 0l, 0l, user_id)
 
     def _count_reviews(self, model):
         ''' 辅助函数，对晒单评论涉及的用户账号和 POI ，重新计算其星级和评论数。并更新各个缓存。'''
@@ -1229,35 +1258,6 @@ class ReviewList(Resource):
         # 清除 Review 详情缓存：
         self._delete_cache(model, site, user)
 
-    @cache.memoize()
-    def _get(self, selected = None, published = False, id=0l, site=0l, city=0l, country=0l, user=0l):
-        query = db.session.query(Review.id).filter(Review.valid == True)
-        query = query.order_by(Review.publish_time.desc())
-        if id:
-            query = query.filter(Review.id == id)
-        if user:
-            query = query.filter(Review.user_id == user)
-        if site:
-            query = query.filter(Review.site_id == site)
-        if city:
-            # ToDo: 搜索 POI 的时候，会把某城市中心点一定范围内的 POI （尽管是别的城市的）也放进来，那么搜 Review 时候是否也应该支持这个？
-            query = query.join(Review.site).join(Site.area).filter(Area.city_id == city)
-            # 在“动态”栏目显示晒单评论的时候，不显示无图片评论：
-            query = query.filter(Review.images != '')
-        if country:
-            query = query.join(Review.site).join(Site.area).join(Area.city).filter(City.country_id == country)
-            # 在“动态”栏目显示晒单评论的时候，不显示无图片评论：
-            query = query.filter(Review.images != '')
-        if selected is None:
-            # ToDo: 后台需要有个定时任务，将被关注多的 Review 设置成 selected 。
-            pass
-        else:   # 要求只返回 selected 或者只返回一定没被 selected 的内容时：
-            query = query.filter(Review.selected == selected)   # selected 取值为合法 boolean 这一点，由 get(self) 函数调用 _get 前负责保证！
-        if published:
-            query = query.filter(Review.published == True)
-        result = map(lambda x: x[0], query.all())
-        return result
-
     @hmac_auth('api')
     def get(self):
         args = review_parser.parse_args()
@@ -1267,17 +1267,17 @@ class ReviewList(Resource):
         limit = args['limit']
         if selected:
             # 如果 selected 数量不够，就得用没被 selected 的内容来补。
-            result = self._get(True, published, args['id'], args['site'], args['city'], args['country'], args['user'])
+            result = get_reviews_id(True, published, args['id'], args['site'], args['city'], args['country'], args['user'])
             if limit and len(result) < limit:
-                result += self._get(False, published, args['id'], args['site'], args['city'], args['country'], args['user'])
+                result += get_reviews_id(False, published, args['id'], args['site'], args['city'], args['country'], args['user'])
         else:
-            result = self._get(None, published, args['id'], args['site'], args['city'], args['country'], args['user'])
+            result = get_reviews_id(None, published, args['id'], args['site'], args['city'], args['country'], args['user'])
         offset = args['offset']
         if offset:
             result = result[offset:]
         if limit:
             result = result[:limit]
-        result = _get_info_reviews(result, valid_only = True, brief = brief, token = args['token'])
+        result = get_info_reviews(result, valid_only = True, brief = brief, token = args['token'])
         # 输出结果：
         if brief:
             return marshal(result, review_fields_brief)
@@ -1363,7 +1363,7 @@ class ReviewList(Resource):
                 review.publish_time = datetime.datetime.now()
             db.session.commit()
             self._count_reviews(review)
-            review = _get_info_review(review.id)
+            review = get_info_review(review.id)
             return marshal(review, review_fields), 200
         abort(404, message='Target Review do not exists!')
 
@@ -1647,7 +1647,7 @@ class LikeList(Resource):
             result = result[offset:]
         if limit:
             result = result[:limit]
-        result = _get_info_reviews(result, brief = True, token = args['token'])
+        result = get_info_reviews(result, brief = True, token = args['token'])
         # 输出结果：
         return marshal(result, review_fields_brief)
 
@@ -1878,7 +1878,7 @@ class ShareList(Resource):
                     share.title = valid_site.name
                     share.description = valid_site.description
             elif share.review_id:
-                valid_review = _get_info_review(share.review_id, brief = True, token = token)
+                valid_review = get_info_review(share.review_id, brief = True, token = token)
                 share.valid_review = valid_review
                 share.url = baseurl_share + '/reviews/' + share.token
                 if valid_review != None:

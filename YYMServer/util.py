@@ -161,7 +161,8 @@ def format_site(site):
     if site.gate_images:
         site.valid_gate_images = get_images(site.gate_images)
     site.valid_gate_images = site.valid_gate_images[:1]
-    site.valid_categories = [category.name for category in site.categories if category.parent_id != None]
+    valid_categories = filter(lambda category: category.parent_id != None, site.categories) or site.categories
+    site.valid_categories = [category.name for category in valid_categories]
     return site
 
 def get_info_sites(site_ids):
@@ -267,11 +268,11 @@ def url_for(path):
         return policy.make_request(base_url)
     return base_url
 
-def url_for_thumb(path):
+def url_for_thumb(path, width=100):
     ''' 辅助函数：对给定图片资源，生成经过访问授权的外网缩略图。'''
     path = path or ''
     if path.startswith('qiniu:'):
-        return url_for(path + '?imageView2/2/w/100')
+        return url_for(path + '?imageView2/2/w/%d' % width)
     else:
         return url_for(admin_form.thumbgen_filename(path))
 
