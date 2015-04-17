@@ -22,6 +22,8 @@ EASEMOB_CLIENT_SECRET = 'YXA6JOMWlLap_YbI_ucz77j-4-mI0JA'
 # 天气 key：
 WEATHER_KEY_WU = 'SHOULD_REPLACE_TO_REAL_WUNDERGROUND_WEATHER_KEY'
 # 设置静态文件（主要是图片）存储路径
+# 注意！！需要将 YYMServer/files 目录下的 images, js, style 三个目录做符号链接到静态文件存储目录，
+#         以便微信分享出去的网页可以调用。
 STATIC_FOLDER = 'files'
 # 数据库连接设置：
 SQLALCHEMY_DATABASE_URI = 'mysql://root:root@127.0.0.1:8889/keshaq'

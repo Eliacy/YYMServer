@@ -62,7 +62,7 @@
                 {# ToDo: 这里没有对半颗星的显示进行处理。 #}</p></div>
 		    <div class="info_1">
           <span class="bg_green">{{ '' if not review.valid_site.formated_keywords else review.valid_site.formated_keywords[0] }}</span>
-          <p class="address"><span class="icon_address"></span><span>{{ review.valid_site.address }}</span></p>
+          <p class="address"><span class="icon_address"></span><span>{{ review.valid_site.address[:25] }}</span></p>
 		    </div>
 		</div>
 	</div>

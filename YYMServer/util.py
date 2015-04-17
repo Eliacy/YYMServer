@@ -475,11 +475,11 @@ def count_images(site):
 def count_reviews(users, sites):
     ''' 辅助函数，对晒单评论的更新，重新计算相关 POI 的星级、评论数，以及相关用户账号的评论数。'''
     for user in users:
-        user.review_num = user.reviews.filter(Review.valid == True).count()
+        user.review_num = user.reviews.filter(Review.valid == True).filter(Review.published == True).count()
         db.session.commit()
         update_cache(user, format_func = format_user)
     for site in sites:
-        reviews = site.reviews.filter(Review.valid == True).all()
+        reviews = site.reviews.filter(Review.valid == True).filter(Review.published == True).all()
         if reviews:
             review_num = len(reviews)
             site.stars = sum([review.stars for review in reviews]) / review_num   # 假定用户发晒单评论时，星级必须填！
