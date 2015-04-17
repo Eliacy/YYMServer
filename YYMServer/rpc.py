@@ -1398,6 +1398,36 @@ comment_fields = {
     'content': fields.String,   
 }
 
+def format_comment(comment):
+    ''' 辅助函数：用于格式化 Comment 实例，用于接口输出。'''
+    comment.content = (comment.content or u'').strip()
+    return comment
+
+def get_info_comments(comment_ids, valid_only = True):
+    ''' 辅助函数：提取指定 id 的子评论详细信息，并使用缓存。'''
+    result = util.get_info_ids(Comment, comment_ids, format_func = format_comment, valid_only = valid_only)
+    for comment in result:
+        comment.valid_user = util.get_info_user(comment.user_id)
+        comment.valid_at_users = util.get_users(comment.at_list or '')
+    return result
+
+def get_info_comment(comment_id, valid_only = True):
+    result = get_info_comments([comment_id], valid_only)
+    return None if not result else result[0]
+
+@cache.memoize()
+def get_comments_id(id=0l, article=0l, review=0l):
+    query = db.session.query(Comment.id).filter(Comment.valid == True)
+    query = query.order_by(Comment.publish_time.desc())
+    if id:
+        query = query.filter(Comment.id == id)
+    if article:
+        query = query.filter(Comment.article_id == article)
+    if review:
+        query = query.filter(Comment.review_id == review)
+    result = map(lambda x: x[0], query.all())
+    return result
+
 
 class CommentList(Resource):
     '''获取某晒单评论的子评论列表，或者进行增、删、改的服务。'''
@@ -1413,15 +1443,15 @@ class CommentList(Resource):
         article_id = 0l if not article else article.id
         review_id = 0l if not review else review.id
         if id:
-            cache.delete_memoized(self._get, self, id, 0l, 0l)
+            cache.delete_memoized(get_comments_id, id, 0l, 0l)
         if article_id:
-            cache.delete_memoized(self._get, self, 0l, article_id, 0l)
+            cache.delete_memoized(get_comments_id, 0l, article_id, 0l)
         if review_id:
-            cache.delete_memoized(self._get, self, 0l, 0l, review_id)
+            cache.delete_memoized(get_comments_id, 0l, 0l, review_id)
     
     def _count_comments(self, model):
         ''' 辅助函数，对子评论涉及的首页文章和晒单评论，重新计算其子评论计数。'''
-        util.update_cache(model, format_func = self._format_comment)
+        util.update_cache(model, format_func = format_comment)
         user = model.user
         article = model.article
         review = model.review
@@ -1429,48 +1459,18 @@ class CommentList(Resource):
         # 清除相关数据缓存：
         self._delete_cache(model, article, review)
 
-    def _format_comment(self, comment):
-        ''' 辅助函数：用于格式化 Comment 实例，用于接口输出。'''
-        comment.content = (comment.content or u'').strip()
-        return comment
-
-    def _get_info_comments(self, comment_ids, valid_only = True):
-        ''' 辅助函数：提取指定 id 的子评论详细信息，并使用缓存。'''
-        result = util.get_info_ids(Comment, comment_ids, format_func = self._format_comment, valid_only = valid_only)
-        for comment in result:
-            comment.valid_user = util.get_info_user(comment.user_id)
-            comment.valid_at_users = util.get_users(comment.at_list or '')
-        return result
-
-    def _get_info_comment(self, comment_id, valid_only = True):
-        result = self._get_info_comments([comment_id], valid_only)
-        return None if not result else result[0]
-    
-    @cache.memoize()
-    def _get(self, id=0l, article=0l, review=0l):
-        query = db.session.query(Comment.id).filter(Comment.valid == True)
-        query = query.order_by(Comment.publish_time.desc())
-        if id:
-            query = query.filter(Comment.id == id)
-        if article:
-            query = query.filter(Comment.article_id == article)
-        if review:
-            query = query.filter(Comment.review_id == review)
-        result = map(lambda x: x[0], query.all())
-        return result
-
     @hmac_auth('api')
     @marshal_with(comment_fields)
     def get(self):
         args = comment_parser.parse_args()
-        result = self._get(args['id'], args['article'], args['review'])
+        result = get_comments_id(args['id'], args['article'], args['review'])
         offset = args['offset']
         if offset:
             result = result[offset:]
         limit = args['limit']
         if limit:
             result = result[:limit]
-        result = self._get_info_comments(result)
+        result = get_info_comments(result)
         return result
 
     @hmac_auth('api')
@@ -1529,8 +1529,8 @@ class CommentList(Resource):
             comment.at_list = at_list
             comment.content = args['content']
             db.session.commit()
-            util.update_cache(comment, format_func = self._format_comment)
-            comment = self._get_info_comment(comment.id)
+            util.update_cache(comment, format_func = format_comment)
+            comment = get_info_comment(comment.id)
             return marshal(comment, comment_fields), 200
         abort(404, message='Target Comment do not exists!')
 

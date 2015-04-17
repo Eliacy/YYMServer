@@ -4,10 +4,9 @@
 <meta charset = "utf-8">
 <meta content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 <title></title>
-<link rel="stylesheet" href="style/main.css">
-<script type="text/javascript" src="js/jquery-2.1.0.min.js"></script>
-<script type="text/javascript" src="js/main.js"></script>
-
+<link rel="stylesheet" href="{{ url_for('static', filename='style/main.css') }}">
+<script type="text/javascript" src="{{ url_for('static', filename='js/jquery-2.1.0.min.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/main.js') }}"></script>
 
 </head>
 <body>
@@ -22,72 +21,68 @@
 	<div class="profile">
 		<!--个人资料-->
 		<div class="profile_data clearfix">
-			<img src="images/pic/face.png" class="face"/>
+			<img src="{{ util.url_for_thumb(review.valid_user.icon_image.path, 86) }}" class="face"/>
 			<div class="data">
-				<p><span class="name">我的ID叫小花</span>
-				<time>昨天晚上10点35分</time></p>
+        <p><span class="name">{{ review.valid_user.name }}</span>
+        <time>{{ review.publish_time }}</time></p>
 				<div class="function clearfix">
 					<a href="#" class="btn_attention"><span class="icon_add"></span><span>关注</span></a>
-					<a href="#" class="info">关注:15</a>
-					<a href="#" class="info">粉丝:300</a>
+          <a href="#" class="info">关注:{{ review.valid_user.follow_num }}</a>
+          <a href="#" class="info">粉丝:{{ review.valid_user.fans_num }}</a>
 				</div>
 			</div>
 		</div>
 	    <!--说说-->
 	    <div class="new_msg">
-	    	<p class="call_friend">@旺财不是旺才 @北京小美</p>
+        {% if review.valid_at_users %}<p class="call_friend">{% for user in review.valid_at_users %}@{{ user.name }} {% endfor %}</p>{% endif %}
 	    	<div class="text">
-	    		<p>包包还是二马仕最高！纯牛皮，奶牛花，适合我的风格，比在国内买....</p>
+          {% for paragraph in review.content.splitlines() %}<p>{{ paragraph }}</p>{% endfor %}
 	    	</div>	    	
 	    	<div class="shopshow">
-	    		<img src="images/pic/goods.jpg" width="100%"/>
+          {% for image in review.valid_images %}<img src="{{ util.url_for_thumb(image.path, 618) }}" width="100%"/>{# ToDo: 多张图片之间应该留一点空隙较好。 #}{% endfor %}
 	    	</div>
-	    	<p class="important_word">关键词:<span class="bg_green">限量版本</span><span class="bg_pink">限量版本</span><span class="bg_purple">限量版本</span></p>
+        <p class="important_word">关键词:{% for i in range(review.formated_keywords.__len__()) %}<span class="{{ ('bg_green', 'bg_blue', 'bg_purple', 'bg_pink')[i % 4] }}">{{ review.formated_keywords[i] }}</span>{% endfor %}</p>
 	    	<div class="function clearfix">
 	    		<a class="btn_share clearfix" href="#"><span class="icon_share"></span><span>分享</span></a>
 	    		<div class="clearfix">
-	    			<p class="total">总价：3000美元</p>
-	    			<p class="function_item"><span class="icon_heart"></span><span class="number">7</span></p><p class="function_item"><span class="icon_msg"></span><span class="number">3</span></p>
+            <p class="total">总价：{{ review.total }}{{ review.currency }}</p>
+            <p class="function_item"><span class="icon_heart"></span><span class="number">{{ review.like_num }}</span></p><p class="function_item"><span class="icon_msg"></span><span class="number">{{ review.comment_num }}</span></p>
 	    		</div>
 	    	</div>
 	    </div>
 	</div>
 </section>
+{% if review.valid_site %}
 <section>
 	<div class="store clearfix">
-		<img src="images/pic/pic_store.png" class="pic_store"/>
+		<img src="{{ util.url_for_thumb(review.valid_site.logo.path, 136) }}" class="pic_store"/>
 		<div class="data">
-			<p class="name clearfix"><span class="icon_s">S</span>二玛仕第五大道店</p>
-			<div class="info clearfix"><p class="msg"><span class="icon_msg_gray"></span><span class="number">32</span></p><p class="star clearfix"><span class="icon_star"></span><span class="icon_star"></span><span class="icon_star"></span><span class="icon_star"></span><span class="icon_star"></span></p></div>
+      <p class="name clearfix"><span class="icon_s">{{ review.valid_site.level }}</span>{{ review.valid_site.name }}</p>
+      <div class="info clearfix"><p class="msg"><span class="icon_msg_gray"></span><span class="number">{{ review.valid_site.review_num }}</span></p><p class="star clearfix">{% for i in range(review.valid_site.stars.__int__()) %}<span class="icon_star"></span>{% endfor %}
+                {# ToDo: 这里没有对半颗星的显示进行处理。 #}</p></div>
 		    <div class="info_1">
-		    	<span class="bg_green">非常豪华</span>
-		    	<p class="address"><span class="icon_address"></span><span>纽约,第五大道,222号</span></p>
+          <span class="bg_green">{{ '' if not review.valid_site.formated_keywords else review.valid_site.formated_keywords[0] }}</span>
+          <p class="address"><span class="icon_address"></span><span>{{ review.valid_site.address }}</span></p>
 		    </div>
 		</div>
 	</div>
 </section>
+{% endif %}
 <section>
 	<div class="discuss">
 		<p class="title">评论</p>
 		<ul class="discuss_list">
+      {% for comment in comments[:10] %}
 			<li class="clearfix">
-				<img src="images/pic/face.png" class="face" />
+				<img src="{{ '' if not comment.valid_user else util.url_for_thumb(comment.valid_user.icon_image.path, 86) }}" class="face" />
 				<div class="data">
-					<p class="clearfix"><a class="reply" href="#">回复</a><span class="name">红豆包女王</span>
-					<time>17分钟前</time></p>
-					<p class="reply_text"><span class="call_friend">@我的id叫小花</span>牛奶花果然比纯黑皮装女王色
-更强更强悍呀！</p>
+          <p class="clearfix"><a class="reply" href="#">回复</a><span class="name">{{ '' if not comment.valid_user else comment.valid_user.name}}</span>
+          <time>{{ comment.publish_time }}</time></p>
+          <p class="reply_text">{% if comment.valid_at_users %}<span class="call_friend">{% for user in comment.valid_at_users %}@{{ user.name }} {% endfor %}</span>{% endif %}{{ comment.content }}
+</p>
 				</div>
 			</li>
-			<li class="clearfix">
-				<img src="images/pic/face.png" class="face" />
-				<div class="data">
-					<p class="clearfix"><a class="reply" href="#">回复</a><span class="name">红豆包女王</span>
-					<time>17分钟前</time></p>
-					<p class="reply_text"><span class="call_friend">@我的id叫小花</span>牛奶花果然比纯黑皮装女王色
-更强更强悍呀！</p>
-				</div>
-			</li>
+      {% endfor %}
 		</ul>
 	</div>
 </section>
